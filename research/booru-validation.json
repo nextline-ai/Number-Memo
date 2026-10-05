@@ -1,0 +1,264 @@
+{
+  "date": "2026-10-05",
+  "branch": "codex/booru-mode",
+  "platform": "Native iOS",
+  "device": "iPhone 17 (physical)",
+  "builds": {
+    "Debug": "passed",
+    "Release": "passed"
+  },
+  "validation": {
+    "unique_tests_passed": 101,
+    "unique_tests_skipped": 5,
+    "failures": 0,
+    "skipped": [
+      "NumberMemoTests.NativeContentLiveTests/testLiveBrowserLoadsWebsiteWithoutNativeAdapter",
+      "NumberMemoTests.NativeContentLiveTests/testLiveMetadataImageDecodeAndSearchOnDevice",
+      "NumberMemoTests.NativeContentLiveTests/testLivePopularPeriodsOnDevice",
+      "NumberMemoTests.NativeContentLiveTests/testLiveTagSuggestionsOnDevice",
+      "NumberMemoTests.BooruRevisionTests/testLiveLegacyTagSearchOrInteractiveValidationRoute"
+    ],
+    "covered": [
+      "Booru/Hitomi and per-server storage isolation, persistence and mode restoration",
+      "JSON, Gelbooru envelopes, legacy XML, media URL validation and authenticated request construction",
+      "Autocomplete completion, query encoding, history deduplication, blacklist rules, stale search results",
+      "Ordered pools and local pagination of legacy whole-pool responses",
+      "Favorites, mode switching, server switching, custom server creation, blacklist filtering and retry UI",
+      "GIF decoding, MP4 playback, image notes and note sheet on a physical device",
+      "Live Safebooru API posts, tag autocomplete, image loading and pinch zoom",
+      "Existing Hitomi native/embedded browser switching and navigation",
+      "English, Korean and Japanese localization catalog consistency",
+      "Book/image mode controls within every root navigation bar; Korean light and dark appearance on physical iPhone",
+      "More navigation ordered Servers, Pools, Settings; no ID or format text under image previews",
+      "Independent mode preferences with consistent edge taps and reader gestures; center menu, long-press favorite, swipes, double-tap and pinch zoom, zoom-aware downward dismissal",
+      "Validate Client browser, cookie inspection/reset and API cookie transfer with per-server isolation",
+      "CDN image redirects remove cookies and authorization; API redirects remain restricted to the configured origin",
+      "Multi-server Explore pagination with partial failure and server-scoped autocomplete/history/blacklist; shared server selection for Favorites",
+      "Booru folder create/edit/color/move/delete, with legacy favorites migrated into Uncategorized and duplicates kept in their existing folder",
+      "Anime Boxes .abbj v1.0 preview, atomic merge, duplicate preservation, rollback, saved search and blacklist import",
+      "Mode-specific appearance and reader settings; Hitomi 2-column and Booru 3-column defaults; persisted Hitomi include/exclude search tags",
+      "Unified three-stage onboarding: manual addresses with Safebooru-only defaults, Violet and Anime Boxes imports together, interactive mode-switch tutorial",
+      "Booru uses the same Apple VisionKit image translation canvas and bounded viewport crop as Hitomi; actual translation overlay verified on device",
+      "Root mode control height is 44 points on all eight tabs; Hitomi folder action centers are no more than 44 points apart; quick jump still works",
+      "Old Gelbooru HTML listings, detail/original-image resolution, tags, notes, and 20-post offsets; migration of booru.org server types",
+      "System/app language separation and per-mode custom Apple Translation target selection",
+      "Danbooru Explore after visible browser validation, plus isolated-world API transport origin checks",
+      "Latest/popular per-engine queries, Danbooru account guidance, localized Saved-first tabs, top-left favorite badges, and switch tap/drag gestures",
+      "Danbooru broad descending score search on device; HTTP 500 recovery partitions every score band, including zero and negatives, with pagination",
+      "Native Gelbooru public listings and actual image viewing after browser validation, without an API key",
+      "Three configured Old Gelbooru servers: unfiltered listings, full image metadata and duplicate-free next pages; visible legacy image rendering on iPhone",
+      "Embedded browser preference, cookie profile reuse, server selection, return to native grid and tab revisit",
+      "Rating disabled sends no automatic rating condition; general/sensitive mapping distinguishes modern Gelbooru and old servers",
+      "Saved grid has no favorite badge; Explore retains top-left badges and accessibility state; shared folder-name prompt and shared search controls",
+      "Verified browser retained during subresource loading; script requests wait for committed DOM; public pagination preserves same-origin links; challenges retain exact public request URL",
+      "Explore and viewer holds now toggle saving on/off; folder contents retain context menus and offer bulk selection.",
+      "Shared centered folder-name prompt in Hitomi, Booru Saved and the viewer folder picker; cancel clears the draft and empty names cannot be submitted.",
+      "Localized Danbooru tag-limit guidance explicitly explains Gelbooru has no two-tag limit.",
+      "Booru More exposes appearance, language, browsing, media and server settings directly below Servers and Pools; independent preferences, onboarding and browser fallback still work.",
+      "Shared NextLine developer logo, website and Discord support links visible in both modes; Korean/English/Japanese labels and restored Korean/English README banners."
+    ],
+    "result_bundles": [
+      "/tmp/numbermemo-revision4-units.xcresult",
+      "/tmp/numbermemo-revision4-ui.xcresult",
+      "/tmp/numbermemo-revision4-final-checks.xcresult",
+      "/tmp/numbermemo-revision4-legacy-diagnostic.xcresult",
+      "/tmp/numbermemo-revision4-legacy-fix.xcresult",
+      "/tmp/numbermemo-revision4-network-final.xcresult",
+      "/tmp/numbermemo-revision4-session-final.xcresult",
+      "/tmp/numbermemo-revision4-navigation-final.xcresult",
+      "/tmp/numbermemo-revision4-pagination-final.xcresult",
+      "/tmp/numbermemo-revision4-verification-final.xcresult",
+      "/tmp/numbermemo-revision4-throttle-check.xcresult",
+      "/tmp/numbermemo-revision5-ui.xcresult",
+      "/tmp/numbermemo-revision5-ui-fix.xcresult",
+      "/tmp/numbermemo-revision5-folders.xcresult",
+      "/tmp/numbermemo-revision5-final-ui.xcresult",
+      "/tmp/numbermemo-release-prep-ui.xcresult"
+    ],
+    "aggregation": "Latest result for each unique test across the listed result bundles; fixed cases were rerun.",
+    "visual_verification": "Physical iPhone captures inspected for the white/black 44-point mode switch, unified capsule search, rating row and root toolbar spacing. Root SwiftUI and embedded WebKit top scroll-edge effects are disabled.",
+    "interpretation": "Latest result per unique test in this revision. Native alert selectors and switch activation were corrected. Cold browser readiness and adoption while subresources are loading were fixed and retested. Legacy pagination initially hit a live server rate limit and passed after pacing requests. One live tag search requires interactive verification; its exact validation URL was verified before marking that search skipped. Four Hitomi live checks were not enabled in this scheme."
+  },
+  "storage": {
+    "database": "booru.sqlite",
+    "credentials": "Keychain, device-only",
+    "favorites": "Local, composite server/post keys, organized into Booru-only folders; existing favorites migrate to Uncategorized",
+    "hitomi": "Existing memo.sqlite and Hitomi import/export are unchanged",
+    "cookies": "Per-server WebKit profiles; completed validation transfers the live WKWebView to API transport. Reset removes that session and cookies. API fetches stay on the configured HTTPS origin, reject redirects, and isolate credentials from page JavaScript.",
+    "preferences": "Mode-specific appearance/grid values and a separate Booru reader preferences suite; existing Hitomi values and previous Booru-only options preserved"
+  },
+  "limits": [
+    "Some legacy tag searches require an additional interactive site verification. Automated tests do not solve human checks; Validate Client opens the challenged search URL, and embedded browsing is available.",
+    "Sites may temporarily throttle pagination. The client surfaces rate-limit errors; live legacy pagination passed with paced requests.",
+    "Public Gelbooru/Old Gelbooru adapters depend on website HTML. Server availability, account permissions and supported media codecs still apply.",
+    "Explicit translation target languages require iOS 18+ Apple Translation. System-default image translation uses VisionKit. Videos are excluded.",
+    "Booru favorites remain local and separate from Hitomi backup/export."
+  ],
+  "api_references": [
+    "https://gelbooru.com/index.php?page=wiki&s=view&id=18780",
+    "https://github.com/danbooru/danbooru/blob/master/app/logical/post_query_builder.rb",
+    "https://github.com/moebooru/moebooru/blob/master/app/controllers/pool_controller.rb",
+    "https://github.com/moebooru/moebooru/blob/master/app/controllers/note_controller.rb",
+    "https://webkit.org/blog/14423/building-profiles-with-new-webkit-api/",
+    "https://developer.apple.com/documentation/SwiftUI/Applying-Liquid-Glass-to-custom-views",
+    "https://raw.githubusercontent.com/Bionus/imgbrd-grabber/develop/src/sites/Gelbooru%20(0.1)/model.ts",
+    "https://safebooru.donmai.us/wiki_pages/help%3Aposts",
+    "https://developer.apple.com/documentation/translation",
+    "https://github.com/danbooru/danbooru/blob/master/app/logical/post_query.rb",
+    "https://raw.githubusercontent.com/Bionus/imgbrd-grabber/develop/src/sites/Gelbooru%20(0.2)/model.ts"
+  ],
+  "network_diagnostics": {
+    "danbooru": "Broad popular/score UI passed. Native API also passed in the final unit run. HTTP 500 score queries use disjoint descending score bands without dropping lower scores.",
+    "gelbooru": "Visible validation -> native public list -> actual image viewer passed. A connection-loss recurrence exposed dropping validated views while subresources were still loading; adoption and DOM readiness were fixed. Final live native endpoint and UI checks passed.",
+    "old_gelbooru": "The homepage opened while the parameterized listing returned a browser challenge. Validation now targets public listings or the exact failed request. Empty first pages omit default tags/offsets; public HTML is read through WebKit navigation. Three configured legacy sites passed listings, original metadata and pagination; one also passed the visible viewer.",
+    "remaining": "A selected legacy tag search requested interactive verification. The test verified that Validate Client opens that precise search instead of the homepage, then skipped awaiting a human check. Native browser fallback is available in Settings and error cards.",
+    "safebooru": "Live API, autocomplete, browser API transport and native image/zoom passed. Readiness now waits for a committed DOM before JavaScript execution."
+  },
+  "anime_boxes_validation": {
+    "sample_location": "ignored user_data/anime_boxes/ directory",
+    "shared_parser_on_actual_backup": {
+      "servers": 5,
+      "favorites": 674,
+      "history": 103,
+      "skipped": 0,
+      "media_urls": 674,
+      "saved_dates": 674
+    },
+    "device_import": "Synthetic .abbj fixture, preview and folder destination checked with UI automation; atomic and repeat imports checked with unit tests",
+    "credentials": "Account/API credentials and cookies are not imported; UI explains setup in server settings",
+    "engine_mapping": "Actual backup schema contains three type-4 booru.org servers, one type-3 Danbooru server and one type-1 Gelbooru server. Type 4 now imports as oldGelbooru; no private server addresses are committed."
+  },
+  "device_installation": {
+    "configuration": "Release",
+    "installed": true,
+    "normal_launch_without_test_arguments": "passed",
+    "build_log": "/tmp/numbermemo-release-prep-release.log"
+  },
+  "validated_at": "2026-10-04T20:08:55.560934+00:00",
+  "tests": {
+    "latest_unique_results": {
+      "passed": 101,
+      "skipped": 5
+    },
+    "unit_results": {
+      "passed": 88,
+      "skipped": 5
+    },
+    "ui_results": {
+      "passed": 13
+    },
+    "result_bundles": [
+      "/tmp/numbermemo-revision4-units.xcresult",
+      "/tmp/numbermemo-revision4-ui.xcresult",
+      "/tmp/numbermemo-revision4-final-checks.xcresult",
+      "/tmp/numbermemo-revision4-legacy-diagnostic.xcresult",
+      "/tmp/numbermemo-revision4-legacy-fix.xcresult",
+      "/tmp/numbermemo-revision4-network-final.xcresult",
+      "/tmp/numbermemo-revision4-session-final.xcresult",
+      "/tmp/numbermemo-revision4-navigation-final.xcresult",
+      "/tmp/numbermemo-revision4-pagination-final.xcresult",
+      "/tmp/numbermemo-revision4-verification-final.xcresult",
+      "/tmp/numbermemo-revision4-throttle-check.xcresult",
+      "/tmp/numbermemo-revision5-ui.xcresult",
+      "/tmp/numbermemo-revision5-ui-fix.xcresult",
+      "/tmp/numbermemo-revision5-folders.xcresult",
+      "/tmp/numbermemo-revision5-final-ui.xcresult",
+      "/tmp/numbermemo-release-prep-ui.xcresult"
+    ],
+    "interpretation": "Latest result per unique test in this revision. Native alert selectors and switch activation were corrected. Cold browser readiness and adoption while subresources are loading were fixed and retested. Legacy pagination initially hit a live server rate limit and passed after pacing requests. One live tag search requires interactive verification; its exact validation URL was verified before marking that search skipped. Four Hitomi live checks were not enabled in this scheme. Revision 5 adds the latest results for four targeted UI scenarios. Initial hold recognition and platform alert field offset failures were fixed and retested. The new prompt test initially used an onboarding-only test root; it now replays onboarding from the real settings UI before checking both libraries.",
+    "skipped": [
+      "NumberMemoTests.NativeContentLiveTests/testLiveBrowserLoadsWebsiteWithoutNativeAdapter",
+      "NumberMemoTests.NativeContentLiveTests/testLiveMetadataImageDecodeAndSearchOnDevice",
+      "NumberMemoTests.NativeContentLiveTests/testLivePopularPeriodsOnDevice",
+      "NumberMemoTests.NativeContentLiveTests/testLiveTagSuggestionsOnDevice",
+      "NumberMemoTests.BooruRevisionTests/testLiveLegacyTagSearchOrInteractiveValidationRoute"
+    ],
+    "visual_verification": "Physical iPhone captures inspected for the white/black 44-point mode switch, unified capsule search, rating row and root toolbar spacing. Root SwiftUI and embedded WebKit top scroll-edge effects are disabled. Revision 5 physical screenshots verify equal horizontal margins for empty and filled folder prompts; no private UIKit hierarchy or fixed corrective field offsets are used. Release preparation screenshots verify inline More sections and the supplied full-color NextLine brand artwork and contact links in both modes."
+  },
+  "revision3_features": [
+    "Old Gelbooru (v0.1.11), booru.org HTML adapter and migration of existing booru.org server engine records",
+    "New installations include Safebooru only; additional server addresses are entered manually",
+    "App language selection and independent per-mode translation target preferences",
+    "Unified onboarding with both imports, an interactive switch tutorial, and replay from settings",
+    "Latest/popular exploration and contextual Danbooru account guidance",
+    "Saved-first tab ordering and localized names, top-left favorite badges, animated tap/drag mode switch"
+  ],
+  "revision4_features": [
+    "Embedded Booru browser with back/forward/reload/share, server picker, profile isolation and native-grid return",
+    "Danbooru score timeout recovery with complete score-range pagination",
+    "Rating menu with All default, no implicit legacy rating filtering and correct modern rating mapping",
+    "White selected switch capsule and black selected icon",
+    "No top navigation scroll-edge blur in either mode, including embedded browsers",
+    "Saved toolbar spacing, native folder creation and shared scrolling search controls; favorite badges only in Explore",
+    "Booru.org and Gelbooru public browsing compatibility, retained validation session and exact challenge URL routing"
+  ],
+  "revision5_features": [
+    "Explore long press immediately adds a favorite without a context menu; repeated holds keep its folder and saved state.",
+    "English/Korean/Japanese Danbooru guidance distinguishes Gelbooru tag support.",
+    "Shared folder-name popup with balanced input margins, keyboard focus, create/cancel and VoiceOver escape.",
+    "Korean and English README rewritten around setup, everyday use, imports and connection help; links distinguish latest source from the published beta."
+  ],
+  "release_preparation": {
+    "branch": "codex/release-preparation",
+    "ui_tests": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "debug_build": "passed",
+    "release_build": "passed",
+    "signing_identifiers_and_entitlements": "unchanged",
+    "developer": "NextLine",
+    "website": "https://nextline.work",
+    "community": "https://discord.gg/vUTGZNMaMB",
+    "logo_source": "Supplied NextLine_Brand/JPG/combination-100.jpg, copied unchanged",
+    "readme": "Restored Korean/English banners, added developer and community details, updated direct More settings paths",
+    "app_store_or_testflight_submission": "not performed; signing change is pending"
+  },
+  "library_sync_release": {
+    "date": "2026-10-05",
+    "branch": "codex/library-sync-release",
+    "device": "iPhone 17 (physical)",
+    "builds": {
+      "Debug": "passed",
+      "Release": "passed"
+    },
+    "verified": [
+      "Shared tab selection and retained mode-specific Explore query/results/load-more pages",
+      "Complete multi-tag saved searches, three-day history default, swipe deletion and clear confirmation",
+      "Explore and viewer hold toggles, folder multi-select delete/move, folder color/order controls and quick jumps",
+      "Hitomi visible cover copied immediately; failed cover queue entries are eligible for retry",
+      "Canonical server identity merges Anime Boxes favorites with Explore badges",
+      "iCloud adapter merge across independent databases, offline deletion, folder order/color and device preference exclusions",
+      "Existing iCloud Drive entitlement: isolated coordinated JSON read/write and actual upload confirmed on device",
+      "iCloud disable confirmation, SVG developer logo and contact email",
+      "Video autoplay and detail ID/copy",
+      "Validated browser request serialization and isolated-world credentials",
+      "Live Danbooru pool list after browser validation",
+      "Gelbooru reported post 15029425: actual original PNG visibly rendered on iPhone after excluding the original tag link and supplying the CDN Referer header",
+      "Bounded three-attempt retry for transient transport failures in validation, browser requests and media"
+    ],
+    "limitations": [
+      "Actual round-trip synchronization between two physical Apple devices has not been exercised.",
+      "Public server availability is intermittent; cold browser probes encountered connection resets and Danbooru score requests intermittently timed out."
+    ],
+    "results": [
+      "/tmp/numbermemo-library-core-all.xcresult",
+      "/tmp/numbermemo-library-cloud-final.xcresult",
+      "/tmp/numbermemo-library-navigation.xcresult",
+      "/tmp/numbermemo-library-final-ui.xcresult",
+      "/tmp/numbermemo-library-ui-recheck.xcresult",
+      "/tmp/numbermemo-library-new-ui.xcresult",
+      "/tmp/numbermemo-pool-transport-final.xcresult",
+      "/tmp/numbermemo-original-link-fix.xcresult",
+      "/tmp/numbermemo-gelbooru-referrer.xcresult",
+      "/tmp/numbermemo-autoplay-ended.xcresult",
+      "/tmp/numbermemo-media-regression-complete.xcresult"
+    ],
+    "regression_notes": [
+      "An initial ready status belonged to the thumbnail and was not sufficient evidence. The live regression now waits for the resolved original URL and a stable ready status; the final screenshot was visually inspected.",
+      "Cold browser probes failed intermittently; public Danbooru pools and the reported Gelbooru original were verified in the visible app using the validated browser profile.",
+      "Legacy video UI assertions were updated for autoplay: the short fixture may already have ended when inspected. The latest GIF/video regression passed without a play-button tap."
+    ]
+  }
+}

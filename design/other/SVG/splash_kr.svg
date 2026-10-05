@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1179 2556">
+  <defs>
+    <style>
+      .cls-1 {
+        font-size: 52.68px;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill: #fff;
+      }
+
+      .cls-4 {
+        fill: url(#_무제_그라디언트_15-9);
+        stroke-width: 1.24px;
+      }
+
+      .cls-4, .cls-5, .cls-6, .cls-7, .cls-8, .cls-9, .cls-10, .cls-11, .cls-12 {
+        opacity: .25;
+        stroke: gray;
+        stroke-miterlimit: 10;
+      }
+
+      .cls-13 {
+        fill: #040000;
+      }
+
+      .cls-2 {
+        font-family: RixCrossRoadR, RixCrossRoad;
+        font-size: 210.08px;
+      }
+
+      .cls-5 {
+        fill: url(#_무제_그라디언트_15-8);
+      }
+
+      .cls-5, .cls-6, .cls-7, .cls-8, .cls-9, .cls-10, .cls-11, .cls-12 {
+        stroke-width: 2px;
+      }
+
+      .cls-6 {
+        fill: url(#_무제_그라디언트_15-7);
+      }
+
+      .cls-7 {
+        fill: url(#_무제_그라디언트_15-4);
+      }
+
+      .cls-8 {
+        fill: url(#_무제_그라디언트_15-6);
+      }
+
+      .cls-9 {
+        fill: url(#_무제_그라디언트_15-5);
+      }
+
+      .cls-10 {
+        fill: url(#_무제_그라디언트_15-3);
+      }
+
+      .cls-11 {
+        fill: url(#_무제_그라디언트_15-2);
+      }
+
+      .cls-14 {
+        font-family: PretendardVariable-SemiBold, 'Pretendard Variable';
+        font-variation-settings: 'wght' 600;
+        font-weight: 600;
+      }
+
+      .cls-15 {
+        fill: #ccc;
+        font-family: Pretendard-Medium-KSCpc-EUC-H, Pretendard;
+        font-size: 59.14px;
+        font-weight: 500;
+      }
+
+      .cls-12 {
+        fill: url(#_무제_그라디언트_15);
+      }
+
+      .cls-16 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-17 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-18 {
+        font-family: PretendardVariable-ExtraLight, 'Pretendard Variable';
+        font-variation-settings: 'wght' 200;
+        font-weight: 200;
+      }
+
+      .cls-19 {
+        letter-spacing: .01em;
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_15" data-name="무제 그라디언트 15" x1="589.5" y1="0" x2="589.5" y2="304.81" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0eeeb"/>
+      <stop offset="0" stop-color="#eae7e3"/>
+      <stop offset=".04" stop-color="#dbd9d5"/>
+      <stop offset=".11" stop-color="#b4b4b2"/>
+      <stop offset=".2" stop-color="#757a7a"/>
+      <stop offset=".26" stop-color="#4c5355"/>
+      <stop offset=".27" stop-color="#51585a"/>
+      <stop offset=".38" stop-color="#939798"/>
+      <stop offset=".47" stop-color="#c3c5c5"/>
+      <stop offset=".53" stop-color="#e0e1e1"/>
+      <stop offset=".57" stop-color="#ececec"/>
+      <stop offset=".63" stop-color="#e2e2e3"/>
+      <stop offset=".74" stop-color="#c8cacc"/>
+      <stop offset=".87" stop-color="#9da2a7"/>
+      <stop offset=".88" stop-color="#9ba0a5"/>
+      <stop offset="1" stop-color="#dcdddd"/>
+      <stop offset="1" stop-color="#b5b5b6"/>
+    </linearGradient>
+    <linearGradient id="_무제_그라디언트_15-2" data-name="무제 그라디언트 15" y1="304.81" y2="609.63" xlink:href="#_무제_그라디언트_15"/>
+    <linearGradient id="_무제_그라디언트_15-3" data-name="무제 그라디언트 15" y1="609.63" y2="914.44" xlink:href="#_무제_그라디언트_15"/>
+    <linearGradient id="_무제_그라디언트_15-4" data-name="무제 그라디언트 15" y1="914.44" y2="1219.25" xlink:href="#_무제_그라디언트_15"/>
+    <linearGradient id="_무제_그라디언트_15-5" data-name="무제 그라디언트 15" y1="1219.25" y2="1524.06" xlink:href="#_무제_그라디언트_15"/>
+    <linearGradient id="_무제_그라디언트_15-6" data-name="무제 그라디언트 15" y1="1524.06" y2="1828.88" xlink:href="#_무제_그라디언트_15"/>
+    <linearGradient id="_무제_그라디언트_15-7" data-name="무제 그라디언트 15" y1="1828.88" y2="2133.69" xlink:href="#_무제_그라디언트_15"/>
+    <linearGradient id="_무제_그라디언트_15-8" data-name="무제 그라디언트 15" y1="2133.69" y2="2438.5" xlink:href="#_무제_그라디언트_15"/>
+    <linearGradient id="_무제_그라디언트_15-9" data-name="무제 그라디언트 15" y1="2438.5" y2="2556" xlink:href="#_무제_그라디언트_15"/>
+  </defs>
+  <rect width="1179" height="2556"/>
+  <g id="_레이어_1" data-name="레이어 1">
+    <rect class="cls-13" width="1179" height="2556"/>
+    <rect class="cls-12" width="1179" height="304.81"/>
+    <rect class="cls-11" y="304.81" width="1179" height="304.81"/>
+    <rect class="cls-10" y="609.63" width="1179" height="304.81"/>
+    <rect class="cls-7" y="914.44" width="1179" height="304.81"/>
+    <rect class="cls-9" y="1219.25" width="1179" height="304.81"/>
+    <rect class="cls-8" y="1524.06" width="1179" height="304.81"/>
+    <rect class="cls-6" y="1828.88" width="1179" height="304.81"/>
+    <rect class="cls-5" y="2133.69" width="1179" height="304.81"/>
+    <rect class="cls-4" x="0" y="2438.5" width="1179" height="117.5"/>
+    <g>
+      <g>
+        <path class="cls-3" d="M553.75,2358.21v23.49h-59.29c-12.66,0-22.93-10.26-22.93-22.93v-47.54h-35.23v70.47h-23.49v-93.96h59.29c12.66,0,22.93,10.26,22.93,22.93v47.54h58.72Z"/>
+        <circle class="cls-3" cx="536.14" cy="2305.36" r="17.62"/>
+      </g>
+      <text class="cls-1" transform="translate(569.4258 2325.068)"><tspan class="cls-14"><tspan x="0" y="0">N</tspan><tspan class="cls-16" x="37.53" y="0">e</tspan><tspan x="66.83" y="0">x</tspan><tspan class="cls-19" x="95.17" y="0">t</tspan><tspan x="114.75" y="0">Line</tspan></tspan><tspan class="cls-18"><tspan x="0" y="54.48">Studio</tspan></tspan></text>
+    </g>
+    <g>
+      <text class="cls-2" transform="translate(220.6782 1364.5) scale(.8976 1)"><tspan x="0" y="0">품번메모</tspan></text>
+      <text class="cls-15" transform="translate(232.6167 1171.7314)"><tspan x="0" y="0">셰계 최고</tspan><tspan class="cls-17" x="218.88" y="0">.</tspan><tspan x="233.81" y="0" xml:space="preserve"> 애플 기기 전용 뷰어</tspan><tspan class="cls-17" x="700.44" y="0">.</tspan></text>
+    </g>
+  </g>
+</svg>

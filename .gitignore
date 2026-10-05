@@ -1,0 +1,48 @@
+# Common generated files
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# Editor settings
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Native Xcode build output and local settings
+**/DerivedData/
+**/xcuserdata/
+
+# Violet source dumps and local databases — never commit
+/user_data/
+/user.db
+/data.db
+*.db
+*.db-wal
+*.db-journal
+*.db-shm
+
+# Local GitHub CLI configuration
+/.gh-config/
+
+# Credentials, signing material, and local test/export artifacts
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+*.xcresult/
+*.xcarchive/
+*.ipa

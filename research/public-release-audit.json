@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-05",
+  "developer": "NextLine",
+  "publisher": "DEAUM (daeummoyang)",
+  "distribution": {
+    "team": "6HV24C77H5",
+    "bundle": "com.deaum.numbermemo",
+    "app_group": "group.com.deaum.numbermemo",
+    "icloud": "iCloud.com.deaum.numbermemo",
+    "certificate": "Apple Distribution: daeummoyang"
+  },
+  "repository": {
+    "name": "nextline-ai/Number-Memo",
+    "visibility": "PUBLIC",
+    "history": "Fresh initial commit; previous repository retained privately under a different name",
+    "excluded": [
+      "user_data",
+      "credentials and signing material",
+      "generated build output",
+      "previous Git history"
+    ]
+  },
+  "verification": {
+    "source": "Current publishable files checked for previous personal identifiers, signing identifiers and invitation URLs",
+    "distribution": "Company-signed app and share extension checked for previous identifiers; development-signed builds are not distribution artifacts",
+    "device_tests": [
+      "Both modes rename folders",
+      "Anime Boxes import badges across servers",
+      "Persisted import 5194309 after app termination and relaunch",
+      "Favorite removal and re-addition",
+      "Library persistence, isolation and import idempotency"
+    ]
+  },
+  "testflight": "Old links removed from repository and legacy release metadata. Owner will deactivate the old invitation in App Store Connect. No new TestFlight build uploaded.",
+  "limitations": [
+    "Pattern checks do not guarantee detection of every possible identifier.",
+    "External copies and caches of the previous repository cannot be erased by this migration."
+  ]
+}

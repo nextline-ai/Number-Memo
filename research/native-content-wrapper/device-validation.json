@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-04",
+  "device": {
+    "model": "iPhone 17",
+    "os": "iOS 27.2",
+    "os_build": "24B5089g",
+    "architecture": "arm64",
+    "physical_device": true
+  },
+  "tests": [
+    {
+      "suite": "NativeContentLiveTests",
+      "test": "testLiveMetadataImageDecodeAndSearchOnDevice",
+      "status": "passed",
+      "seconds": 12.142
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testBinaryDataRejectsTruncationAndOverflow",
+      "status": "passed",
+      "seconds": 0.001
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testBoundedImageDecodeAndCache",
+      "status": "passed",
+      "seconds": 0.074
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testGalleryParsesEntitiesAndPreservesPages",
+      "status": "passed",
+      "seconds": 0.001
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRangeRequiresExactOffsets",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testReaderRoutesUseTrustedHostAndPage",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRequestPolicyRejectsForeignHostsAndCredentials",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRoutingUsesCurrentShardAndEpoch",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testNativeNavigationReaderZoomRotationAndBookmark",
+      "status": "passed",
+      "seconds": 27.745
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testNetworkErrorCanBeRetried",
+      "status": "passed",
+      "seconds": 5.352
+    }
+  ],
+  "total_final_passes": 10,
+  "note": "Data tests passed in tests-3 run; UI test was corrected for the return-to-app animation and both UI tests passed in ui-final run. This is a summary across the final applicable runs, not a claim that every intermediate run passed.",
+  "result_bundles": {
+    "data": "/tmp/number-memo-native-content-tests-3.xcresult",
+    "ui": "/tmp/number-memo-native-content-ui-final.xcresult"
+  },
+  "release_build": {
+    "status": "passed",
+    "destination": "generic/platform=iOS",
+    "code_signing": false
+  },
+  "normal_app_launch": {
+    "status": "launched",
+    "test_arguments": false,
+    "process_confirmed": true
+  },
+  "limits": [
+    "UI uses synthetic images and an in-memory database; live data tests decode remote images without displaying or persisting them.",
+    "Live Text toggle checked; OCR accuracy and translation results not asserted.",
+    "No iOS 17 / iPad / cellular / long-session memory validation."
+  ]
+}

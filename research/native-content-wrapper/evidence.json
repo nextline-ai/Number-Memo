@@ -1,0 +1,81 @@
+{
+  "checks": [
+    {
+      "bytes": 14831,
+      "check": "common.js",
+      "httpStatus": 200,
+      "passed": true,
+      "sha256": "9cdb39101b3658f838ec8df4e7c3c355dc99d01791d32efe9098cea6d7e15788"
+    },
+    {
+      "bytes": 21480,
+      "check": "gg.js",
+      "httpStatus": 200,
+      "passed": true,
+      "sha256": "d59a8eda9d9abc2dd6079edc442d13bca9e708407ae66211c7e214321572c6c3"
+    },
+    {
+      "bytes": 12633,
+      "check": "searchlib.js",
+      "httpStatus": 200,
+      "passed": true,
+      "sha256": "00d669bb6fe727975e137eff3847690b72cf76a6ab39637ead9bc3e435cb52fc"
+    },
+    {
+      "bytes": 31226,
+      "check": "search.js",
+      "httpStatus": 200,
+      "passed": true,
+      "sha256": "10fec3f076f09ce5945052f924588e5be450ee5b43b3344e617439d23d4c171c"
+    },
+    {
+      "bytes": 256,
+      "check": "listRange",
+      "httpStatus": 206,
+      "passed": true,
+      "sampleCount": 64
+    },
+    {
+      "check": "existingAppMetadataClient",
+      "fileCount": 39,
+      "hasTitle": true,
+      "passed": true
+    },
+    {
+      "alternateBucketCount": 1984,
+      "check": "routingTableParse",
+      "passed": true
+    },
+    {
+      "check": "imageHEAD_webp",
+      "contentType": "image/webp",
+      "declaredBytes": "1398748",
+      "httpStatus": 200,
+      "passed": true
+    },
+    {
+      "check": "imageHEAD_avif",
+      "contentType": "image/avif",
+      "declaredBytes": "947836",
+      "httpStatus": 200,
+      "passed": true
+    },
+    {
+      "bytes": 464,
+      "check": "searchIndexRootRange",
+      "httpStatus": 206,
+      "passed": true
+    },
+    {
+      "check": "legacyHostDiagnostic",
+      "errorCode": -1003,
+      "errorDomain": "NSURLErrorDomain"
+    }
+  ],
+  "imageBodiesDownloaded": false,
+  "observedAtUTC": "2026-10-03T18:27:25Z",
+  "osVersion": "Version 27.2 (Build 26B5091g)",
+  "remoteJavaScriptExecuted": false,
+  "runtime": "macOS Foundation URLSession; not an iOS device test",
+  "scope": "Control files, 256-byte list slice, one gallery metadata sample, image HEAD only, search index root Range"
+}

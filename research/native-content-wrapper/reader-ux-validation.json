@@ -1,0 +1,397 @@
+{
+  "date": "2026-10-04",
+  "device": {
+    "model": "iPhone 17",
+    "os": "iOS 27.2",
+    "os_build": "24B5089g",
+    "physical_device": true
+  },
+  "tests": [
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentLiveTests",
+      "test": "testLiveMetadataImageDecodeAndSearchOnDevice",
+      "status": "passed",
+      "seconds": 12.561,
+      "result_bundle": "/tmp/nm-reader-round3.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentLiveTests",
+      "test": "testLivePopularPeriodsOnDevice",
+      "status": "passed",
+      "seconds": 3.053,
+      "result_bundle": "/tmp/nm-reader-round3.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testBinaryDataRejectsTruncationAndOverflow",
+      "status": "passed",
+      "seconds": 0.002,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testBoundedImageDecodeAndCache",
+      "status": "passed",
+      "seconds": 0.091,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testGalleryParsesEntitiesAndPreservesPages",
+      "status": "passed",
+      "seconds": 0.002,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testRangeRequiresExactOffsets",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testReaderRoutesUseTrustedHostAndPage",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testRequestPolicyRejectsForeignHostsAndCredentials",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testRoutingUsesCurrentShardAndEpoch",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testSpreadsRespectBoundariesAndLastPartialSpread",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testTagNamespacesAcceptStringAndNumericFlags",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "NativeContentTests",
+      "test": "testTranslationCropUsesOriginalPixelsAndViewport",
+      "status": "passed",
+      "seconds": 0.143,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testBookmarkIsIdempotentAndPreservesFolders",
+      "status": "passed",
+      "seconds": 0.008,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testCancellingOneConsumerKeepsSharedDownloadAlive",
+      "status": "passed",
+      "seconds": 0.24,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testChunkedTransportEnforcesBodyLimitAndStatus",
+      "status": "passed",
+      "seconds": 0.004,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testConcurrentLoadsShareDownloadAndDecodedImage",
+      "status": "passed",
+      "seconds": 0.253,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testExitRecognizesShortFlickAndRejectsAccidentalDrags",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testExploreBookmarkTogglesOnOffAndOn",
+      "status": "passed",
+      "seconds": 0.004,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testGridUsesSharedColumnRules",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testLiveTextActionOnlyInvokesTranslateInsideOwnedImage",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testNewFilterRejectsLateResultsFromCancelledQuery",
+      "status": "passed",
+      "seconds": 0.033,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testOCRFindsSyntheticPageText",
+      "status": "passed",
+      "seconds": 0.29,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testPrefetchEliminatesNextPageDownload",
+      "status": "passed",
+      "seconds": 0.521,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testRefreshKeepsResultsOnFailureAndRestartsAtFirstPage",
+      "status": "passed",
+      "seconds": 0.133,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testRefreshSurvivesRefreshableCallerCancellation",
+      "status": "passed",
+      "seconds": 0.065,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testShortZoomedPageHasVerticalSpaceAndRestoresParentScrolling",
+      "status": "passed",
+      "seconds": 0.012,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testTranslationDoesNotToggleActiveOrDisabledActions",
+      "status": "passed",
+      "seconds": 0.003,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoTests",
+      "suite": "ReaderUXTests",
+      "test": "testTwoZoomedPagesKeepTheirSharedPagerLocked",
+      "status": "passed",
+      "seconds": 0.017,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testBrowseLongPressAndNetworkRetry",
+      "status": "passed",
+      "seconds": 18.198,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testExploreTabAndDetailSearch",
+      "status": "passed",
+      "seconds": 20.527,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testHelpCanBeDismissedAndReopened",
+      "status": "passed",
+      "seconds": 19.676,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testImageFailureStillAllowsExit",
+      "status": "passed",
+      "seconds": 11.047,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testImmersiveReaderGesturesPreviewAndBookmark",
+      "status": "passed",
+      "seconds": 31.01,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testJapaneseTranslationStartsOnRepeatedOpen",
+      "status": "passed",
+      "seconds": 40.93,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testMultiplePagesAutoAdvanceAndDownwardExit",
+      "status": "passed",
+      "seconds": 25.968,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testOneTapTranslationOnDevice",
+      "status": "passed",
+      "seconds": 29.726,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testReadingModesAndPersistentQuickMenu",
+      "status": "passed",
+      "seconds": 50.107,
+      "result_bundle": "/tmp/nm-stable-final.xcresult"
+    },
+    {
+      "target": "NumberMemoUITests",
+      "suite": "NativeContentUITests",
+      "test": "testZoomedShortPagePansVerticallyWithoutExitOrPaging",
+      "status": "passed",
+      "seconds": 21.395,
+      "result_bundle": "/tmp/nm-stable-verification.xcresult"
+    }
+  ],
+  "unique_tests_passed": 38,
+  "interpretation": "Final applicable result for each test across targeted reruns; intermediate result bundles may contain superseded failures.",
+  "image_cache_evidence": {
+    "source": "ReaderUXTests with synthetic images and a counted source",
+    "concurrent_consumers": 2,
+    "downloads_for_same_image": 1,
+    "new_downloads_after_prefetch": 0,
+    "observed_cache_lookup_seconds": 4.666e-06,
+    "limitation": "Cache lookup measurement is not total UI frame latency or a live network benchmark."
+  },
+  "translation": {
+    "implementation": "One VisionKit image analysis per translation session; moving or zooming changes geometry only",
+    "actual_system_translation_on_device": true,
+    "verification": "Actual Korean screenshot text verified for English page and three consecutive Japanese-page opens; screenshots visually inspected",
+    "original_restoration_passed": true,
+    "automatic_reanalysis_on_zoom": false,
+    "analysis_count_after_zoom_pan_pinch": 1,
+    "native_controls_remain_on_screen_after_zoom_pan_pinch": true,
+    "zoom_preserved_percent": 250,
+    "loading_presentation": "Small progress icon; Apple may present language download UI",
+    "automatic_action": "Wait up to nine seconds for enabled system menu action or registered UIControl event; prefer menu actions and primaryActionTriggered; do not toggle selected actions off",
+    "supported_action_labels": [
+      "English",
+      "Korean",
+      "Japanese",
+      "Simplified Chinese",
+      "Traditional Chinese"
+    ],
+    "fallback": "Fixed retry button and native Live Text controls",
+    "system_ui_attachment": "Stationary canvas, with image mapped via contentView/contentsRect delegate"
+  },
+  "builds": {
+    "debug_device": "passed",
+    "release_generic_ios": "passed, CODE_SIGNING_ALLOWED=NO; /tmp/nm-stable-release-final.log"
+  },
+  "normal_app_launch": {
+    "launched": true,
+    "test_arguments": false,
+    "evidence": "/tmp/nm-stable-normal-launch.json"
+  },
+  "limits": [
+    "Other devices and iOS 17 not exercised.",
+    "No long-session memory profiling or cellular-network test.",
+    "Japanese vertical text and dense speech balloons require broader OCR/translation quality validation.",
+    "Multiple-page, auto-advance and gesture UI automation used synthetic 3-page fixtures.",
+    "Multi-page translation acts on the first page of the current spread.",
+    "Native image translation automatic invocation is not a dedicated public API and may change across OS versions or UI languages.",
+    "Two live CDN tests are historical results from earlier work, not rerun for these UI changes."
+  ],
+  "features_verified": [
+    "Explore replaces All tab without floating shortcut",
+    "Language and popularity dropdowns; live four-period CDN queries",
+    "Gender tag namespace parsing for string, numeric and Bool flags",
+    "Two-page spread and automatic advance by spread",
+    "Long downward exit with quick menu open",
+    "Help on entry and reopening in reader settings",
+    "Live bookmark badge and consistent explore title",
+    "Liquid Glass quick menus with white icons and labels, visually inspected",
+    "Exit by a 131-point downward drag, with direction/velocity unit checks",
+    "96 by 2 point top-edge handle, visually inspected",
+    "Explore long press toggles bookmark on/off; badge follows database",
+    "Three pull-to-refresh gestures retain gallery results",
+    "Refresh failure preserves data and retry restarts at offset zero",
+    "Cancelled refresh caller and superseded query cannot erase or replace current data",
+    "Apple image translation starts automatically for English and repeated Japanese sessions",
+    "One analysis per session after double tap, pan, and pinch",
+    "Native translate and recognition controls stay inside fixed canvas",
+    "Short landscape image can pan vertically with real scrollable padding",
+    "Zoomed image dragging cannot dismiss reader or page; normal gestures restore at original scale"
+  ],
+  "latest_change_tests_passed": 36,
+  "intermediate_failures": [
+    "Attaching VisionKit to a fixed canvas initially put its overlay above the old image-only double-tap recognizer; moving translation gestures to the common ancestor fixed this. The affected test passed on subsequent runs."
+  ],
+  "reader_zoom": {
+    "padding": "Half of viewport on each side while zoomed; symmetric centering at original scale",
+    "short_landscape_page_vertical_pan": "passed on physical device",
+    "zoomed_pan_does_not_exit_or_change_page": true,
+    "paging_and_exit_restored_after_zoom_reset": true,
+    "multiple_zoomed_pages_share_parent_scroll_lock": true,
+    "viewport_recorded_before_opening_quick_menu": true
+  }
+}

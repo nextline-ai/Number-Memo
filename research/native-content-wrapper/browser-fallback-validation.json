@@ -1,0 +1,205 @@
+{
+  "date": "2026-10-04",
+  "scope": "Opt-in built-in browser fallback for Explore, library works, work details and artist links",
+  "device": {
+    "model": "iPhone 17",
+    "os": "iOS 27.2 (24B5089g)"
+  },
+  "unique_tests_passed": 23,
+  "unit_tests": 19,
+  "live_network_tests": 1,
+  "ui_tests": 3,
+  "tests": [
+    {
+      "suite": "NativeContentLiveTests",
+      "test": "testLiveBrowserLoadsWebsiteWithoutNativeAdapter",
+      "status": "passed",
+      "seconds": 2.735,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testBinaryDataRejectsTruncationAndOverflow",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testBoundedImageDecodeAndCache",
+      "status": "passed",
+      "seconds": 0.097,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testBrowserFallbackIsOptInAndPersistsSeparatelyFromLegacyPreference",
+      "status": "passed",
+      "seconds": 0.005,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testBrowserRejectsUnsafeNavigationSchemesAndCredentials",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testGalleryParsesEntitiesAndPreservesPages",
+      "status": "passed",
+      "seconds": 0.002,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testLocalizationCatalogsAndShareExtensionContainAllKeys",
+      "status": "passed",
+      "seconds": 0.008,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testMonthDestinationsPreserveVisibleOrderAndCounts",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRangeRequiresExactOffsets",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testReaderRoutesUseTrustedHostAndPage",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRequestPolicyRejectsForeignHostsAndCredentials",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRoutingUsesCurrentShardAndEpoch",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSearchVisibilityAccumulatesSlowScrollAndKeepsFocusedSearchVisible",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSpreadsRespectBoundariesAndLastPartialSpread",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSuggestionCacheAvoidsRepeatedNetworkAndSkipsShortInput",
+      "status": "passed",
+      "seconds": 0.002,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSuggestionsParseDeduplicateAndRejectMalformedRows",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSuggestionURLMatchesCharacterIndexAndPolicy",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testTagCompletionPreservesEarlierTermsAndNamespaces",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testTagNamespacesAcceptStringAndNumericFlags",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testTranslationCropUsesOriginalPixelsAndViewport",
+      "status": "passed",
+      "seconds": 0.111,
+      "result_bundle": "/tmp/nm-browser-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testExploreTabAndDetailSearch",
+      "status": "passed",
+      "seconds": 20.984,
+      "result_bundle": "/tmp/nm-browser-ui.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testLibraryWorkOpensRequestedReaderInBrowserAndCloses",
+      "status": "passed",
+      "seconds": 9.597,
+      "result_bundle": "/tmp/nm-browser-ui.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testSettingsSwitchExploreBetweenNativeAndBuiltInBrowser",
+      "status": "passed",
+      "seconds": 38.483,
+      "result_bundle": "/tmp/nm-browser-tab-return.xcresult"
+    }
+  ],
+  "builds": {
+    "debug_device": "passed; UI tests rebuilt and installed the app",
+    "release_generic_ios": "passed; CODE_SIGNING_ALLOWED=NO; /tmp/nm-browser-release-final.log"
+  },
+  "normal_app_launch": {
+    "launched": true,
+    "test_arguments": false,
+    "evidence": "/tmp/nm-browser-normal-launch.json"
+  },
+  "preference": {
+    "key": "use_embedded_browser",
+    "default": false,
+    "legacy_value_migrated": false,
+    "reason": "The legacy preference selected native UI versus external Safari, with different semantics."
+  },
+  "visual_review": {
+    "screenshots": "/tmp/nm-browser-ui-images",
+    "inspected": [
+      "English setting enabled and explanation",
+      "Embedded WebKit navigation toolbar and app tabs"
+    ],
+    "content": "Synthetic HTML only"
+  },
+  "intermediate_failure": "Initial UI run failed before test execution because iOS automation mode initialization timed out. All three UI tests passed on retry. The settings/navigation test passed again after preserving delegates and the current page when the web view is reattached.",
+  "limits": [
+    "Actual website smoke test checks document loading only, not every website feature.",
+    "UI navigation uses local synthetic HTML and an isolated in-memory library.",
+    "Verified on one connected iPhone; other iOS versions and iPad layouts not exercised.",
+    "Fallback depends on the website remaining accessible; it bypasses native adapters, not website or network outages."
+  ]
+}

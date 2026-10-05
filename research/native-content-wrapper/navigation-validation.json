@@ -1,0 +1,224 @@
+{
+  "date": "2026-10-04",
+  "scope": "Folder quick navigation, scroll-aware Explore search, tag autocomplete, illustrated reader help",
+  "device": {
+    "model": "iPhone 17",
+    "os": "iOS 27.2 (24B5089g)"
+  },
+  "unique_tests_passed": 22,
+  "unit_tests": 16,
+  "live_network_tests": 1,
+  "ui_tests": 5,
+  "tests": [
+    {
+      "suite": "NativeContentTests",
+      "test": "testBinaryDataRejectsTruncationAndOverflow",
+      "status": "passed",
+      "seconds": 0.002,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testBoundedImageDecodeAndCache",
+      "status": "passed",
+      "seconds": 0.105,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testGalleryParsesEntitiesAndPreservesPages",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testMonthDestinationsPreserveVisibleOrderAndCounts",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRangeRequiresExactOffsets",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testReaderRoutesUseTrustedHostAndPage",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRequestPolicyRejectsForeignHostsAndCredentials",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testRoutingUsesCurrentShardAndEpoch",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSpreadsRespectBoundariesAndLastPartialSpread",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSuggestionCacheAvoidsRepeatedNetworkAndSkipsShortInput",
+      "status": "passed",
+      "seconds": 0.002,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSuggestionsParseDeduplicateAndRejectMalformedRows",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSuggestionURLMatchesCharacterIndexAndPolicy",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testTagCompletionPreservesEarlierTermsAndNamespaces",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testTagNamespacesAcceptStringAndNumericFlags",
+      "status": "passed",
+      "seconds": 0.0,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testTranslationCropUsesOriginalPixelsAndViewport",
+      "status": "passed",
+      "seconds": 0.096,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testExploreScrollSearchAndTagCompletion",
+      "status": "passed",
+      "seconds": 17.705,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testExploreTabAndDetailSearch",
+      "status": "passed",
+      "seconds": 20.702,
+      "result_bundle": "/tmp/nm-navigation-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testFolderQuickJumpToOldestAndMonth",
+      "status": "passed",
+      "seconds": 17.38,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testHelpCanBeDismissedAndReopened",
+      "status": "passed",
+      "seconds": 23.841,
+      "result_bundle": "/tmp/nm-navigation-tests.xcresult"
+    },
+    {
+      "suite": "NativeContentLiveTests",
+      "test": "testLiveTagSuggestionsOnDevice",
+      "status": "passed",
+      "seconds": 0.576,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentTests",
+      "test": "testSearchVisibilityAccumulatesSlowScrollAndKeepsFocusedSearchVisible",
+      "status": "passed",
+      "seconds": 0.001,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    },
+    {
+      "suite": "NativeContentUITests",
+      "test": "testBrowseLongPressAndNetworkRetry",
+      "status": "passed",
+      "seconds": 17.261,
+      "result_bundle": "/tmp/nm-navigation-final.xcresult"
+    }
+  ],
+  "builds": {
+    "debug_device": "passed",
+    "release_generic_ios": "passed; CODE_SIGNING_ALLOWED=NO; /tmp/nm-navigation-release.log"
+  },
+  "normal_app_launch": {
+    "launched": true,
+    "test_arguments": false,
+    "evidence": "/tmp/nm-navigation-normal-launch.json"
+  },
+  "folder_navigation": {
+    "fixture_works": 120,
+    "month_count": 4,
+    "verified": [
+      "oldest card directly visible",
+      "return to newest",
+      "jump to first work in selected month"
+    ],
+    "storage": "isolated in-memory database"
+  },
+  "autocomplete": {
+    "debounce_ms": 300,
+    "minimum_term_characters": 2,
+    "visible_limit": 8,
+    "response_byte_limit": 64000,
+    "cache_capacity": 64,
+    "cache_ttl_seconds": 900,
+    "cached_repeat_network_requests": 1,
+    "live_query": "language:ko",
+    "live_result": "language:korean",
+    "preserves": [
+      "earlier query terms",
+      "female/male namespace",
+      "negative term prefix"
+    ],
+    "cancellation": "SwiftUI task identity cancels old debounce/transport work; stale results checked before UI assignment"
+  },
+  "visual_review": {
+    "image_tool": "Built-in image_gen, reference-image edit",
+    "provenance": "reader-guide-generation.json",
+    "guide_screenshots": "/tmp/nm-navigation-test-images",
+    "search_and_navigation_screenshots": "/tmp/nm-navigation-final-images",
+    "inspected": [
+      "tap overlays",
+      "zoom and translation overlays",
+      "month picker",
+      "tag autocomplete",
+      "search hidden after scroll"
+    ]
+  },
+  "intermediate_failure": "Initial per-frame scroll threshold did not hide search on a real device. Replaced with accumulated directional movement shared by folders and Explore; regression unit and device UI tests passed.",
+  "limits": [
+    "iOS 17 keeps existing always-visible search fallback; scroll geometry behavior verified on iOS 27.2 only.",
+    "Other devices, iPad layouts and accessibility text-size extremes not exercised.",
+    "Tag autocomplete depends on the source tag index; errors leave manual search available.",
+    "Live network validation used a language tag; UI tests used safe synthetic content."
+  ]
+}

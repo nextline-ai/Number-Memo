@@ -1,0 +1,322 @@
+{
+  "date": "2026-10-04",
+  "languages": [
+    "en",
+    "ko",
+    "ja"
+  ],
+  "development_and_unsupported_language_fallback": "en",
+  "localized_keys_per_language": 281,
+  "targets": [
+    "NumberMemo",
+    "ShareExtension"
+  ],
+  "device": "iPhone 17, iOS 27.2",
+  "result_bundle": "/tmp/nm-localization-tests.xcresult",
+  "tests_passed": 48,
+  "tests": [
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testHitomiUrlWithYearInTitle",
+      "status": "passed",
+      "seconds": 0.001
+    },
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testNestedGoogleTranslateUrl",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testPlainNumberTokens",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testReaderUrl",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testStandardHitomiUrl",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testTranslatedGoogleUrl",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testUniqueFolderColors",
+      "status": "passed",
+      "seconds": 0.019
+    },
+    {
+      "suite": "NumberMemoTests.GalleryIDParserTests",
+      "test": "testVioletUserDbImportRoutesToCorrectFolders",
+      "status": "passed",
+      "seconds": 0.007
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentLiveTests",
+      "test": "testLiveMetadataImageDecodeAndSearchOnDevice",
+      "status": "passed",
+      "seconds": 13.129
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentLiveTests",
+      "test": "testLivePopularPeriodsOnDevice",
+      "status": "passed",
+      "seconds": 4.329
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentLiveTests",
+      "test": "testLiveTagSuggestionsOnDevice",
+      "status": "passed",
+      "seconds": 0.575
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testBinaryDataRejectsTruncationAndOverflow",
+      "status": "passed",
+      "seconds": 0.002
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testBoundedImageDecodeAndCache",
+      "status": "passed",
+      "seconds": 0.104
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testGalleryParsesEntitiesAndPreservesPages",
+      "status": "passed",
+      "seconds": 0.002
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testLocalizationCatalogsAndShareExtensionContainAllKeys",
+      "status": "passed",
+      "seconds": 0.007
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testMonthDestinationsPreserveVisibleOrderAndCounts",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testRangeRequiresExactOffsets",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testReaderRoutesUseTrustedHostAndPage",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testRequestPolicyRejectsForeignHostsAndCredentials",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testRoutingUsesCurrentShardAndEpoch",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testSearchVisibilityAccumulatesSlowScrollAndKeepsFocusedSearchVisible",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testSpreadsRespectBoundariesAndLastPartialSpread",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testSuggestionCacheAvoidsRepeatedNetworkAndSkipsShortInput",
+      "status": "passed",
+      "seconds": 0.001
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testSuggestionsParseDeduplicateAndRejectMalformedRows",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testSuggestionURLMatchesCharacterIndexAndPolicy",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testTagCompletionPreservesEarlierTermsAndNamespaces",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testTagNamespacesAcceptStringAndNumericFlags",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.NativeContentTests",
+      "test": "testTranslationCropUsesOriginalPixelsAndViewport",
+      "status": "passed",
+      "seconds": 0.09
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testBookmarkIsIdempotentAndPreservesFolders",
+      "status": "passed",
+      "seconds": 0.006
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testCancellingOneConsumerKeepsSharedDownloadAlive",
+      "status": "passed",
+      "seconds": 0.251
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testChunkedTransportEnforcesBodyLimitAndStatus",
+      "status": "passed",
+      "seconds": 0.001
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testConcurrentLoadsShareDownloadAndDecodedImage",
+      "status": "passed",
+      "seconds": 0.238
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testExitRecognizesShortFlickAndRejectsAccidentalDrags",
+      "status": "passed",
+      "seconds": 0.001
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testExploreBookmarkTogglesOnOffAndOn",
+      "status": "passed",
+      "seconds": 0.004
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testGridUsesSharedColumnRules",
+      "status": "passed",
+      "seconds": 0.0
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testLiveTextActionOnlyInvokesTranslateInsideOwnedImage",
+      "status": "passed",
+      "seconds": 0.001
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testNewFilterRejectsLateResultsFromCancelledQuery",
+      "status": "passed",
+      "seconds": 0.033
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testOCRFindsSyntheticPageText",
+      "status": "passed",
+      "seconds": 0.357
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testPrefetchEliminatesNextPageDownload",
+      "status": "passed",
+      "seconds": 0.57
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testRefreshKeepsResultsOnFailureAndRestartsAtFirstPage",
+      "status": "passed",
+      "seconds": 0.13
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testRefreshSurvivesRefreshableCallerCancellation",
+      "status": "passed",
+      "seconds": 0.067
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testShortZoomedPageHasVerticalSpaceAndRestoresParentScrolling",
+      "status": "passed",
+      "seconds": 0.018
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testTranslationDoesNotToggleActiveOrDisabledActions",
+      "status": "passed",
+      "seconds": 0.003
+    },
+    {
+      "suite": "NumberMemoTests.ReaderUXTests",
+      "test": "testTwoZoomedPagesKeepTheirSharedPagerLocked",
+      "status": "passed",
+      "seconds": 0.018
+    },
+    {
+      "suite": "NumberMemoUITests.NativeContentUITests",
+      "test": "testEnglishLocalization",
+      "status": "passed",
+      "seconds": 17.708
+    },
+    {
+      "suite": "NumberMemoUITests.NativeContentUITests",
+      "test": "testJapaneseLocalization",
+      "status": "passed",
+      "seconds": 18.722
+    },
+    {
+      "suite": "NumberMemoUITests.NativeContentUITests",
+      "test": "testKoreanLocalization",
+      "status": "passed",
+      "seconds": 18.464
+    },
+    {
+      "suite": "NumberMemoUITests.NativeContentUITests",
+      "test": "testUnsupportedLanguageFallsBackToEnglish",
+      "status": "passed",
+      "seconds": 18.617
+    }
+  ],
+  "screenshots": "/tmp/nm-localization-images",
+  "visual_review": [
+    "English folders and default folder display name",
+    "English reader quick menu and settings",
+    "English and Japanese illustrated help"
+  ],
+  "debug_build": "passed",
+  "release_build": "passed; /tmp/nm-localization-release.log",
+  "normal_launch": "passed without test/language overrides; /tmp/nm-localization-normal-launch.json",
+  "data_compatibility": "Historical Korean default-folder sentinel stays unchanged; only its display name is localized. User-authored folder names and work metadata are preserved.",
+  "limits": [
+    "Share extension bundles and all localized keys verified; share-sheet UI was not separately automated.",
+    "iPad, iOS 17 and extreme accessibility text sizes were not exercised.",
+    "Earlier Flutter implementation is archived and was not localized in this change."
+  ]
+}

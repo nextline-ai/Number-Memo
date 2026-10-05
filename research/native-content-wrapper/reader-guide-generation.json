@@ -1,0 +1,7 @@
+{
+  "tool": "Built-in image_gen",
+  "prompt": "Use case: compositing. Asset type: background illustration for an iOS reader's interactive visual gesture guide. Input image is a reference screenshot of our real reader: black full-screen background, very thin white exit handle at the very top, pale blue rectangular page in the center. Generate a polished 2:3 portrait guide background using this structure. Keep the very thin white horizontal exit handle at the upper edge. Replace only the test page text with an original, quiet, universally safe monochrome comic illustration: a small empty reading room with a window, books and a plant, no people, no brands, no speech bubbles. Subtle pale blue ink on off-white, low contrast and ample calm space. The page should occupy nearly the whole image with modest black margins. This is intended to sit UNDER precise native Korean gesture annotations, which will be added in code; therefore include NO text, NO lettering, NO gesture icons, NO arrows, NO buttons, NO phone bezel, NO watermark. Calm editorial illustration, clean enough that overlaid white-on-dark labels will be easy to read. Preserve the flat front-facing reader composition, not a perspective mockup.",
+  "reference": "research/native-content-wrapper/reader-guide-reference.png",
+  "asset": "native-ios/NumberMemo/Assets.xcassets/ReaderGuide.imageset/reader-guide.png",
+  "annotations": "Native SwiftUI Korean overlays; adapt previous/next labels to reading direction."
+}

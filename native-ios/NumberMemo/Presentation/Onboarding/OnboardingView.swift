@@ -1,0 +1,254 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+public struct OnboardingView: View {
+    @Environment(AppEnvironment.self) private var env
+    @Environment(\.dismiss) private var dismiss
+    @State private var step = 0
+    @State private var domainInput = ""
+    @State private var booruAddress = ""
+    @State private var booruEngine: BooruEngine = .danbooru
+    @State private var error: String?
+    @State private var validating: BooruServer?
+    @State private var showFilePicker = false
+    @State private var isImporting = false
+    @State private var importStatus = ""
+    @State private var importCompleted = false
+    @State private var importSummary = ""
+    public init() {}
+    public var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    HStack(spacing: 6) {
+                        ForEach(0..<3) { index in
+                            Capsule().fill(index <= step ? Color.accentColor : Color.secondary.opacity(0.18)).frame(height: 4)
+                        }
+                    }.padding(.top, 12)
+                    if step == 0 { setup }
+                    else if step == 1 { imports }
+                    else { tutorial }
+                }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 10) {
+                    Button(action: next) {
+                        Text(L10n.text(step == 2 ? "Get Started" : "Continue")).font(.headline)
+                            .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    }.buttonStyle(.borderedProminent).controlSize(.large).disabled(isImporting)
+                        .accessibilityIdentifier("onboarding.continue")
+                    if step == 1 { Text(L10n.text("You can import your data later in Settings.")).font(.caption).foregroundStyle(.secondary) }
+                }.padding(.horizontal, 24).padding(.vertical, 12).background(.bar)
+            }
+            .navigationTitle(L10n.text("Welcome")).navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if step > 0 { Button { step -= 1 } label: { Image(systemName: "chevron.left") }.disabled(isImporting).accessibilityLabel(L10n.text("Back")) }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if env.isOnboardingCompleted { Button(L10n.text("Done")) { dismiss() }.disabled(isImporting) }
+                }
+            }
+            .sheet(item: $validating) { BooruValidationView(server: $0) }
+            .alert(L10n.text("Invalid Address"), isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+                Button(L10n.text("OK"), role: .cancel) { error = nil }
+            } message: { Text(error ?? "") }
+            .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.item], allowsMultipleSelection: false, onCompletion: handleImport)
+        }.environment(env.booru)
+    }
+
+    private var setup: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(L10n.text("Your library, two ways")).font(.largeTitle.bold())
+            Text(L10n.text("Connect your own websites. Books and images keep separate libraries and settings.")).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Hitomi", systemImage: "book.fill").font(.headline)
+                TextField(L10n.text("Website Address"), text: $domainInput)
+                    .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .textFieldStyle(.roundedBorder).accessibilityIdentifier("onboarding.domain")
+                Text(L10n.text(env.isSiteVerified ? "Your reading library is already connected." : "Enter the Hitomi website address to enable books. You can set it up later."))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Booru", systemImage: "photo.fill").font(.headline)
+                Text(L10n.text("Only Safebooru is included by default. Enter an address to add another server."))
+                    .font(.footnote).foregroundStyle(.secondary)
+                TextField("https://example.com", text: $booruAddress)
+                    .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .textFieldStyle(.roundedBorder).accessibilityIdentifier("onboarding.booruAddress")
+                    .onChange(of: booruAddress) { _, value in
+                        if (try? BooruServer.validatedURL(value))?.host?.hasSuffix(".booru.org") == true { booruEngine = .oldGelbooru }
+                    }
+                if !booruAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    HStack {
+                        Text(L10n.text("Server Type")).font(.subheadline)
+                        Spacer()
+                        Picker(L10n.text("Server Type"), selection: $booruEngine) {
+                            ForEach(BooruEngine.allCases) { Text($0.title).tag($0) }
+                        }.labelsHidden().accessibilityIdentifier("onboarding.engine")
+                    }
+                    Button(L10n.text("Add a Server"), systemImage: "plus.circle") { _ = addServer() }
+                        .accessibilityIdentifier("onboarding.addServer")
+                }
+                Divider()
+                ForEach(env.booru.servers) { server in
+                    HStack {
+                        Label(server.name, systemImage: "checkmark.circle.fill").font(.subheadline)
+                        Spacer()
+                        Button { validating = server } label: { Image(systemName: "checkmark.shield").frame(width: 36, height: 36) }
+                            .accessibilityLabel(L10n.text("Validate Client") + " " + server.name)
+                    }
+                }
+            }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+        }
+    }
+
+    private var imports: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Image(systemName: "square.and.arrow.down").font(.system(size: 42)).foregroundStyle(.tint)
+            Text(L10n.text("Bring your collection")).font(.title.bold())
+            Text(L10n.text("Import either library, or both. Your data stays in its own mode.")).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Violet → Hitomi", systemImage: "book.fill").font(.headline)
+                Text(L10n.text("In Files, open the Violet folder and choose user.db for your library, or data.db for metadata.")).font(.subheadline).foregroundStyle(.secondary)
+                Button(L10n.text("Choose a Violet Database"), systemImage: "doc.badge.plus") { showFilePicker = true }
+                    .buttonStyle(.bordered).disabled(isImporting).accessibilityIdentifier("onboarding.violetImport")
+                if isImporting { ProgressView(importStatus) }
+                else if importCompleted { Label(importSummary, systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
+                else if !importStatus.isEmpty { Text(importStatus).foregroundStyle(.red) }
+            }.padding(20).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+            NavigationLink { AnimeBoxesImportView() } label: {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Anime Boxes → Booru", systemImage: "shippingbox.fill").font(.headline)
+                    Text(L10n.text("Move your servers, favorites and search history from Anime Boxes.")).font(.subheadline).foregroundStyle(.secondary)
+                    Label(L10n.text("Import from Anime Boxes"), systemImage: "chevron.right").font(.subheadline.weight(.medium))
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+            }.buttonStyle(.plain).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+                .accessibilityIdentifier("onboarding.import")
+        }
+    }
+
+    private var tutorial: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text(L10n.text("Switch from the top")).font(.largeTitle.bold())
+            Text(L10n.text("Tap or slide the switch at the top of any tab to move between your books and images. Try it here."))
+                .foregroundStyle(.secondary)
+            VStack(spacing: 28) {
+                HStack {
+                    Text(L10n.text("Saved")).font(.headline)
+                    Spacer()
+                    AppModeSwitch()
+                    Spacer()
+                    Image(systemName: "plus").frame(width: 32)
+                }
+                Image(systemName: env.mode == .hitomi ? "book.fill" : "photo.fill")
+                    .font(.system(size: 64)).foregroundStyle(.tint).contentTransition(.symbolEffect(.replace))
+                Text(env.mode.title).font(.title2.bold())
+                Text(L10n.text(env.mode == .hitomi ? "Organize works, follow artists and read with image translation." : "Browse multiple image servers and collect favorites in folders."))
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }.padding(24).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
+            Label(L10n.text("Each mode keeps its own library and settings."), systemImage: "square.stack.3d.up")
+                .font(.footnote).foregroundStyle(.secondary)
+        }.accessibilityElement(children: .contain).accessibilityIdentifier("onboarding.tutorial")
+    }
+
+    @discardableResult private func addServer() -> Bool {
+        do {
+            let url = try BooruServer.validatedURL(booruAddress)
+            let existing = env.booru.servers.first { $0.baseURL == url }
+            let server = existing ?? BooruServer(name: url.host ?? "Booru", baseURL: url,
+                engine: url.host?.hasSuffix(".booru.org") == true ? .oldGelbooru : booruEngine)
+            if existing == nil { try env.booru.saveServer(server) }
+            try env.booru.setSelectedServers(env.booru.selectedServerIDs + [server.id])
+            booruAddress = ""
+            return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+    private func next() {
+        if step == 0 {
+            let domain = domainInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !domain.isEmpty && !env.verifySite(input: domain) { error = L10n.text("Enter the Hitomi website address to continue."); return }
+            if !booruAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !addServer() { return }
+            if !env.isSiteVerified && !env.isOnboardingCompleted { env.mode = .booru }
+            step = 1
+        } else if step == 1 { step = 2 }
+        else { env.isOnboardingCompleted = true; dismiss() }
+    }
+
+    private func handleImport(result: Result<[URL], Error>) {
+        guard case .success(let urls) = result, let url = urls.first else { return }
+        isImporting = true
+        importStatus = L10n.text("Checking file…")
+
+        let importer = env.violetImporter
+        let envRef = env
+
+        Task.detached(priority: .userInitiated) {
+            let hasAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if hasAccess { url.stopAccessingSecurityScopedResource() }
+            }
+
+            var readPath = url.path
+            var tempURL: URL? = nil
+
+            let isUser = VioletImportService.isUserDb(at: readPath)
+            let isData = VioletImportService.isDataDb(at: readPath)
+
+            if !isUser && !isData {
+                let tempDir = FileManager.default.temporaryDirectory
+                let copyUrl = tempDir.appendingPathComponent("\(UUID().uuidString)_\(url.lastPathComponent)")
+                do {
+                    try? FileManager.default.removeItem(at: copyUrl)
+                    try FileManager.default.copyItem(at: url, to: copyUrl)
+                    readPath = copyUrl.path
+                    tempURL = copyUrl
+                } catch {
+                    await MainActor.run {
+                        self.isImporting = false
+                        self.importStatus = L10n.text("Unable to read file: %@", String(describing: error.localizedDescription))
+                    }
+                    return
+                }
+            }
+
+            defer {
+                if let tempURL {
+                    try? FileManager.default.removeItem(at: tempURL)
+                }
+            }
+
+            do {
+                if VioletImportService.isUserDb(at: readPath) {
+                    await MainActor.run { self.importStatus = L10n.text("Importing library from user.db…") }
+                    let res = try importer.importUserDb(path: readPath)
+                    await MainActor.run {
+                        self.isImporting = false
+                        self.importCompleted = true
+                        self.importSummary = L10n.text("user.db imported!\n%@ folders, %@ works", String(describing: res.folders), String(describing: res.works))
+                        envRef.startCoverQueue()
+                    }
+                } else if VioletImportService.isDataDb(at: readPath) {
+                    await MainActor.run { self.importStatus = L10n.text("Matching data.db metadata…") }
+                    let res = try importer.matchAndFillWorks(fromDataDb: readPath)
+                    await MainActor.run {
+                        self.isImporting = false
+                        self.importCompleted = true
+                        self.importSummary = L10n.text("data.db matched!\nUpdated %2$@ of %1$@ works", String(describing: res.totalWorks), String(describing: res.matched))
+                    }
+                } else {
+                    await MainActor.run {
+                        self.isImporting = false
+                        self.importStatus = L10n.text("Unsupported database format. Select user.db or data.db.")
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isImporting = false
+                    self.importStatus = L10n.text("Import error: %@", String(describing: error.localizedDescription))
+                }
+            }
+        }
+    }
+}
