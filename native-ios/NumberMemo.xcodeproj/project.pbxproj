@@ -140,7 +140,7 @@
 		0CCB3259837D1E918779915E /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		134C3749F5882A5E7C51E003 /* NativeContentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeContentTests.swift; sourceTree = "<group>"; };
 		158CA33375FE5A41376A0AA1 /* BooruUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruUITests.swift; sourceTree = "<group>"; };
-		190113C69D7BCDAA37E28C94 /* NumberMemoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NumberMemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		190113C69D7BCDAA37E28C94 /* NumberMemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NumberMemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A43CD02402545179DA392A4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2176F4FAFB5199E5B58E2CC7 /* FolderBentoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderBentoCardView.swift; sourceTree = "<group>"; };
 		218DBE4095096D00E84FE315 /* BooruValidationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruValidationView.swift; sourceTree = "<group>"; };
@@ -196,9 +196,9 @@
 		AF1291AD1D0E2E2F74F73C0F /* BooruRevisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruRevisionTests.swift; sourceTree = "<group>"; };
 		B491282DB93F2259627DEFFC /* HitomiDefaultTagsSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitomiDefaultTagsSettings.swift; sourceTree = "<group>"; };
 		B53A1AFB009B85457C38C086 /* NativeReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeReaderView.swift; sourceTree = "<group>"; };
-		B813C06DA6A64AE5F6552571 /* NumberMemoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NumberMemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B813C06DA6A64AE5F6552571 /* NumberMemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NumberMemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA5BA3974651F205FFFCE3AD /* SearchLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchLibrary.swift; sourceTree = "<group>"; };
-		C0D758D11EBEE724973FC43F /* ShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0D758D11EBEE724973FC43F /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10245435081F97BDB212F1F /* BooruRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruRootView.swift; sourceTree = "<group>"; };
 		C205E452FAEE1C62625513E0 /* BooruLegacyHTML.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruLegacyHTML.swift; sourceTree = "<group>"; };
 		C3563D5B3248F319CCDA8D86 /* BooruClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruClient.swift; sourceTree = "<group>"; };
@@ -657,7 +657,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					467FC908A4CFDF6B49B8406C = {
 						DevelopmentTeam = 6HV24C77H5;
@@ -888,7 +888,6 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NumberMemo/Info.plist;
@@ -910,6 +909,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -941,6 +941,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6HV24C77H5;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -963,6 +964,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -976,7 +978,6 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1001,7 +1002,6 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NumberMemo/Info.plist;
@@ -1023,6 +1023,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1054,6 +1055,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6HV24C77H5;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1069,6 +1071,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -1082,7 +1085,6 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1104,7 +1106,6 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1124,7 +1125,6 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1145,7 +1145,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1166,7 +1165,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6HV24C77H5;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
