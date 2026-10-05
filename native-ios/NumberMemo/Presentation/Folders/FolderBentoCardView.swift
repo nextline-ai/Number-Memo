@@ -27,19 +27,21 @@ public struct FolderBentoCardView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // Top: 2x2 thumbnails preview
-            VStack(spacing: 4) {
-                HStack(spacing: 4) {
-                    thumbCell(index: 0)
-                    thumbCell(index: 1)
+            Color.clear.aspectRatio(1.25, contentMode: .fit).overlay {
+                VStack(spacing: 4) {
+                    HStack(spacing: 4) {
+                        thumbCell(index: 0)
+                        thumbCell(index: 1)
+                    }
+                    HStack(spacing: 4) {
+                        thumbCell(index: 2)
+                        thumbCell(index: 3)
+                    }
                 }
-                HStack(spacing: 4) {
-                    thumbCell(index: 2)
-                    thumbCell(index: 3)
-                }
+                .padding(6)
+                .frame(maxWidth: .infinity)
             }
-            .padding(6)
-            .frame(maxWidth: .infinity)
-            .frame(height: 140)
+            .clipped()
 
             // Bottom: Folder title & count
             HStack {

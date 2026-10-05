@@ -96,15 +96,19 @@ struct BooruPostView: View {
                     .accessibilityAddTraits(.isButton).accessibilityAction { dismiss() }
             }
             .overlay(alignment: .topTrailing) {
-                if post.isVideo {
+                HStack(spacing: 8) {
+                    Button { shortcut(.exit) } label: { Image(systemName: "xmark").frame(width: 44, height: 44).glassCircle() }
+                        .accessibilityLabel(L10n.text("Exit")).accessibilityIdentifier("booru.pointerClose").keyboardShortcut(.cancelAction)
                     Button { menuVisible.toggle() } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).glassCircle() }
-                        .accessibilityLabel(L10n.text("Quick Menu")).accessibilityIdentifier("booru.videoMenu").padding(12)
-                }
+                        .accessibilityLabel(L10n.text("Quick Menu")).accessibilityIdentifier("booru.videoMenu")
+                }.foregroundStyle(.white).padding(12)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if bottomMenu && !menuVisible && translation == nil { menuActions(compact: true).padding(12).modifier(ReaderMenuGlass()).padding(.horizontal, 12).padding(.bottom, 6) }
             }
-            .statusBarHidden(true).persistentSystemOverlays(.hidden)
+            .background(ReaderKeyboardCommands(enabled: !info && !readerSettings && !filing && !showJump && selectedNote == nil, action: shortcut))
+            .statusBarHidden(true)
+            .persistentSystemOverlays(.hidden)
             .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             .interactiveDismissDisabled()
             .sheet(isPresented: $filing) { BooruFolderPicker(post: post) }
@@ -165,11 +169,27 @@ struct BooruPostView: View {
                     ScrollView { Text(note.body).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(24) }
                         .navigationTitle(L10n.text("Notes")).navigationBarTitleDisplayMode(.inline)
                         .toolbar { ToolbarItem(placement: .confirmationAction) {
-                            Button(L10n.text("Done")) { selectedNote = nil }.accessibilityIdentifier("booru.noteClose")
+                            Button(L10n.text("Done")) { selectedNote = nil }.accessibilityIdentifier("booru.noteClose").keyboardShortcut(.cancelAction)
                         } }
                 }
                     .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
             }
+        }
+    }
+    private func shortcut(_ command: ReaderShortcut) {
+        guard !info, !readerSettings, !filing, !showJump, selectedNote == nil else { return }
+        if command == .exit {
+            if translation != nil { translation = nil } else { dismiss() }
+            return
+        }
+        guard translation == nil else { return }
+        switch command {
+        case .previous: move(rtl ? 1 : -1)
+        case .next: move(rtl ? -1 : 1)
+        case .menu: menuVisible.toggle()
+        case .favorite: gesture(.hold)
+        case .details: info = true
+        case .exit: break
         }
     }
     private var quickMenu: some View {
@@ -214,6 +234,7 @@ struct BooruPostView: View {
     private func gesture(_ gesture: BooruMediaGesture) {
         guard !info, !readerSettings, !filing, translation == nil, selectedNote == nil, !showJump else { return }
         switch gesture {
+        case .shortcut(let command): shortcut(command)
         case .tap(let x):
             if (0.3...0.7).contains(x) { menuVisible.toggle() }
             else if tapNavigation { move((x < 0.3 ? -1 : 1) * (rtl ? -1 : 1)) }
@@ -282,7 +303,7 @@ struct BooruPostView: View {
                     }
                 }
             }.navigationTitle(L10n.text("Details")).navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { info = false } } }
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { info = false }.keyboardShortcut(.cancelAction) } }
         }.presentationDragIndicator(.visible)
     }
     private func hideContent(rule: String) {

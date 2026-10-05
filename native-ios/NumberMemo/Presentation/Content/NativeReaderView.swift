@@ -97,6 +97,17 @@ struct NativeReaderView: View {
             if bottomMenu && !menuVisible && gallery != nil { menuActions(compact: true).padding(.horizontal, 12).padding(.vertical, 8)
                     .modifier(ReaderMenuGlass()).padding(.horizontal, 12).padding(.bottom, 6) }
         }
+        .overlay(alignment: .topTrailing) {
+            if translationRequest == nil {
+                HStack(spacing: 8) {
+                    Button(action: exit) { Image(systemName: "xmark").frame(width: 44, height: 44).glassCircle() }
+                        .accessibilityLabel(L10n.text("Exit")).accessibilityIdentifier("reader.pointerClose").keyboardShortcut(.cancelAction)
+                    Button { menuVisible.toggle() } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).glassCircle() }
+                        .accessibilityLabel(L10n.text("Quick Menu"))
+                }.foregroundStyle(.white).padding(12)
+            }
+        }
+        .background(ReaderKeyboardCommands(enabled: sheet == nil && !showJump, action: shortcut))
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
         .toolbar(.hidden, for: .navigationBar)
@@ -221,6 +232,22 @@ struct NativeReaderView: View {
         if scale > 1.01 { viewports[index] = rect } else { viewports.removeValue(forKey: index) }
     }
 
+    private func shortcut(_ command: ReaderShortcut) {
+        guard sheet == nil, !showJump else { return }
+        if command == .exit {
+            if translationRequest != nil { translationRequest = nil } else { exit() }
+            return
+        }
+        guard translationRequest == nil else { return }
+        switch command {
+        case .previous: move(rtl ? 1 : -1)
+        case .next: move(rtl ? -1 : 1)
+        case .menu: menuVisible.toggle()
+        case .favorite: bookmark()
+        case .details: sheet = .details
+        case .exit: break
+        }
+    }
     private func tapped(_ x: CGFloat) {
         if (0.3...0.7).contains(x) { menuVisible.toggle() }
         else if tapNavigation { move((x < 0.3 ? -1 : 1) * (rtl ? -1 : 1)) }

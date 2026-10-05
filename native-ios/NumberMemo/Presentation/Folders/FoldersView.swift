@@ -3,6 +3,7 @@ import GRDB
 
 public struct FoldersView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var folders: [Folder] = []
     @State private var previews: [Int64: [Work]] = [:]
@@ -17,7 +18,7 @@ public struct FoldersView: View {
     @State private var editError: String?
     @State private var reordering = false
 
-    private var columns: [GridItem] { WorkGridLayout.columns(env.gridColumns) }
+    private var columns: [GridItem] { WorkGridLayout.columns(env.folderColumns, minimum: sizeClass == .regular ? 240 : 160) }
 
     public init() {}
 

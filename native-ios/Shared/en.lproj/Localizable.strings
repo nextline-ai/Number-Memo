@@ -623,3 +623,11 @@
 "The backup will be merged with your library. Matching favorites, folder colors and order will use the backup values. These changes also sync when iCloud is enabled." = "The backup will be merged with your library. Matching favorites, folder colors and order will use the backup values. These changes also sync when iCloud is enabled.";
 
 "Applies to folders and works. Automatic adjusts to the window width." = "Applies to folders and works. Automatic adjusts to the window width.";
+
+"Folder Columns" = "Folder Columns";
+"Automatic adjusts to the window width. Folder and artwork layouts are saved separately on this device." = "Automatic adjusts to the window width. Folder and artwork layouts are saved separately on this device.";
+"Keyboard & Mouse" = "Keyboard & Mouse";
+"Toggle Saved" = "Toggle Saved";
+"Arrow keys follow the reading direction. Shortcuts pause while a dialog or text field is open." = "Arrow keys follow the reading direction. Shortcuts pause while a dialog or text field is open.";
+"Image viewer: click the center or right-click to open the menu. Double-click to zoom. Click the sides to turn when tap navigation is enabled." = "Image viewer: click the center or right-click to open the menu. Double-click to zoom. Click the sides to turn when tap navigation is enabled.";
+"Video playback keeps its standard mouse and keyboard controls." = "Video playback keeps its standard mouse and keyboard controls.";

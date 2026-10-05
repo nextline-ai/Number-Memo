@@ -3,6 +3,7 @@ import SwiftUI
 struct BooruFavoritesView: View {
     let source: any BooruProviding
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(BooruStore.self) private var store
     @State private var creating = false
     @State private var newFolderName = ""
@@ -25,7 +26,7 @@ struct BooruFavoritesView: View {
                         Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.secondary)
                     }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
                 }.accessibilityIdentifier("booru.allFavorites")
-                LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 14) {
+                LazyVGrid(columns: WorkGridLayout.columns(env.folderColumns, minimum: sizeClass == .regular ? 240 : 160), spacing: 14) {
                     ForEach(store.folders()) { folder in
                         NavigationLink { BooruFolderContentsView(source: source, folderID: folder.id) } label: {
                             BooruFolderCard(folder: folder, posts: store.visibleFavorites(folderID: folder.id))
@@ -75,20 +76,22 @@ private struct BooruFolderCard: View {
     @Environment(BooruStore.self) private var store
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 4) {
-                ForEach(0..<2) { row in
-                    HStack(spacing: 4) {
-                        ForEach(0..<2) { col in
-                            let index = row * 2 + col
-                            Color.white.opacity(0.12).overlay {
-                                if posts.indices.contains(index), let server = store.servers.first(where: { $0.id == posts[index].serverID }) {
-                                    BooruThumbnail(post: posts[index], server: server)
-                                } else { Image(systemName: "photo").font(.title3).foregroundStyle(.white.opacity(0.3)) }
-                            }.clipped().clipShape(RoundedRectangle(cornerRadius: 8))
+            Color.clear.aspectRatio(1.25, contentMode: .fit).overlay {
+                VStack(spacing: 4) {
+                    ForEach(0..<2) { row in
+                        HStack(spacing: 4) {
+                            ForEach(0..<2) { col in
+                                let index = row * 2 + col
+                                Color.white.opacity(0.12).overlay {
+                                    if posts.indices.contains(index), let server = store.servers.first(where: { $0.id == posts[index].serverID }) {
+                                        BooruThumbnail(post: posts[index], server: server)
+                                    } else { Image(systemName: "photo").font(.title3).foregroundStyle(.white.opacity(0.3)) }
+                                }.clipped().clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
                         }
                     }
-                }
-            }.frame(height: 140).padding(6)
+                }.padding(6)
+            }.clipped()
             VStack(alignment: .leading, spacing: 3) {
                 Text(folder.displayName).font(.subheadline.bold()).lineLimit(1)
                 Text(L10n.text("%@ items", String(posts.count))).font(.caption2.weight(.semibold)).opacity(0.85)

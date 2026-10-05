@@ -22,6 +22,9 @@ struct SettingsSupportSection: View {
     @Binding var showOnboarding: Bool
     var body: some View {
         Section(L10n.text("Help & Privacy")) {
+            NavigationLink { KeyboardShortcutsView() } label: {
+                Label(L10n.text("Keyboard & Mouse"), systemImage: "keyboard")
+            }.accessibilityIdentifier("settings.shortcuts")
             Button(L10n.text("Replay Onboarding"), systemImage: "sparkles") { showOnboarding = true }
                 .accessibilityIdentifier("settings.onboarding")
             NavigationLink { PrivacyPolicyView() } label: {

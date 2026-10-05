@@ -367,14 +367,10 @@ struct BooruPostGrid: View {
                                 }
                             }.buttonStyle(.plain)
                         } else if showsFavoriteIndicator {
-                            thumbnail(post, server: server, isFavorite: favorites.contains(post.id))
-                                .contentShape(Rectangle())
-                                .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).exclusively(before: TapGesture()).onEnded { gesture in
-                                    switch gesture {
-                                    case .first: save(post)
-                                    case .second: open(post)
-                                    }
-                                })
+                            Button { open(post) } label: {
+                                thumbnail(post, server: server, isFavorite: favorites.contains(post.id))
+                            }.buttonStyle(.plain).hoverEffect(.highlight)
+                                .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in save(post) })
                                 .accessibilityAddTraits(.isButton)
                                 .accessibilityAction { open(post) }
                                 .accessibilityAction(named: L10n.text("Add Favorite")) { save(post) }

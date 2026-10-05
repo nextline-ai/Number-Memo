@@ -9,14 +9,19 @@ struct ModeAppearanceSettings: View {
             Picker(L10n.text("Appearance"), selection: $env.appTheme) {
                 ForEach(AppTheme.allCases) { Text($0.title).tag($0) }
             }.pickerStyle(.segmented).labelsHidden()
-            VStack(alignment: .leading, spacing: 8) {
-                Text(L10n.text("Grid columns: %@", env.gridColumns == 0 ? L10n.text("Automatic") : String(env.gridColumns))).font(.subheadline)
-                Picker(L10n.text("Grid Columns"), selection: $env.gridColumns) {
-                    Text(L10n.text("Automatic")).tag(0)
-                    ForEach(1...5, id: \.self) { Text(String($0)).tag($0) }
-                }.pickerStyle(.segmented).accessibilityIdentifier("settings.gridColumns")
-            }.padding(.vertical, 4)
-            Text(L10n.text("Applies to folders and works. Automatic adjusts to the window width.")).font(.footnote).foregroundStyle(.secondary)
+            columnPicker("Folder Columns", selection: $env.folderColumns, identifier: "settings.folderColumns")
+            columnPicker("Grid Columns", selection: $env.gridColumns, identifier: "settings.gridColumns")
+            Text(L10n.text("Automatic adjusts to the window width. Folder and artwork layouts are saved separately on this device."))
+                .font(.footnote).foregroundStyle(.secondary)
         }
+    }
+    private func columnPicker(_ title: String, selection: Binding<Int>, identifier: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.text(title)).font(.subheadline)
+            Picker(L10n.text(title), selection: selection) {
+                Text(L10n.text("Automatic")).tag(0)
+                ForEach(1...5, id: \.self) { Text(String($0)).tag($0) }
+            }.pickerStyle(.segmented).accessibilityIdentifier(identifier)
+        }.padding(.vertical, 4)
     }
 }

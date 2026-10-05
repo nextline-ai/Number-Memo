@@ -3,9 +3,9 @@ import SwiftUI
 /// Zero means automatic. SwiftUI resolves columns from the available container width,
 /// including iPad multitasking and resizable iOS-app windows on Apple silicon Macs.
 enum WorkGridLayout {
-    static func columns(_ count: Int) -> [GridItem] {
+    static func columns(_ count: Int, minimum: CGFloat = 160) -> [GridItem] {
         if count == 0 {
-            return [GridItem(.adaptive(minimum: 160), spacing: 14, alignment: .top)]
+            return [GridItem(.adaptive(minimum: minimum), spacing: 14, alignment: .top)]
         }
         return Array(repeating: GridItem(.flexible(), spacing: 14, alignment: .top), count: min(5, max(1, count)))
     }

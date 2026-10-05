@@ -623,3 +623,11 @@
 "The backup will be merged with your library. Matching favorites, folder colors and order will use the backup values. These changes also sync when iCloud is enabled." = "백업을 현재 보관함에 합칩니다. 같은 즐겨찾기와 폴더의 색상·순서는 백업 값으로 복원합니다. iCloud가 켜져 있으면 변경 내용도 동기화됩니다.";
 
 "Applies to folders and works. Automatic adjusts to the window width." = "폴더와 작품에 함께 적용됩니다. 자동은 창 너비에 맞춰 조절합니다.";
+
+"Folder Columns" = "폴더 열 수";
+"Automatic adjusts to the window width. Folder and artwork layouts are saved separately on this device." = "자동은 창 너비에 맞춰 조절합니다. 폴더와 작품의 배치는 이 기기에 각각 저장됩니다.";
+"Keyboard & Mouse" = "키보드 및 마우스";
+"Toggle Saved" = "저장 / 저장 해제";
+"Arrow keys follow the reading direction. Shortcuts pause while a dialog or text field is open." = "화살표는 읽기 방향을 따릅니다. 대화상자나 입력창이 열려 있는 동안 뷰어 단축키는 작동하지 않습니다.";
+"Image viewer: click the center or right-click to open the menu. Double-click to zoom. Click the sides to turn when tap navigation is enabled." = "이미지 뷰어에서 가운데 클릭 또는 우클릭으로 메뉴를 열고, 더블클릭으로 확대합니다. 탭으로 넘기기가 켜져 있으면 좌우 클릭으로 이동합니다.";
+"Video playback keeps its standard mouse and keyboard controls." = "동영상은 기본 재생 컨트롤을 마우스와 키보드로 조작할 수 있습니다.";

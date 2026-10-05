@@ -47,6 +47,8 @@ public final class AppEnvironment: @unchecked Sendable {
     private var booruTheme: AppTheme
     private var hitomiColumns: Int
     private var booruColumns: Int
+    private var hitomiFolderColumns: Int
+    private var booruFolderColumns: Int
 
     public var appTheme: AppTheme {
         get { mode == .hitomi ? hitomiTheme : booruTheme }
@@ -62,6 +64,15 @@ public final class AppEnvironment: @unchecked Sendable {
             let value = min(5, max(0, newValue))
             if mode == .hitomi { hitomiColumns = value } else { booruColumns = value }
             browserPreferences.set(value, forKey: mode == .hitomi ? "grid_columns" : "booru.grid_columns")
+        }
+    }
+
+    public var folderColumns: Int {
+        get { mode == .hitomi ? hitomiFolderColumns : booruFolderColumns }
+        set {
+            let value = min(5, max(0, newValue))
+            if mode == .hitomi { hitomiFolderColumns = value } else { booruFolderColumns = value }
+            browserPreferences.set(value, forKey: mode == .hitomi ? "folder_columns" : "booru.folder_columns")
         }
     }
 
@@ -134,6 +145,8 @@ public final class AppEnvironment: @unchecked Sendable {
         let booruColumns = browserPreferences.integer(forKey: "booru.grid_columns")
         self.hitomiColumns = min(5, max(0, hitomiColumns))
         self.booruColumns = min(5, max(0, booruColumns))
+        self.hitomiFolderColumns = min(5, max(0, browserPreferences.integer(forKey: "folder_columns")))
+        self.booruFolderColumns = min(5, max(0, browserPreferences.integer(forKey: "booru.folder_columns")))
         self.defaultTags = browserPreferences.string(forKey: "hitomi.defaultTags") ?? ""
         self.defaultExcludedTags = browserPreferences.string(forKey: "hitomi.defaultExcludedTags") ?? ""
 

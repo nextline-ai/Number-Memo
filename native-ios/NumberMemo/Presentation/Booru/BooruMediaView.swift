@@ -98,7 +98,7 @@ struct BooruThumbnail: View {
 /// A minimal local media document: no website HTML, ads or third-party scripts.
 /// WebKit decodes GIF/WebP lazily and provides pinch zoom and hardware video playback.
 enum BooruMediaGesture {
-    case tap(CGFloat), hold, swipe(Int), dismiss, zoom(Bool), viewport(CGRect)
+    case tap(CGFloat), hold, swipe(Int), dismiss, zoom(Bool), viewport(CGRect), shortcut(ReaderShortcut)
 }
 
 struct BooruMediaView: UIViewRepresentable {
@@ -160,7 +160,7 @@ struct BooruMediaView: UIViewRepresentable {
         text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "\"", with: "&quot;")
             .replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
     }
-    private static func document(post: BooruPost, url: URL?) -> String {
+    static func document(post: BooruPost, url: URL?) -> String {
         var source = url?.absoluteString ?? ""
         #if DEBUG
         if BooruUITestSupport.enabled {
@@ -202,7 +202,7 @@ struct BooruMediaView: UIViewRepresentable {
         media.addEventListener('ended',()=>send({status:'ended'}));
         if(media.tagName==='VIDEO')send({status:'waiting'});
         window.addEventListener('resize',fit);fit();
-        let start=null,holdTimer=null,tapTimer=null,lastTap=0,held=false;
+        let start=null,holdTimer=null,tapTimer=null,lastTap=0,held=false,lastTouchAt=0;
         const zoom=()=>window.visualViewport?.scale||1;
         const viewport=()=>{const r=media.getBoundingClientRect(),v=window.visualViewport;
           if(!r.width||!r.height)return;
@@ -216,7 +216,7 @@ struct BooruMediaView: UIViewRepresentable {
         window.addEventListener('scroll',viewport);
         const cancelHold=()=>{clearTimeout(holdTimer);holdTimer=null;};
         document.addEventListener('touchstart',e=>{
-          cancelHold();held=false;
+          lastTouchAt=Date.now();cancelHold();held=false;
           if(e.touches.length!==1||e.target.closest('button')){start=null;return;}
           const t=e.touches[0],video=!!e.target.closest('video');
           if(video&&t.clientY>media.getBoundingClientRect().bottom-56){start=null;return;}
@@ -231,7 +231,7 @@ struct BooruMediaView: UIViewRepresentable {
         },{passive:false});
         document.addEventListener('touchcancel',()=>{start=null;cancelHold();},{passive:true});
         document.addEventListener('touchend',e=>{
-          cancelHold();if(!start)return;
+          lastTouchAt=Date.now();cancelHold();if(!start)return;
           const s=start;start=null;if(held||e.touches.length)return;
           const t=e.changedTouches[0],dx=t.clientX-s.x,dy=t.clientY-s.y,elapsed=Math.max(1,Date.now()-s.time);
           const atOriginal=s.zoom<=1.01&&zoom()<=1.01;
@@ -242,6 +242,31 @@ struct BooruMediaView: UIViewRepresentable {
           if(now-lastTap<300){clearTimeout(tapTimer);lastTap=0;e.preventDefault();send({gesture:'double',x:t.clientX/innerWidth,y:t.clientY/innerHeight});}
           else{lastTap=now;tapTimer=setTimeout(()=>send({gesture:'tap',x:atOriginal?t.clientX/innerWidth:0.5}),300);}
         },{passive:false});
+        // Mouse clicks are not touch events. Ignore compatibility clicks generated
+        // after touch so a tap never navigates twice; leave video controls intact.
+        document.addEventListener('click',e=>{
+          if(Date.now()-lastTouchAt<700||e.target.closest('button,video'))return;
+          clearTimeout(tapTimer);
+          if(e.detail>1)return;
+          tapTimer=setTimeout(()=>send({gesture:'tap',x:zoom()<=1.01?e.clientX/innerWidth:0.5}),300);
+        });
+        document.addEventListener('dblclick',e=>{
+          if(Date.now()-lastTouchAt<700||e.target.closest('button,video'))return;
+          clearTimeout(tapTimer);e.preventDefault();
+          send({gesture:'double',x:e.clientX/innerWidth,y:e.clientY/innerHeight});
+        });
+        document.addEventListener('contextmenu',e=>{
+          if(e.target.closest('button,video'))return;
+          e.preventDefault();clearTimeout(tapTimer);send({gesture:'tap',x:0.5});
+        });
+        document.addEventListener('keydown',e=>{
+          if(e.metaKey||e.ctrlKey||e.altKey||e.shiftKey||e.target.closest('input,textarea,[contenteditable="true"]'))return;
+          const key=e.key.length===1?e.key.toLowerCase():e.key;
+          if(!['Escape','ArrowLeft','ArrowRight','m','f','i'].includes(key))return;
+          // Space and up/down retain native video playback/volume behavior.
+          e.preventDefault();e.stopPropagation();
+          if(!e.repeat)send({gesture:'shortcut',key:key});
+        },true);
         window.renderNotes=(notes,visible)=>{const layer=document.getElementById('notes');layer.replaceChildren();layer.hidden=!visible;
           notes.forEach((note,index)=>{const b=document.createElement('button');b.className='note';b.setAttribute('aria-label','Note '+(index+1));
           b.style.left=note.x+'%';b.style.top=note.y+'%';b.style.width=note.w+'%';b.style.height=note.h+'%';
@@ -279,6 +304,8 @@ struct BooruMediaView: UIViewRepresentable {
             }
             if let scale = value["scale"] as? Double { onGesture?(.zoom(scale > 1.01)) }
             switch value["gesture"] as? String {
+            case "shortcut":
+                if let key = value["key"] as? String, let command = ReaderShortcut(rawValue: key) { onGesture?(.shortcut(command)) }
             case "tap": onGesture?(.tap(value["x"] as? Double ?? 0.5))
             case "hold": onGesture?(.hold)
             case "swipe": onGesture?(.swipe(value["delta"] as? Int ?? 0))
