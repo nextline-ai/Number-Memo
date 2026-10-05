@@ -164,11 +164,10 @@ class _AppShellState extends State<AppShell> {
                 for (final shortcut in [
                   ('$modifier + K', '검색창으로 이동'),
                   ('$modifier + N', '작품 추가 / 이미지 찾기'),
-                  ('$modifier + 1', '탐색'),
-                  ('$modifier + 2', '보관함'),
-                  ('$modifier + 3', '폴더'),
-                  ('$modifier + 4', '작가'),
-                  ('$modifier + 5', '설정'),
+                  ('$modifier + 1', '보관함'),
+                  ('$modifier + 2', '탐색'),
+                  ('$modifier + 3', '작가'),
+                  ('$modifier + 4', '설정'),
                   ('$modifier + Shift + M', '책 / 이미지 모드 전환'),
                   ('F1', '단축키 안내'),
                 ])
@@ -252,6 +251,7 @@ class _AppShellState extends State<AppShell> {
       return _WelcomePage(store: widget.store);
     }
     final mode = widget.store.preferences.mode;
+    final selectedTab = _destination == 2 ? 1 : _destination;
     final color = Theme.of(context).colorScheme;
     return CallbackShortcuts(
       bindings: {
@@ -266,10 +266,10 @@ class _AppShellState extends State<AppShell> {
           LogicalKeyboardKey.digit2,
           LogicalKeyboardKey.digit3,
           LogicalKeyboardKey.digit4,
-          LogicalKeyboardKey.digit5,
         ].indexed) ...{
-          SingleActivator(key, control: true): () => _navigate(index),
-          SingleActivator(key, meta: true): () => _navigate(index),
+          SingleActivator(key, control: true): () =>
+              _navigate(_tabOrder[index]),
+          SingleActivator(key, meta: true): () => _navigate(_tabOrder[index]),
         },
         const SingleActivator(
           LogicalKeyboardKey.keyM,
@@ -402,13 +402,6 @@ class _AppShellState extends State<AppShell> {
                                                         letterSpacing: -.5,
                                                       ),
                                                     ),
-                                                    Text(
-                                                      'NUMBER MEMO',
-                                                      style: TextStyle(
-                                                        fontSize: 9,
-                                                        letterSpacing: 1.7,
-                                                      ),
-                                                    ),
                                                   ],
                                                 ),
                                               ],
@@ -450,8 +443,7 @@ class _AppShellState extends State<AppShell> {
                                             ),
                                           ),
                                           const SizedBox(height: 20),
-                                          ...List.generate(
-                                            5,
+                                          ..._tabOrder.map(
                                             (index) => Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -463,13 +455,13 @@ class _AppShellState extends State<AppShell> {
                                                   borderRadius:
                                                       BorderRadius.circular(28),
                                                 ),
-                                                selected: _destination == index,
+                                                selected: selectedTab == index,
                                                 selectedTileColor:
                                                     color.secondaryContainer,
                                                 selectedColor:
                                                     color.onSecondaryContainer,
                                                 leading: Icon(
-                                                  _destination == index
+                                                  selectedTab == index
                                                       ? _selectedIcons[index]
                                                       : _icons[index],
                                                 ),
@@ -477,7 +469,7 @@ class _AppShellState extends State<AppShell> {
                                                   _labels[index],
                                                   style: TextStyle(
                                                     fontWeight:
-                                                        _destination == index
+                                                        selectedTab == index
                                                         ? FontWeight.w700
                                                         : FontWeight.w500,
                                                   ),
@@ -503,43 +495,7 @@ class _AppShellState extends State<AppShell> {
                                               label: const Text('키보드 단축키'),
                                             ),
                                           ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(24),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Icon(
-                                                      Icons
-                                                          .offline_pin_outlined,
-                                                      size: 16,
-                                                      color: color.primary,
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Text(
-                                                      '나만의 로컬 보관함',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: color
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  '좋아하는 순간을, 오래도록.',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color:
-                                                        color.onSurfaceVariant,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                          const SizedBox(height: 24),
                                         ],
                                       ),
                                     ),
@@ -548,23 +504,68 @@ class _AppShellState extends State<AppShell> {
                           ),
                         ),
                       ),
-                    Expanded(child: body),
+                    Expanded(
+                      child: selectedTab == 1
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    16,
+                                    24,
+                                    0,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: SegmentedButton<int>(
+                                      segments: [
+                                        ButtonSegment(
+                                          value: 1,
+                                          label: Text(
+                                            mode == LibraryMode.books
+                                                ? '작품'
+                                                : '이미지',
+                                          ),
+                                          icon: const Icon(
+                                            Icons.bookmarks_outlined,
+                                          ),
+                                        ),
+                                        const ButtonSegment(
+                                          value: 2,
+                                          label: Text('폴더'),
+                                          icon: Icon(Icons.folder_outlined),
+                                        ),
+                                      ],
+                                      selected: {_destination},
+                                      onSelectionChanged: (value) =>
+                                          _navigate(value.first),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(child: body),
+                              ],
+                            )
+                          : body,
+                    ),
                   ],
                 ),
               ),
               bottomNavigationBar: desktop
                   ? null
                   : NavigationBar(
-                      selectedIndex: _destination,
-                      onDestinationSelected: _navigate,
-                      destinations: List.generate(
-                        5,
-                        (index) => NavigationDestination(
-                          icon: Icon(_icons[index]),
-                          selectedIcon: Icon(_selectedIcons[index]),
-                          label: _labels[index],
-                        ),
-                      ),
+                      selectedIndex: _tabOrder.indexOf(selectedTab),
+                      onDestinationSelected: (index) =>
+                          _navigate(_tabOrder[index]),
+                      destinations: _tabOrder
+                          .map(
+                            (index) => NavigationDestination(
+                              icon: Icon(_icons[index]),
+                              selectedIcon: Icon(_selectedIcons[index]),
+                              label: _labels[index],
+                            ),
+                          )
+                          .toList(),
                     ),
               floatingActionButton:
                   !desktop && mode == LibraryMode.books && _destination == 1
@@ -581,6 +582,9 @@ class _AppShellState extends State<AppShell> {
     );
   }
 }
+
+// Native tab order: Saved, Explore, Artists, Settings. Folders live in Saved.
+const _tabOrder = [1, 0, 3, 4];
 
 const _labels = ['탐색', '보관함', '폴더', '작가', '설정'];
 const _icons = [
@@ -671,7 +675,7 @@ class _WelcomePageState extends State<_WelcomePage> {
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    '취향이 모이는 곳,\n품번메모',
+                    '품번메모',
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.w700,
                       height: 1.3,
@@ -680,7 +684,7 @@ class _WelcomePageState extends State<_WelcomePage> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    '책과 이미지를 발견하고, 폴더에 담고,\n다시 보고 싶은 순간을 기록하세요.',
+                    '책과 이미지의 링크, 폴더, 메모를 저장합니다.',
                     style: TextStyle(
                       fontSize: 17,
                       height: 1.7,
@@ -707,7 +711,7 @@ class _WelcomePageState extends State<_WelcomePage> {
                   const ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.folder_copy_outlined),
-                    title: Text('기존 보관함도 함께'),
+                    title: Text('백업 가져오기'),
                     subtitle: Text('설정에서 품번메모 JSON 백업을 가져오세요.'),
                   ),
                   const SizedBox(height: 28),

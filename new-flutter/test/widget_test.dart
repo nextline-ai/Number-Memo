@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:number_memo/data/library_store.dart';
 import 'package:number_memo/data/models.dart';
 import 'package:number_memo/main.dart';
+import 'package:number_memo/ui/library_page.dart';
 import 'package:number_memo/services/catalog_service.dart';
 import 'package:number_memo/ui/reader_page.dart';
 
@@ -32,8 +33,8 @@ void main() {
     await tester.tap(find.text('내 보관함 시작하기'));
     await tester.pumpAndSettle();
     expect(store.preferences.onboardingComplete, isTrue);
-    expect(find.text('나의 보관함'), findsOneWidget);
-    expect(find.text('첫 번째 취향을 담아 보세요'), findsOneWidget);
+    expect(find.byType(LibraryPage), findsOneWidget);
+    expect(find.text('저장한 항목이 없습니다'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

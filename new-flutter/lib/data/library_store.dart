@@ -244,7 +244,7 @@ class LibraryStore extends ChangeNotifier {
   Future<void> addFolder(
     String name,
     LibraryMode mode, {
-    int color = 0xff757575,
+    int color = 0xff2563eb,
   }) => _change((state) {
     final trimmed = _requireName(name);
     if (state.folders.any(

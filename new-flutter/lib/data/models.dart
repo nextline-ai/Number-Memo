@@ -167,7 +167,7 @@ class MemoFolder {
     required this.id,
     required this.name,
     required this.mode,
-    this.color = 0xff757575,
+    this.color = 0xff2563eb,
   });
 
   final String id;
@@ -201,7 +201,7 @@ class MemoFolder {
     color: jsonInt(
       json,
       'color',
-      fallback: 0xff757575,
+      fallback: 0xff2563eb,
       minimum: 0,
       maximum: 0xffffffff,
     ),

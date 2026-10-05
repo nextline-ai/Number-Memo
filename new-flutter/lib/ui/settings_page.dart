@@ -222,17 +222,6 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  '내 방식대로',
-                  style: Theme.of(context).textTheme.headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '화면, 탐색, 보관함을 편하게 설정하세요.',
-                  style: TextStyle(color: colors.onSurfaceVariant),
-                ),
-                const SizedBox(height: 20),
                 SizedBox(
                   height: 4,
                   child: _busy ? const LinearProgressIndicator() : null,
@@ -558,7 +547,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     const ListTile(
                       leading: Icon(Icons.bookmarks_outlined),
                       title: Text('품번메모'),
-                      subtitle: Text('책과 이미지를 모으는 나만의 보관함'),
                     ),
                     const Divider(height: 1),
                     _SettingTile(

@@ -8,7 +8,6 @@ import '../data/models.dart';
 import '../services/catalog_service.dart';
 import 'common.dart';
 import 'entry_detail.dart';
-import 'library_page.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({
@@ -241,19 +240,6 @@ class _ExplorePageState extends State<ExplorePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  PageHeading(
-                    eyebrow: 'DISCOVER',
-                    title: _books ? '새로운 작품 발견' : '영감이 되는 이미지',
-                    subtitle: _books
-                        ? '좋아하는 작가와 태그로 다음 작품을 찾아보세요.'
-                        : '여러 서버에서 찾고, 나만의 보관함에 모으세요.',
-                    action: IconButton(
-                      tooltip: '새로고침',
-                      onPressed: _loading ? null : () => _load(reset: true),
-                      icon: const Icon(Icons.refresh),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
                   TextField(
                     controller: _search,
                     focusNode: widget.searchFocus,
@@ -265,10 +251,22 @@ class _ExplorePageState extends State<ExplorePage> {
                       hintText: _books
                           ? '작품 검색 · artist:작가 · tag:태그'
                           : '태그 검색 · landscape sky',
-                      suffixIcon: IconButton(
-                        tooltip: '검색',
-                        onPressed: _submit,
-                        icon: const Icon(Icons.arrow_forward),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: '새로고침',
+                            onPressed: _loading
+                                ? null
+                                : () => _load(reset: true),
+                            icon: const Icon(Icons.refresh),
+                          ),
+                          IconButton(
+                            tooltip: '검색',
+                            onPressed: _submit,
+                            icon: const Icon(Icons.arrow_forward),
+                          ),
+                        ],
                       ),
                     ),
                   ),

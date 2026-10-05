@@ -344,23 +344,34 @@ Future<bool> confirm(
     ) ??
     false;
 
+// Matches native-ios AppDatabase.curatedFolderColors.
 const folderColors = [
-  0xff404040,
-  0xff585858,
-  0xff707070,
-  0xff888888,
-  0xffa0a0a0,
-  0xffb8b8b8,
+  0xff2563eb,
+  0xff059669,
+  0xffea580c,
+  0xffe11d48,
+  0xff7c3aed,
+  0xff0891b2,
+  0xffd97706,
+  0xffdb2777,
+  0xff4f46e5,
+  0xff0d9488,
+  0xff65a30d,
+  0xffc026d3,
+  0xffdc2626,
+  0xff9333ea,
+  0xff0284c7,
+  0xffb45309,
+  0xff16a34a,
+  0xfff97316,
+  0xff6366f1,
+  0xff14b8a6,
+  0xff84cc16,
+  0xffec4899,
+  0xffa855f7,
+  0xff3b82f6,
+  0xff10b981,
+  0xfff59e0b,
+  0xffef4444,
+  0xff64748b,
 ];
-
-/// Display imported folder colors neutrally while retaining their backup value.
-Color folderDisplayColor(int value) {
-  final original = Color(value);
-  final gray =
-      (original.r * 255 * .2126 +
-              original.g * 255 * .7152 +
-              original.b * 255 * .0722)
-          .round()
-          .clamp(64, 184);
-  return Color.fromARGB(255, gray, gray, gray);
-}

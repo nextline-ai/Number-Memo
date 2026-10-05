@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:number_memo/data/library_store.dart';
 import 'package:number_memo/data/models.dart';
 import 'package:number_memo/main.dart';
+import 'package:number_memo/ui/settings_page.dart';
 import 'package:number_memo/services/catalog_service.dart';
 import 'package:number_memo/ui/common.dart';
 
@@ -263,7 +264,7 @@ void main() {
     await tester.ensureVisible(settings);
     await tester.tap(settings);
     await tester.pumpAndSettle();
-    expect(find.text('내 방식대로'), findsOneWidget);
+    expect(find.byType(SettingsPage), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -407,6 +408,9 @@ void main() {
             )
             .first,
       );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('더 불러오기'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('더 불러오기'));
       await tester.pumpAndSettle();
       expect(

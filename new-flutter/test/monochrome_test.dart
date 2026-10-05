@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:number_memo/data/library_store.dart';
 import 'package:number_memo/data/models.dart';
 import 'package:number_memo/main.dart';
+import 'package:number_memo/ui/library_page.dart';
+import 'package:number_memo/ui/settings_page.dart';
 import 'package:number_memo/services/catalog_service.dart';
 import 'package:number_memo/ui/app_theme.dart';
 import 'package:number_memo/ui/common.dart';
@@ -157,17 +159,17 @@ void main() {
     tester,
   ) async {
     await showApp(tester, withSavedBook: true);
-    await shortcut(tester, LogicalKeyboardKey.digit5);
-    expect(find.text('내 방식대로'), findsOneWidget);
+    await shortcut(tester, LogicalKeyboardKey.digit4);
+    expect(find.byType(SettingsPage), findsOneWidget);
     await shortcut(tester, LogicalKeyboardKey.keyK);
-    expect(find.text('나의 보관함'), findsOneWidget);
+    expect(find.byType(LibraryPage), findsOneWidget);
     final search = tester.widget<TextField>(find.byType(TextField).first);
     expect(search.focusNode?.hasFocus, isTrue);
 
     await shortcut(tester, LogicalKeyboardKey.digit3, meta: true);
-    expect(find.text('나의 보관함'), findsNothing);
+    expect(find.byType(LibraryPage), findsNothing);
     await shortcut(tester, LogicalKeyboardKey.keyK, meta: true);
-    expect(find.text('나의 보관함'), findsOneWidget);
+    expect(find.byType(LibraryPage), findsOneWidget);
     expect(
       tester
           .widget<TextField>(find.byType(TextField).first)
@@ -183,7 +185,7 @@ void main() {
   ) async {
     await showApp(tester);
     await shortcut(tester, LogicalKeyboardKey.keyK);
-    expect(find.text('나의 보관함'), findsNothing);
+    expect(find.byType(LibraryPage), findsNothing);
     expect(
       tester
           .widget<TextField>(find.byType(TextField).first)
@@ -227,6 +229,63 @@ void main() {
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'native tab order keeps colored folders inside Saved in both modes',
+    (tester) async {
+      final store = await showApp(tester);
+      tester.view.physicalSize = const Size(390, 844);
+      await store.addFolder(
+        'Color preserved',
+        LibraryMode.books,
+        color: 0xffab47bc,
+      );
+      await tester.pumpAndSettle();
+      NavigationBar navigation() =>
+          tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(
+        navigation().destinations.cast<NavigationDestination>().map(
+          (entry) => entry.label,
+        ),
+        ['보관함', '탐색', '작가', '설정'],
+      );
+      expect(navigation().selectedIndex, 0);
+      await tester.tap(find.text('폴더'));
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 0);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.folder_rounded)).color,
+        const Color(0xffab47bc),
+      );
+      await tester.tap(find.text('Color preserved'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryPage), findsOneWidget);
+      for (var index = 1; index < 4; index++) {
+        await tester.tap(find.byType(NavigationDestination).at(index));
+        await tester.pumpAndSettle();
+        expect(navigation().selectedIndex, index);
+        for (final removed in [
+          'DISCOVER',
+          '새로운 작품 발견',
+          'FAVORITE ARTISTS',
+          '내 방식대로',
+        ]) {
+          expect(find.text(removed), findsNothing);
+        }
+      }
+      await store.setPreferences(
+        store.preferences.copyWith(mode: LibraryMode.images),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        navigation().destinations.cast<NavigationDestination>().map(
+          (entry) => entry.label,
+        ),
+        ['보관함', '탐색', '작가', '설정'],
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('card selection never opens or saves an item', (tester) async {
     var selected = 0;

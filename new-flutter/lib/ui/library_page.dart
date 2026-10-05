@@ -183,18 +183,6 @@ class _LibraryPageState extends State<LibraryPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PageHeading(
-                  eyebrow: mode == LibraryMode.books ? 'MY BOOKS' : 'MY IMAGES',
-                  title: folder?.name ?? '나의 보관함',
-                  subtitle:
-                      '${all.length}개의 ${mode == LibraryMode.books ? '작품' : '이미지'} · ${folders.length}개의 폴더',
-                  action: IconButton(
-                    tooltip: '탐색 열기',
-                    onPressed: widget.onExplore,
-                    icon: const Icon(Icons.travel_explore),
-                  ),
-                ),
-                const SizedBox(height: 24),
                 if (all.isNotEmpty) ...[
                   TextField(
                     focusNode: widget.searchFocus,
@@ -373,12 +361,12 @@ class _LibraryPageState extends State<LibraryPage> {
                     title: query.isNotEmpty || _filter != 'all'
                         ? '조건에 맞는 항목이 없습니다'
                         : folder != null
-                        ? '아직 비어 있는 폴더예요'
-                        : '첫 번째 취향을 담아 보세요',
+                        ? '폴더가 비어 있습니다'
+                        : '저장한 항목이 없습니다',
                     message: query.isNotEmpty || _filter != 'all'
                         ? '검색어나 분류 조건을 바꿔 보세요.'
                         : mode == LibraryMode.books
-                        ? '작품 번호나 링크를 붙여 넣어 저장하세요.\n폴더와 메모로 나만의 책장을 만들 수 있어요.'
+                        ? '작품 번호나 링크로 추가할 수 있습니다.'
                         : '탐색에서 마음에 드는 이미지를 저장하세요.',
                     action: FilledButton.icon(
                       onPressed: mode == LibraryMode.books
@@ -431,48 +419,14 @@ class _LibraryPageState extends State<LibraryPage> {
 }
 
 class PageHeading extends StatelessWidget {
-  const PageHeading({
-    super.key,
-    required this.eyebrow,
-    required this.title,
-    required this.subtitle,
-    this.action,
-  });
-  final String eyebrow, title, subtitle;
+  const PageHeading({super.key, required this.title, this.action});
+  final String title;
   final Widget? action;
   @override
   Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
     children: [
       Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              eyebrow,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -1),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
+        child: Text(title, style: Theme.of(context).textTheme.titleLarge),
       ),
       if (action != null) ...[const SizedBox(width: 12), action!],
     ],
@@ -492,9 +446,7 @@ class FoldersPage extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: [
         PageHeading(
-          eyebrow: 'COLLECTIONS',
           title: '폴더',
-          subtitle: '취향대로 나누고, 한눈에 찾아보세요.',
           action: FilledButton.tonalIcon(
             onPressed: () => editFolder(context, store),
             icon: const Icon(Icons.create_new_folder_outlined),
@@ -505,8 +457,8 @@ class FoldersPage extends StatelessWidget {
         if (folders.isEmpty)
           EmptyState(
             icon: Icons.folder_outlined,
-            title: '취향에도 자리를 만들어 주세요',
-            message: '작가별, 분위기별, 다시 보고 싶은 작품별로\n여러 폴더에 자유롭게 정리할 수 있어요.',
+            title: '폴더가 없습니다',
+            message: '새 폴더를 추가해 항목을 분류할 수 있습니다.',
             action: FilledButton.icon(
               onPressed: () => editFolder(context, store),
               icon: const Icon(Icons.add),
@@ -528,13 +480,12 @@ class FoldersPage extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: folderDisplayColor(folder.color)
-                      .withValues(alpha: .15),
+                  color: Color(folder.color).withValues(alpha: .15),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   Icons.folder_rounded,
-                  color: folderDisplayColor(folder.color),
+                  color: Color(folder.color),
                   size: 30,
                 ),
               ),
@@ -589,6 +540,7 @@ Future<void> editFolder(
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         title: Text(folder == null ? '새 폴더' : '폴더 수정'),
+        scrollable: true,
         content: SizedBox(
           width: 360,
           child: Column(
@@ -725,9 +677,7 @@ class ArtistsPage extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: [
         PageHeading(
-          eyebrow: 'FAVORITE ARTISTS',
           title: '작가',
-          subtitle: '다시 만나고 싶은 작가를 모아 두세요.',
           action: FilledButton.tonalIcon(
             onPressed: () => _add(context),
             icon: const Icon(Icons.person_add_outlined),
@@ -738,7 +688,7 @@ class ArtistsPage extends StatelessWidget {
         if (artists.isEmpty)
           EmptyState(
             icon: Icons.people_outline,
-            title: '좋아하는 작가가 있나요?',
+            title: '저장한 작가가 없습니다',
             message: '작가 이름을 저장하면 작품을 빠르게 찾아볼 수 있어요.',
             action: FilledButton.icon(
               onPressed: () => _add(context),
