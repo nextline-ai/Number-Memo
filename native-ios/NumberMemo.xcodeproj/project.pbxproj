@@ -160,7 +160,7 @@
 		4CB5F57AAC63C5B2E44FFA7F /* ContentTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentTransport.swift; sourceTree = "<group>"; };
 		4D3705AEBC2B0159D541C8A8 /* GalleryContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryContent.swift; sourceTree = "<group>"; };
 		5224D62AC2255AFD822F973D /* ReaderSurfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderSurfaces.swift; sourceTree = "<group>"; };
-		53837377DFD8F9DCA3416A89 /* nextline-logo.svg */ = {isa = PBXFileReference; path = "nextline-logo.svg"; sourceTree = "<group>"; };
+		53837377DFD8F9DCA3416A89 /* nextline-logo.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "nextline-logo.svg"; sourceTree = "<group>"; };
 		54D631F53A129A6A3F5ADDDD /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		561007CAECE6AECF61030D7F /* WorksGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorksGridView.swift; sourceTree = "<group>"; };
 		58673F01F1EFE84AEBF03097 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
@@ -218,7 +218,7 @@
 		DF5F65B1C5D31EE473644196 /* FolderOrderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderOrderView.swift; sourceTree = "<group>"; };
 		E775D9AAE076228E7E440E8C /* AddWorkSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWorkSheet.swift; sourceTree = "<group>"; };
 		EA64BC50201F2B264750FB9E /* AppRootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootTabView.swift; sourceTree = "<group>"; };
-		EBC911B0C0C6ABCE2A07B57B /* NumberMemo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NumberMemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EBC911B0C0C6ABCE2A07B57B /* NumberMemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NumberMemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF3D1409528A5E1490FD7BE8 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		EF460FBC7BD6826A521EEE1D /* WorkDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkDetailView.swift; sourceTree = "<group>"; };
 		F34E541C9B511EA718074249 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -892,6 +892,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NumberMemo/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1004,6 +1005,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NumberMemo/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
