@@ -18,6 +18,20 @@ final class LibrarySyncTests: XCTestCase {
         try a.apply(la.changes); try b.apply(lb.changes)
         la.baseline = try a.snapshot(); lb.baseline = try b.snapshot()
     }
+    func testManuallyAddedFirstServerSyncsAsUserData() throws {
+        let a = try adapter(), b = try adapter()
+        let server = BooruServer.presets[2]
+        try a.booru.saveServer(server)
+        try a.booru.saveFavorite(BooruFixtureSource.post(101, server: server))
+        var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
+        try exchange(a, b, &la, &lb)
+        try b.booru.refresh()
+        XCTAssertEqual(b.booru.servers.map(\.canonicalAddress), [server.canonicalAddress])
+        XCTAssertEqual(b.booru.favorites(serverIDs: b.booru.servers.map(\.id)).count, 1)
+        let row = try XCTUnwrap(try a.snapshot().values.first { $0.table == "booru.servers" })
+        XCTAssertFalse(row.isFactoryDefault)
+    }
+
     func testTwoDevicesMergeFoldersWorksSettingsAndOfflineDeletionWithoutLocalPaths() throws {
         let a = try adapter(), b = try adapter()
         let fa = try a.hitomi.createFolder(name: "Art"), fb = try b.hitomi.createFolder(name: "Reading")

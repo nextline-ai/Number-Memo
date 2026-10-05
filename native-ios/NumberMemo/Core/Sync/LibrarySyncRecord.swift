@@ -38,9 +38,6 @@ struct LibrarySyncRow: Codable, Equatable, Sendable {
     var isFactoryDefault: Bool {
         if table == "booru.folders" { return values["id"]?.string == "unsorted" && values["color"]?.integer == 4284922736 && values["position"]?.integer == 0 }
         if table == "hitomi.folders" { return values["sync_id"]?.string == "unsorted" && values["color"]?.integer == 4280391411 && values["sort_order"]?.integer == 1 }
-        if table == "booru.servers", let data = values["payload"]?.data, let server = try? JSONDecoder().decode(BooruServer.self, from: data) {
-            return server.canonicalAddress == "https://safebooru.org" && server.name == "Safebooru" && server.engine == .gelbooru && values["position"]?.integer == 0
-        }
         return false
     }
     static let keys: [String: [String]] = [

@@ -27,9 +27,7 @@ final class BooruStore: @unchecked Sendable {
                 CREATE TABLE saved_tags (server_id TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY(server_id, name, kind));
                 CREATE INDEX favorite_date ON favorites(server_id, saved_at DESC);
                 """)
-            for (index, server) in BooruServer.presets.filter({ $0.id == "safebooru" }).enumerated() {
-                try db.execute(sql: "INSERT INTO servers VALUES (?, ?, ?)", arguments: [server.id, try JSONEncoder().encode(server), index])
-            }
+            // Servers are added only by explicit address entry, import, or library sync.
         }
         migrations.registerMigration("booru_v2_folders") { db in
             try db.execute(sql: """

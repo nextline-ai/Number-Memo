@@ -61,7 +61,7 @@ struct ComicsSetupView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 8)
                 }.buttonStyle(.borderedProminent).controlSize(.large)
                     .accessibilityIdentifier("comics.enterAddress")
-                Text(L10n.text("Image mode is ready to use with Safebooru. You can switch back at any time."))
+                Text(L10n.text("You can switch to image mode at any time and connect an image website there."))
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
         }

@@ -248,8 +248,10 @@ final class BooruUITests: XCTestCase {
         for _ in 0..<6 where !element(app, "booru.serversLink").isHittable { app.swipeDown() }
         element(app, "booru.serversLink").tap()
         element(app, "booru.addServer").tap()
+        element(app, "booru.serverOptions").tap()
         element(app, "booru.serverName").tap(); element(app, "booru.serverName").typeText("My Booru")
         element(app, "booru.serverURL").tap(); element(app, "booru.serverURL").typeText("https://example.com")
+        element(app, "booru.serverEngine").tap(); app.buttons["Danbooru"].tap()
         element(app, "booru.serverSave").tap()
         XCTAssertTrue(app.staticTexts["My Booru"].waitForExistence(timeout: 5))
         capture(app, "Custom server configured")
@@ -427,7 +429,7 @@ final class BooruUITests: XCTestCase {
         element(app, "app.mode.hitomi").tap()
         app.tabBars.buttons["Settings"].tap()
         element(app, "settings.onboarding").tap()
-        XCTAssertTrue(element(app, "onboarding.booruAddress").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "onboarding.addServer").waitForExistence(timeout: 10))
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.violetImport").waitForExistence(timeout: 5))
         element(app, "onboarding.continue").tap()
@@ -570,11 +572,11 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "booru.media").waitForExistence(timeout: 5))
     }
 
-    func testUnifiedOnboardingSafeDefaultImportsAndSwitchTutorial() {
+    func testManualOnboardingImportsAndSwitchTutorial() {
         let app = launch(extra: ["--onboarding-test", "--booru-import-test"])
-        XCTAssertTrue(element(app, "onboarding.booruAddress").waitForExistence(timeout: 10))
-        XCTAssertTrue(element(app, "onboarding.booruAddress").exists)
-        XCTAssertTrue(app.staticTexts["Safebooru"].exists)
+        XCTAssertTrue(element(app, "onboarding.addServer").waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["danbooru.donmai.us"].exists)
+        XCTAssertFalse(app.staticTexts["Safebooru"].exists)
         XCTAssertFalse(app.buttons["Validate Client Danbooru"].exists)
         capture(app, "Unified onboarding addresses")
         element(app, "onboarding.continue").tap()
@@ -625,18 +627,37 @@ final class BooruUITests: XCTestCase {
 
     func testOnboardingAddsManualOldGelbooruAddress() {
         let app = launch(extra: ["--onboarding-test"])
-        let address = element(app, "onboarding.booruAddress")
-        XCTAssertTrue(address.waitForExistence(timeout: 10))
+        element(app, "onboarding.addServer").tap()
+        let address = element(app, "booru.serverURL")
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
         address.tap(); address.typeText("https://sample.booru.org")
-        let engine = element(app, "onboarding.engine")
-        XCTAssertTrue(engine.waitForExistence(timeout: 5))
-        XCTAssertTrue(engine.label.contains("Old Gelbooru"))
-        // Continue saves an address even when the inline Add button was not used.
+        XCTAssertTrue(app.staticTexts["Old Gelbooru (v0.1.11)"].exists)
+        element(app, "booru.serverSave").tap()
+        XCTAssertTrue(app.staticTexts["sample.booru.org"].waitForExistence(timeout: 5))
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.violetImport").waitForExistence(timeout: 5))
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.swipeUp()
-        XCTAssertTrue(app.staticTexts["sample.booru.org"].waitForExistence(timeout: 5))
+    }
+
+    func testEmptyLibraryCanConnectWithOnlyAnAddress() {
+        let app = launch(extra: ["--onboarding-test"])
+        element(app, "onboarding.continue").tap()
+        element(app, "onboarding.continue").tap()
+        element(app, "onboarding.continue").tap()
+        XCTAssertTrue(element(app, "booru.setupAddress").waitForExistence(timeout: 5))
+        capture(app, "No default sites - useful empty library")
+        app.tabBars.buttons["Explore"].tap()
+        XCTAssertFalse(app.staticTexts["No Posts"].exists)
+        element(app, "booru.setupAddress").tap()
+        let address = element(app, "booru.serverURL")
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "booru.serverSave").isEnabled)
+        address.tap(); address.typeText("safebooru.org")
+        XCTAssertTrue(app.staticTexts["Gelbooru"].exists)
+        capture(app, "Address only server setup")
+        element(app, "booru.serverSave").tap()
+        XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
+        XCTAssertFalse(element(app, "booru.setupAddress").exists)
+        XCTAssertTrue(element(app, "booru.post.101").waitForExistence(timeout: 10))
     }
 
     func testModeSwitchSlidesBetweenLibraries() {
@@ -778,7 +799,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(reveal(app, "translation.language.en").isSelected)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         element(app, "settings.onboarding").tap()
-        XCTAssertTrue(element(app, "onboarding.booruAddress").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "onboarding.addServer").waitForExistence(timeout: 5))
         capture(app, "Korean replay onboarding")
         // A settings replay remains dismissible without changing the user's library.
         app.buttons["완료"].tap()

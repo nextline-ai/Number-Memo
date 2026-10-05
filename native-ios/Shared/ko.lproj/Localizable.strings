@@ -463,7 +463,6 @@
 "Connect your own websites. Books and images keep separate libraries and settings." = "사용할 웹사이트 주소를 직접 입력하세요. 책과 이미지는 보관함과 설정이 서로 분리되어 있습니다.";
 "Your reading library is already connected." = "이미 책 라이브러리가 연결되어 있습니다.";
 "Enter the Hitomi website address to enable books. You can set it up later." = "만화 모드 주소를 입력하면 책 모드를 사용할 수 있습니다. 나중에 설정할 수도 있습니다.";
-"Only Safebooru is included by default. Enter an address to add another server." = "기본 서버는 Safebooru만 제공됩니다. 다른 서버를 추가하려면 주소를 직접 입력하세요.";
 "Import either library, or both. Your data stays in its own mode." = "Violet과 Anime Boxes 데이터를 모두 가져올 수 있습니다. 각 데이터는 해당 모드에 따로 저장됩니다.";
 "Switch from the top" = "화면 위에서 모드 전환";
 "Tap or slide the switch at the top of any tab to move between your books and images. Try it here." = "어느 탭에서든 상단 스위치를 누르거나 밀어 책과 이미지 모드를 전환할 수 있습니다. 여기서 직접 바꿔보세요.";
@@ -580,12 +579,23 @@
 "Connect Your Comics Website" = "만화 사이트 연결";
 "For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access." = "콘텐츠 라이선스 문제로 만화 사이트는 앱에 기본 연결로 포함되지 않습니다. 지원되는 사이트 주소를 직접 입력하고, 이용 권한이 있는 콘텐츠만 이용해 주세요.";
 "Enter Website Address" = "주소 입력";
-"Image mode is ready to use with Safebooru. You can switch back at any time." = "이미지 모드에서는 Safebooru를 바로 이용할 수 있습니다. 상단에서 언제든 돌아갈 수 있어요.";
 "Connected" = "연결됨";
 "Connect" = "연결";
 "This address is not supported. Check the website address and try again." = "지원하지 않는 주소입니다. 사이트 주소를 확인한 후 다시 입력해 주세요.";
-"Start with Safebooru" = "Safebooru로 시작하기";
 "Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "이미지를 탐색하고 마음에 드는 작품을 폴더에 모아 보세요. 다른 사이트는 나중에 직접 연결할 수 있습니다.";
-"Safebooru is an independently operated service for personal use by adults. Review its terms before browsing." = "Safebooru는 외부에서 독립적으로 운영하는 서비스로, 성인의 개인적 이용을 허용합니다. 탐색 전에 이용약관을 확인해 주세요.";
 "Terms of Service" = "이용약관";
 "Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "만화 모드는 사이트 주소를 직접 입력해야 합니다. 시작 후 책 아이콘을 눌러 연결하세요. 온보딩을 마치면 이미지 모드가 열립니다.";
+
+"Your Websites, Your Library" = "내 사이트, 내 보관함";
+"No websites are included. Add a website you use, or bring your servers and favorites from a backup." = "기본으로 연결된 사이트는 없습니다. 이용하는 사이트를 직접 추가하거나, 백업에서 서버와 즐겨찾기를 가져오세요.";
+"Connect an Image Website" = "이미지 사이트 연결";
+"Have a website in mind? Copy its home address from your browser. We will recognize known server types for you." = "이용할 사이트가 있나요? 브라우저에서 사이트의 홈 주소를 복사해 입력하세요. 알려진 사이트는 서버 종류를 자동으로 선택해 드립니다.";
+"You can add a website later from Saved, Explore, or More > Servers." = "나중에 저장·탐색 탭이나 더보기 → 서버에서도 추가할 수 있습니다.";
+"Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use." = "브라우저에서 사이트의 홈 주소를 복사해 입력하세요. 공개 탐색을 지원하는 서버는 계정 없이 이용할 수 있습니다. 이용 권한이 있는 사이트만 연결해 주세요.";
+"We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it." = "주소만으로 서버 종류를 알 수 없습니다. 사이트 도움말에서 종류를 확인한 뒤 위에서 선택해 주세요.";
+"Connection" = "연결";
+"Automatic" = "자동";
+"Additional Options" = "추가 옵션";
+"Name (Optional)" = "이름 (선택)";
+"Set Up Later" = "나중에 설정";
+"You can switch to image mode at any time and connect an image website there." = "상단에서 언제든 이미지 모드로 전환하여 이미지 사이트를 연결할 수 있습니다.";

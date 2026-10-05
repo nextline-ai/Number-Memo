@@ -11,6 +11,18 @@ enum BooruEngine: String, Codable, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var title: String { self == .oldGelbooru ? "Old Gelbooru (v0.1.11)" : rawValue.capitalized }
     var usesGelbooruPages: Bool { self == .gelbooru || self == .oldGelbooru }
+    /// Recognition only: never registers or contacts a site on the user's behalf.
+    static func suggested(for url: URL) -> BooruEngine? {
+        let host = url.host?.lowercased() ?? ""
+        if host.hasSuffix(".booru.org") { return .oldGelbooru }
+        switch host.hasPrefix("www.") ? String(host.dropFirst(4)) : host {
+        case "safebooru.org", "gelbooru.com": return .gelbooru
+        case "danbooru.donmai.us": return .danbooru
+        case "yande.re", "konachan.com", "konachan.net": return .moebooru
+        default: return nil
+        }
+    }
+
 }
 
 struct BooruServer: Codable, Identifiable, Hashable, Sendable {
@@ -34,11 +46,14 @@ struct BooruServer: Codable, Identifiable, Hashable, Sendable {
     }
     var usesModernRatings: Bool { engine == .danbooru || isGelbooruWebsite }
 
+    #if DEBUG
     static let presets: [BooruServer] = [
         .init(id: "danbooru", name: "Danbooru", baseURL: URL(string: "https://danbooru.donmai.us")!, engine: .danbooru),
         .init(id: "gelbooru", name: "Gelbooru", baseURL: URL(string: "https://gelbooru.com")!, engine: .gelbooru),
         .init(id: "safebooru", name: "Safebooru", baseURL: URL(string: "https://safebooru.org")!, engine: .gelbooru)
     ]
+
+    #endif
 
     static func validatedURL(_ input: String) throws -> URL {
         let raw = input.trimmingCharacters(in: .whitespacesAndNewlines)

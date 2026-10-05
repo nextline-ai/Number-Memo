@@ -210,9 +210,9 @@ final class BooruTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let db = try AppDatabase.inMemory()
         let env = AppEnvironment(database: db, browserPreferences: defaults, booru: store)
-        XCTAssertEqual(env.mode, .hitomi)
-        env.mode = .booru
-        XCTAssertEqual(AppEnvironment(database: db, browserPreferences: defaults, booru: store).mode, .booru)
+        XCTAssertEqual(env.mode, .booru)
+        env.mode = .hitomi
+        XCTAssertEqual(AppEnvironment(database: db, browserPreferences: defaults, booru: store).mode, .hitomi)
         XCTAssertFalse(env.useEmbeddedBrowser)
     }
 

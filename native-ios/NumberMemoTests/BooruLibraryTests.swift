@@ -34,6 +34,7 @@ final class BooruLibraryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(atPath: path) }
         let store = try BooruStore(path: path)
         try store.saveServer(BooruServer.presets[0])
+        try store.saveServer(BooruServer.presets[2])
         let a = store.servers[0], b = store.servers[1]
         try store.toggleServer(b)
         XCTAssertEqual(store.selectedServers.map(\.id), [a.id, b.id])
@@ -138,7 +139,7 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(invalid.skippedFavorites, 2)
         let store = try BooruStore()
         XCTAssertThrowsError(try store.importAnimeBoxes(invalid, options: .init()))
-        XCTAssertEqual(store.servers, [BooruServer.presets[2]])
+        XCTAssertTrue(store.servers.isEmpty)
         XCTAssertEqual(store.folders().count, 1)
         let valid = try AnimeBoxesBackup.parse(BooruUITestSupport.importFixture)
         var options = AnimeBoxesImportOptions(); options.folderID = "missing"

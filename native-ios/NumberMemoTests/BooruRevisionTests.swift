@@ -29,10 +29,40 @@ final class BooruRevisionTests: XCTestCase {
         XCTAssertFalse(BooruConnectionRetry.isTransient(BooruError.authentication))
     }
 
-    func testFreshInstallIncludesOnlySafebooru() throws {
+    func testFreshInstallHasNoServers() throws {
         let store = try BooruStore()
-        XCTAssertEqual(store.servers.map(\.id), ["safebooru"])
-        XCTAssertEqual(store.selectedServerIDs, ["safebooru"])
+        XCTAssertTrue(store.servers.isEmpty)
+        XCTAssertTrue(store.selectedServerIDs.isEmpty)
+    }
+
+    func testServerRecognitionDoesNotSuggestUnknownOrLookalikeHosts() throws {
+        for (address, engine) in [("safebooru.org", BooruEngine.gelbooru), ("danbooru.donmai.us", .danbooru), ("sample.booru.org", .oldGelbooru), ("yande.re", .moebooru)] {
+            XCTAssertEqual(BooruEngine.suggested(for: try BooruServer.validatedURL(address)), engine)
+        }
+        XCTAssertNil(BooruEngine.suggested(for: try BooruServer.validatedURL("safebooru.org.example.com")))
+        XCTAssertNil(BooruEngine.suggested(for: try BooruServer.validatedURL("my-images.example.com")))
+    }
+
+    func testExistingServersAndFavoritesSurviveReopenAndEmptyLibraryStaysEmpty() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let server = BooruServer.presets[2]
+        let post = BooruFixtureSource.post(101, server: server)
+        do {
+            let store = try BooruStore(path: url.path)
+            XCTAssertTrue(store.servers.isEmpty)
+            try store.saveServer(server)
+            try store.saveFavorite(post)
+        }
+        do {
+            let restored = try BooruStore(path: url.path)
+            XCTAssertEqual(restored.servers, [server])
+            XCTAssertTrue(restored.isFavorite(post))
+            try restored.deleteServer(server)
+        }
+        let empty = try BooruStore(path: url.path)
+        XCTAssertTrue(empty.servers.isEmpty)
+        XCTAssertTrue(empty.selectedServerIDs.isEmpty)
     }
 
     func testReplayingSetupDoesNotRemoveAnExistingConnectionOnATypo() throws {

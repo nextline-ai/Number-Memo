@@ -45,7 +45,10 @@ struct BooruServerEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var address = ""
-    @State private var engine: BooruEngine = .danbooru
+    @State private var engineChoice: BooruEngine?
+    @State private var showOptions = false
+    private var addressURL: URL? { try? BooruServer.validatedURL(address) }
+    private var engine: BooruEngine? { engineChoice ?? addressURL.flatMap(BooruEngine.suggested) }
     @State private var account = ""
     @State private var apiKey = ""
     @State private var error: String?
@@ -54,21 +57,38 @@ struct BooruServerEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(L10n.text("Server")) {
-                    TextField(L10n.text("Name"), text: $name).accessibilityIdentifier("booru.serverName")
+                Section {
                     TextField("https://example.com", text: $address).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .disabled(server != nil).accessibilityIdentifier("booru.serverURL")
-                        .onChange(of: address) { _, value in
-                            if server == nil, (try? BooruServer.validatedURL(value))?.host?.hasSuffix(".booru.org") == true { engine = .oldGelbooru }
-                        }
-                    Picker(L10n.text("Server Type"), selection: $engine) { ForEach(BooruEngine.allCases) { Text($0.title).tag($0) } }
+                        .accessibilityLabel(L10n.text("Website Address"))
+                } header: { Text(L10n.text("Website Address")) } footer: {
+                    Text(L10n.text("Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use."))
                 }
-                if engine != .oldGelbooru { Section {
-                    TextField(L10n.text(engine == .gelbooru ? "User ID" : "Username"), text: $account).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    SecureField(L10n.text(engine == .moebooru ? "Password Hash" : "API Key"), text: $apiKey).textInputAutocapitalization(.never).autocorrectionDisabled()
-                } header: { Text(L10n.text("API Access (Optional)")) } footer: {
-                    Text(L10n.text("Use credentials from your server account settings. They are stored securely in Keychain."))
-                } }
+                Section {
+                    Picker(L10n.text("Server Type"), selection: $engineChoice) {
+                        Text(L10n.text("Automatic")).tag(nil as BooruEngine?)
+                        ForEach(BooruEngine.allCases) { Text($0.title).tag(Optional($0)) }
+                    }.accessibilityIdentifier("booru.serverEngine")
+                    if let engine {
+                        Label(engine.title, systemImage: "checkmark.circle").foregroundStyle(.secondary)
+                    } else if !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(L10n.text("We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it."))
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                } header: { Text(L10n.text("Connection")) }
+                Section {
+                    DisclosureGroup(isExpanded: $showOptions) {
+                        TextField(L10n.text("Name (Optional)"), text: $name).accessibilityIdentifier("booru.serverName")
+                        if engine != .oldGelbooru {
+                            TextField(L10n.text(engine == .gelbooru ? "User ID" : "Username"), text: $account).textInputAutocapitalization(.never).autocorrectionDisabled()
+                            SecureField(L10n.text(engine == .moebooru ? "Password Hash" : "API Key"), text: $apiKey).textInputAutocapitalization(.never).autocorrectionDisabled()
+                            Text(L10n.text("Use credentials from your server account settings. They are stored securely in Keychain."))
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                    } label: {
+                        Text(L10n.text("Additional Options")).accessibilityIdentifier("booru.serverOptions")
+                    }
+                }
                 if let server {
                     Section {
                         Button(L10n.text("Validate Client"), systemImage: "checkmark.shield") { validating = true }
@@ -80,13 +100,13 @@ struct BooruServerEditor: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Cancel")) { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Save"), action: save).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || address.isEmpty).accessibilityIdentifier("booru.serverSave") }
+                    ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Save"), action: save).disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || engine == nil).accessibilityIdentifier("booru.serverSave") }
                 }
                 .sheet(isPresented: $validating) { if let server { BooruValidationView(server: server) } }
                 .onAppear {
                     guard !initialized else { return }; initialized = true
                     guard let server else { return }
-                    name = server.name; address = server.baseURL.absoluteString; engine = server.engine
+                    name = server.name; address = server.baseURL.absoluteString; engineChoice = server.engine; showOptions = true
                     do { let credentials = try BooruKeychain.read(serverID: server.id); account = credentials.account; apiKey = credentials.apiKey }
                     catch { self.error = error.localizedDescription }
                 }
@@ -95,7 +115,9 @@ struct BooruServerEditor: View {
     private func save() {
         do {
             let url = try BooruServer.validatedURL(address)
-            let value = BooruServer(id: server?.id ?? UUID().uuidString, name: name.trimmingCharacters(in: .whitespacesAndNewlines), baseURL: url, engine: engine)
+            guard let engine else { return }
+            let displayName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = BooruServer(id: server?.id ?? UUID().uuidString, name: displayName.isEmpty ? (url.host ?? url.absoluteString) : displayName, baseURL: url, engine: engine)
             guard !store.servers.contains(where: { $0.id != value.id && $0.baseURL == url }) else { throw BooruError.duplicateServer }
             let credentials = BooruCredentials(account: account.trimmingCharacters(in: .whitespacesAndNewlines), apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
             guard credentials.account.isEmpty == credentials.apiKey.isEmpty else { throw BooruError.authentication }

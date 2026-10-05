@@ -5,19 +5,19 @@
 </p>
 
 <h1 align="center">Number Memo</h1>
-<p align="center">Explore images on Safebooru and organize your favorites into folders.</p>
+<p align="center">Explore images from websites you choose and organize your favorites into folders.</p>
 <p align="center"><a href="https://github.com/nextline-ai/Number-Memo/releases">Updates</a> · <a href="https://discord.gg/vUTGZNMaMB">Help and feedback</a></p>
 
 ## Get started
 
-1. Start in image mode with **Safebooru**. Add other supported image servers by entering their addresses.
+1. Tap **Enter Website Address** and enter the home address of an image website you use. No sites are included by default. Known server types are recognized automatically; a custom name and account credentials are optional.
 2. Import a **Violet** or **Anime Boxes** backup if you have one. You can skip this step and import later in Settings.
 3. Tap or slide the **book / image switch** at the top of the screen to move between comics mode and image mode. Onboarding always finishes in image mode.
 4. Comics mode has no website connected by default for licensing reasons. Tap the book icon, then **Enter Website Address**, to connect a supported site. Only use content you have permission to access.
 
 The current Swift native app requires **iOS 17 or later** and supports English, Korean, and Japanese. This guide describes the latest features on `main`. See the [release notes](https://github.com/nextline-ai/Number-Memo/releases) for installation and availability.
 
-Safebooru is for personal use by adults under its [official terms](https://safebooru.org/index.php?page=tos). Please review them before browsing.
+No address yet? Choose **Set Up Later**. Add a site from **Saved**, **Explore**, or **More → Servers** whenever you are ready. If the type is not recognized, check the website’s help page and select it yourself. Review the site’s terms and only access content you have permission to use.
 
 ## Two modes
 

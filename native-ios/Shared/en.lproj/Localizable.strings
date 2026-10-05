@@ -463,7 +463,6 @@
 "Connect your own websites. Books and images keep separate libraries and settings." = "Connect your own websites. Books and images keep separate libraries and settings.";
 "Your reading library is already connected." = "Your reading library is already connected.";
 "Enter the Hitomi website address to enable books. You can set it up later." = "Enter the comics mode website address to enable books. You can set it up later.";
-"Only Safebooru is included by default. Enter an address to add another server." = "Only Safebooru is included by default. Enter an address to add another server.";
 "Import either library, or both. Your data stays in its own mode." = "Import either library, or both. Your data stays in its own mode.";
 "Switch from the top" = "Switch from the top";
 "Tap or slide the switch at the top of any tab to move between your books and images. Try it here." = "Tap or slide the switch at the top of any tab to move between your books and images. Try it here.";
@@ -580,12 +579,23 @@
 "Connect Your Comics Website" = "Connect Your Comics Website";
 "For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access." = "For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access.";
 "Enter Website Address" = "Enter Website Address";
-"Image mode is ready to use with Safebooru. You can switch back at any time." = "Image mode is ready to use with Safebooru. You can switch back at any time.";
 "Connected" = "Connected";
 "Connect" = "Connect";
 "This address is not supported. Check the website address and try again." = "This address is not supported. Check the website address and try again.";
-"Start with Safebooru" = "Start with Safebooru";
 "Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "Browse images, save favorites, and organize your collection. You can connect your own supported websites later.";
-"Safebooru is an independently operated service for personal use by adults. Review its terms before browsing." = "Safebooru is an independently operated service for personal use by adults. Review its terms before browsing.";
 "Terms of Service" = "Terms of Service";
 "Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode.";
+
+"Your Websites, Your Library" = "Your Websites, Your Library";
+"No websites are included. Add a website you use, or bring your servers and favorites from a backup." = "No websites are included. Add a website you use, or bring your servers and favorites from a backup.";
+"Connect an Image Website" = "Connect an Image Website";
+"Have a website in mind? Copy its home address from your browser. We will recognize known server types for you." = "Have a website in mind? Copy its home address from your browser. We will recognize known server types for you.";
+"You can add a website later from Saved, Explore, or More > Servers." = "You can add a website later from Saved, Explore, or More > Servers.";
+"Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use." = "Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use.";
+"We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it." = "We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it.";
+"Connection" = "Connection";
+"Automatic" = "Automatic";
+"Additional Options" = "Additional Options";
+"Name (Optional)" = "Name (Optional)";
+"Set Up Later" = "Set Up Later";
+"You can switch to image mode at any time and connect an image website there." = "You can switch to image mode at any time and connect an image website there.";

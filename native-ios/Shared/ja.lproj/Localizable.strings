@@ -463,7 +463,6 @@
 "Connect your own websites. Books and images keep separate libraries and settings." = "利用するサイトのアドレスを入力してください。本と画像のライブラリと設定はそれぞれ独立しています。";
 "Your reading library is already connected." = "本のライブラリは接続済みです。";
 "Enter the Hitomi website address to enable books. You can set it up later." = "漫画モードのアドレスを入力すると本のモードを利用できます。後から設定することもできます。";
-"Only Safebooru is included by default. Enter an address to add another server." = "初期状態ではSafebooruのみ利用できます。他のサーバーを追加するにはアドレスを入力してください。";
 "Import either library, or both. Your data stays in its own mode." = "VioletとAnime Boxesの両方から読み込めます。データはそれぞれのモードに保存されます。";
 "Switch from the top" = "画面上部でモードを切り替え";
 "Tap or slide the switch at the top of any tab to move between your books and images. Try it here." = "どのタブでも上部のスイッチをタップ、またはスライドして本と画像を切り替えられます。ここで試してみましょう。";
@@ -580,12 +579,23 @@
 "Connect Your Comics Website" = "漫画サイトに接続";
 "For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access." = "コンテンツのライセンス上の理由により、漫画サイトは初期状態では接続されていません。対応サイトのアドレスをご自身で入力し、利用する権利のあるコンテンツのみご利用ください。";
 "Enter Website Address" = "アドレスを入力";
-"Image mode is ready to use with Safebooru. You can switch back at any time." = "画像モードではSafebooruをすぐに利用できます。上部の切り替えでいつでも戻れます。";
 "Connected" = "接続済み";
 "Connect" = "接続";
 "This address is not supported. Check the website address and try again." = "このアドレスには対応していません。サイトのアドレスを確認して、もう一度入力してください。";
-"Start with Safebooru" = "Safebooruから始めよう";
 "Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "画像を探して、お気に入りをフォルダにまとめましょう。ほかの対応サイトは後から追加できます。";
-"Safebooru is an independently operated service for personal use by adults. Review its terms before browsing." = "Safebooruは独立して運営されている外部サービスで、成人による個人利用が認められています。閲覧前に利用規約をご確認ください。";
 "Terms of Service" = "利用規約";
 "Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "漫画モードにはサイトのアドレス入力が必要です。設定後に本のアイコンから接続できます。このガイドを終えると画像モードが開きます。";
+
+"Your Websites, Your Library" = "自分のサイト、自分のライブラリ";
+"No websites are included. Add a website you use, or bring your servers and favorites from a backup." = "初期状態ではサイトは登録されていません。利用するサイトを追加するか、バックアップからサーバーやお気に入りを読み込んでください。";
+"Connect an Image Website" = "画像サイトに接続";
+"Have a website in mind? Copy its home address from your browser. We will recognize known server types for you." = "利用するサイトは決まっていますか？ブラウザからサイトのホームアドレスをコピーして入力してください。既知のサイトはサーバーの種類を自動で選択します。";
+"You can add a website later from Saved, Explore, or More > Servers." = "保存・探索タブ、または「その他 → サーバー」から後で追加することもできます。";
+"Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use." = "ブラウザからサイトのホームアドレスをコピーして入力してください。公開閲覧に対応するサーバーはアカウントなしで利用できます。利用する権利のあるサイトのみ接続してください。";
+"We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it." = "アドレスからサーバーの種類を判別できません。サイトのヘルプで種類を確認し、上で選択してください。";
+"Connection" = "接続";
+"Automatic" = "自動";
+"Additional Options" = "追加オプション";
+"Name (Optional)" = "名前（任意）";
+"Set Up Later" = "後で設定";
+"You can switch to image mode at any time and connect an image website there." = "上部の切り替えでいつでも画像モードに移動し、画像サイトを接続できます。";

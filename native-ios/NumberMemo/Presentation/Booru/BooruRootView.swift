@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct BooruRootView: View {
+    @Environment(AppEnvironment.self) private var env
     @Environment(BooruStore.self) private var store
     @Binding var selectedTab: AppTab
     private var source: any BooruProviding {
@@ -12,24 +13,62 @@ struct BooruRootView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                BooruFavoritesView(source: source).appRootHeader("Saved")
+                Group {
+                    if store.servers.isEmpty { BooruSetupView() }
+                    else { BooruFavoritesView(source: source) }
+                }.appRootHeader("Saved")
             }.tabItem { Label(L10n.text("Saved"), systemImage: "folder.fill") }.tag(AppTab.folders)
             NavigationStack {
-                BooruFeedView(servers: store.selectedServers, source: source)
-                    .toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }.appRootHeader("Explore")
+                Group {
+                    if store.servers.isEmpty { BooruSetupView() }
+                    else {
+                        BooruFeedView(servers: store.selectedServers, source: source)
+                            .toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }
+                    }
+                }.appRootHeader("Explore")
             }.tabItem { Label(L10n.text("Explore"), systemImage: "globe") }.tag(AppTab.works)
             NavigationStack {
-                BooruSavedServersView(source: source).appRootHeader("Tags")
+                Group {
+                    if store.servers.isEmpty { BooruSetupView() }
+                    else { BooruSavedServersView(source: source) }
+                }.appRootHeader("Tags")
             }.tabItem { Label(L10n.text("Tags"), systemImage: "tag") }.tag(AppTab.artists)
             NavigationStack { BooruMoreView(source: source).appRootHeader("More") }
                 .tabItem { Label(L10n.text("More"), systemImage: "ellipsis") }.tag(AppTab.settings)
         }
         .adaptableTabStyleIfAvailable()
+        .onChange(of: store.servers.count) { old, new in
+            if env.mode == .booru && old == 0 && new > 0 && (selectedTab == .folders || selectedTab == .works) { selectedTab = .works }
+        }
         .alert(L10n.text("Unable to save. Please try again."), isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button(L10n.text("OK")) { store.error = nil }
         } message: { Text(store.error ?? "") }
     }
 
+}
+
+struct BooruSetupView: View {
+    @State private var addingServer = false
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Image(systemName: "photo.on.rectangle.angled").font(.system(size: 48)).foregroundStyle(.tint)
+                Text(L10n.text("Connect an Image Website")).font(.largeTitle.bold())
+                Text(L10n.text("No websites are included. Add a website you use, or bring your servers and favorites from a backup."))
+                    .foregroundStyle(.secondary)
+                Button { addingServer = true } label: {
+                    Label(L10n.text("Enter Website Address"), systemImage: "link")
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                }.buttonStyle(.borderedProminent).controlSize(.large).accessibilityIdentifier("booru.setupAddress")
+                NavigationLink { AnimeBoxesImportView() } label: {
+                    Label(L10n.text("Import from Anime Boxes"), systemImage: "square.and.arrow.down")
+                }.accessibilityIdentifier("booru.setupImport")
+                Text(L10n.text("Have a website in mind? Copy its home address from your browser. We will recognize known server types for you."))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
+        }
+        .sheet(isPresented: $addingServer) { BooruServerEditor(server: nil) }
+    }
 }
 
 struct BooruServerMenu: View {

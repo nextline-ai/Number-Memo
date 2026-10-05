@@ -6,9 +6,7 @@ public struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var step = 0
     @State private var tutorialMode: AppMode = .booru
-    @State private var booruAddress = ""
-    @State private var booruEngine: BooruEngine = .danbooru
-    @State private var error: String?
+    @State private var addingServer = false
     @State private var validating: BooruServer?
     @State private var showFilePicker = false
     @State private var isImporting = false
@@ -34,9 +32,10 @@ public struct OnboardingView: View {
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 10) {
                     Button(action: next) {
-                        Text(L10n.text(step == 2 ? "Get Started" : "Continue")).font(.headline)
+                        Text(L10n.text(step == 2 ? "Get Started" : (step == 0 && env.booru.servers.isEmpty ? "Set Up Later" : "Continue"))).font(.headline)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
                     }.buttonStyle(.borderedProminent).controlSize(.large).disabled(isImporting)
+                        .tint(step == 0 && env.booru.servers.isEmpty ? Color.secondary : Color.accentColor)
                         .accessibilityIdentifier("onboarding.continue")
                     if step == 0 {
                         NavigationLink { PrivacyPolicyView() } label: { Text(L10n.text("Privacy Policy")).font(.footnote) }
@@ -55,44 +54,24 @@ public struct OnboardingView: View {
                 }
             }
             .sheet(item: $validating) { BooruValidationView(server: $0) }
-            .alert(L10n.text("Invalid Address"), isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
-                Button(L10n.text("OK"), role: .cancel) { error = nil }
-            } message: { Text(error ?? "") }
+            .sheet(isPresented: $addingServer) { BooruServerEditor(server: nil) }
             .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.item], allowsMultipleSelection: false, onCompletion: handleImport)
         }.environment(env.booru)
     }
 
     private var setup: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(L10n.text("Start with Safebooru")).font(.largeTitle.bold())
-            Text(L10n.text("Browse images, save favorites, and organize your collection. You can connect your own supported websites later.")).foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 12) {
-                Label(L10n.text("Image Mode"), systemImage: "photo.fill").font(.headline)
-                Text(L10n.text("Only Safebooru is included by default. Enter an address to add another server."))
-                    .font(.footnote).foregroundStyle(.secondary)
-                TextField("https://example.com", text: $booruAddress)
-                    .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder).accessibilityIdentifier("onboarding.booruAddress")
-                    .onChange(of: booruAddress) { _, value in
-                        if (try? BooruServer.validatedURL(value))?.host?.hasSuffix(".booru.org") == true { booruEngine = .oldGelbooru }
-                    }
-                if !booruAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    HStack {
-                        Text(L10n.text("Server Type")).font(.subheadline)
-                        Spacer()
-                        Picker(L10n.text("Server Type"), selection: $booruEngine) {
-                            ForEach(BooruEngine.allCases) { Text($0.title).tag($0) }
-                        }.labelsHidden().accessibilityIdentifier("onboarding.engine")
-                    }
-                    Button(L10n.text("Add a Server"), systemImage: "plus.circle") { _ = addServer() }
-                        .accessibilityIdentifier("onboarding.addServer")
-                }
-                Divider()
-                Text(L10n.text("Safebooru is an independently operated service for personal use by adults. Review its terms before browsing."))
-                    .font(.footnote).foregroundStyle(.secondary)
-                Link(L10n.text("Terms of Service"), destination: URL(string: "https://safebooru.org/index.php?page=tos")!)
-                    .font(.footnote).accessibilityIdentifier("onboarding.serverTerms")
-                Divider()
+            Text(L10n.text("Your Websites, Your Library")).font(.largeTitle.bold())
+            Text(L10n.text("No websites are included. Add a website you use, or bring your servers and favorites from a backup."))
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 16) {
+                Label(L10n.text("Connect an Image Website"), systemImage: "link").font(.headline)
+                Text(L10n.text("Have a website in mind? Copy its home address from your browser. We will recognize known server types for you."))
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Button { addingServer = true } label: {
+                    Label(L10n.text("Enter Website Address"), systemImage: "plus.circle")
+                        .frame(maxWidth: .infinity).padding(.vertical, 6)
+                }.buttonStyle(.borderedProminent).accessibilityIdentifier("onboarding.addServer")
                 ForEach(env.booru.servers) { server in
                     HStack {
                         Label(server.name, systemImage: "checkmark.circle.fill").font(.subheadline)
@@ -101,7 +80,21 @@ public struct OnboardingView: View {
                             .accessibilityLabel(L10n.text("Validate Client") + " " + server.name)
                     }
                 }
+                Text(L10n.text("You can add a website later from Saved, Explore, or More > Servers."))
+                    .font(.footnote).foregroundStyle(.secondary)
             }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+            Button { step = 1 } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "square.and.arrow.down").font(.title2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(L10n.text("Bring your collection")).font(.headline)
+                        Text("Anime Boxes · Violet").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.footnote)
+                }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
+            }.buttonStyle(.plain).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+                .accessibilityIdentifier("onboarding.chooseImport")
             VStack(alignment: .leading, spacing: 8) {
                 Toggle(L10n.text("iCloud Sync"), isOn: Binding(get: { env.sync.enabled }, set: { env.sync.enabled = $0 }))
                 Text(L10n.text("iCloud sync is optional and starts enabled. Your library and selected settings sync through your Apple account. You can change this in Settings."))
@@ -161,21 +154,8 @@ public struct OnboardingView: View {
         }.accessibilityElement(children: .contain).accessibilityIdentifier("onboarding.tutorial")
     }
 
-    @discardableResult private func addServer() -> Bool {
-        do {
-            let url = try BooruServer.validatedURL(booruAddress)
-            let existing = env.booru.servers.first { $0.baseURL == url }
-            let server = existing ?? BooruServer(name: url.host ?? "Booru", baseURL: url,
-                engine: url.host?.hasSuffix(".booru.org") == true ? .oldGelbooru : booruEngine)
-            if existing == nil { try env.booru.saveServer(server) }
-            try env.booru.setSelectedServers(env.booru.selectedServerIDs + [server.id])
-            booruAddress = ""
-            return true
-        } catch { self.error = error.localizedDescription; return false }
-    }
     private func next() {
         if step == 0 {
-            if !booruAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !addServer() { return }
             env.mode = .booru
             step = 1
         } else if step == 1 { step = 2 }
