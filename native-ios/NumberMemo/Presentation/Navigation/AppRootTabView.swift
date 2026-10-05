@@ -10,7 +10,7 @@ public struct AppRootTabView: View {
 
     public var body: some View {
         RetainedModeContainer(mode: env.mode,
-            hitomi: AnyView(comicsContent.environment(env).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()),
+            hitomi: AnyView(hitomiTabs.environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()),
             booru: AnyView(BooruRootView(selectedTab: $selectedTab).environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()))
         .ignoresSafeArea()
         .clearTopScrollEdge()
@@ -30,19 +30,12 @@ public struct AppRootTabView: View {
         }
     }
 
-    @ViewBuilder private var comicsContent: some View {
-        if env.isSiteVerified {
-            hitomiTabs
-        } else {
-            NavigationStack { ComicsSetupView() }
-        }
-    }
-
     private var hitomiTabs: some View {
         ZStack(alignment: .bottomTrailing) {
             TabView(selection: $selectedTab) {
                 NavigationStack {
                     FoldersView()
+                        .safeAreaInset(edge: .top) { if !env.isSiteVerified { ComicsConnectionCard().padding(.horizontal) } }
                 }
                 .tabItem {
                     Label(L10n.text("Saved"), systemImage: selectedTab == .folders ? "folder.fill" : "folder")
@@ -76,7 +69,17 @@ public struct AppRootTabView: View {
         }
     }
 
-    private var exploration: some View { ContentEntryView(embedded: true) }
+    @ViewBuilder private var exploration: some View {
+        if env.isSiteVerified { ContentEntryView(embedded: true) }
+        else {
+            NavigationStack {
+                Group {
+                    if env.booru.servers.isEmpty { ComicsSetupView() }
+                    else { ComicsPoolsView() }
+                }.appRootHeader("Explore")
+            }
+        }
+    }
 
     private func setupApp() {
         #if DEBUG

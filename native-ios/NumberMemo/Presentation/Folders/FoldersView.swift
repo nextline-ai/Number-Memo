@@ -26,14 +26,7 @@ public struct FoldersView: View {
 
     public var body: some View {
         ScrollView {
-            if !env.isSiteVerified {
-                ContentUnavailableView(
-                    L10n.text("Content Unavailable"),
-                    systemImage: "lock.fill",
-                    description: Text(L10n.text("Enter the correct service address in Settings."))
-                )
-                .padding(.top, 60)
-            } else if folders.isEmpty {
+            if folders.isEmpty {
                 ContentUnavailableView(
                     L10n.text("No Folders"),
                     systemImage: "folder",
@@ -95,7 +88,6 @@ public struct FoldersView: View {
                         Image(systemName: "folder.badge.plus")
                             .font(.system(size: 17, weight: .medium))
                     }
-                    .disabled(!env.isSiteVerified)
                     .accessibilityLabel(L10n.text("Create Folder"))
                     .accessibilityIdentifier("hitomi.createFolder")
 
@@ -105,7 +97,6 @@ public struct FoldersView: View {
                         Image(systemName: "plus")
                             .font(.system(size: 18, weight: .medium))
                     }
-                    .disabled(!env.isSiteVerified)
                 }
                 .padding(.horizontal, 8)
             }

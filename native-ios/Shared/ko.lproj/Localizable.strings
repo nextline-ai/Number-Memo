@@ -598,3 +598,21 @@
 "Sync saved items and settings across your devices." = "저장한 항목과 설정을 기기 간에 동기화합니다.";
 "Enter the website’s home address." = "사이트의 홈 주소를 입력하세요.";
 "Select the server type for this address." = "서버 종류를 선택하세요.";
+
+"Enter a comics website address, or import your Violet library." = "만화 사이트 주소를 입력하거나 Violet 데이터를 가져오세요.";
+
+"Pools in Comics Mode" = "만화 모드에서 풀 보기";
+
+"With only image websites connected, Explore shows their pools. Connect a comics website to browse comics instead." = "이미지 사이트만 연결하면 탐색에 풀이 표시됩니다. 만화 사이트를 연결하면 만화가 표시됩니다.";
+
+"Import from Violet" = "Violet에서 가져오기";
+
+"%@ posts" = "게시물 %@개";
+
+"No Available Posts" = "표시할 게시물이 없습니다";
+
+"This website returned no posts for this pool. It may be empty or its posts may no longer be available." = "사이트에서 이 풀의 게시물을 반환하지 않았습니다. 비어 있거나 게시물이 삭제되었을 수 있습니다.";
+
+"Some iCloud files could not be read. Other changes were merged. Try syncing again." = "일부 iCloud 파일을 읽지 못했습니다. 나머지 변경 사항은 반영되었습니다. 다시 동기화해 주세요.";
+
+"Waiting for iCloud to transfer changes. Your data is saved on this device." = "iCloud 전송을 기다리고 있습니다. 데이터는 이 기기에 저장되어 있습니다.";

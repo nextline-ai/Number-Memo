@@ -34,13 +34,6 @@ public struct WorksGridView: View {
         self.artist = artist
     }
 
-    private var canShowContent: Bool {
-        #if DEBUG
-        if ContentUITestSupport.libraryJumpTest { return true }
-        #endif
-        return env.isSiteVerified
-    }
-
     private var isPushed: Bool {
         folder != nil || artist != nil
     }
@@ -56,14 +49,7 @@ public struct WorksGridView: View {
                 VStack(spacing: 0) {
                     Color.clear.frame(height: 56).id("works.top")
 
-                    if !canShowContent {
-                        ContentUnavailableView(
-                            L10n.text("Content Unavailable"),
-                            systemImage: "lock.fill",
-                            description: Text(L10n.text("Enter the correct service address in Settings."))
-                        )
-                        .padding(.top, 40)
-                    } else if works.isEmpty {
+                    if works.isEmpty {
                         ContentUnavailableView(
                             L10n.text("No Works"),
                             systemImage: "square.grid.2x2",
@@ -183,7 +169,7 @@ public struct WorksGridView: View {
                         Image(systemName: "plus")
                     }
                     .frame(width: 40, height: 32)
-                    .disabled(!env.isSiteVerified).accessibilityIdentifier("works.add")
+                    .accessibilityIdentifier("works.add")
                     }
                 }
             }
@@ -270,7 +256,6 @@ public struct WorksGridView: View {
     }
 
     private func openHitomi(for galleryId: Int64) {
-        guard canShowContent else { return }
         let urlString = "https://hitomi.la/reader/\(galleryId).html#1"
         activeBrowserUrl = urlString
     }

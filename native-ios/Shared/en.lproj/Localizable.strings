@@ -598,3 +598,21 @@
 "Sync saved items and settings across your devices." = "Sync saved items and settings across your devices.";
 "Enter the website’s home address." = "Enter the website’s home address.";
 "Select the server type for this address." = "Select the server type for this address.";
+
+"Enter a comics website address, or import your Violet library." = "Enter a comics website address, or import your Violet library.";
+
+"Pools in Comics Mode" = "Pools in Comics Mode";
+
+"With only image websites connected, Explore shows their pools. Connect a comics website to browse comics instead." = "With only image websites connected, Explore shows their pools. Connect a comics website to browse comics instead.";
+
+"Import from Violet" = "Import from Violet";
+
+"%@ posts" = "%@ posts";
+
+"No Available Posts" = "No Available Posts";
+
+"This website returned no posts for this pool. It may be empty or its posts may no longer be available." = "This website returned no posts for this pool. It may be empty or its posts may no longer be available.";
+
+"Some iCloud files could not be read. Other changes were merged. Try syncing again." = "Some iCloud files could not be read. Other changes were merged. Try syncing again.";
+
+"Waiting for iCloud to transfer changes. Your data is saved on this device." = "Waiting for iCloud to transfer changes. Your data is saved on this device.";

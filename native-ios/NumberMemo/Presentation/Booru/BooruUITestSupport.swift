@@ -49,7 +49,7 @@ actor BooruFixtureSource: BooruProviding {
         [.init(name: "scenery", count: 240, category: 0), .init(name: "sample_artist", count: 42, category: 1)].filter { $0.name.hasPrefix(token) }
     }
     func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] {
-        page == 0 ? [.init(id: 77, name: "Mountain_collection", count: 2, description: "A synthetic collection for testing.")] : []
+        page == 0 ? [.init(id: 78, name: "Empty collection", count: 0, hasKnownCount: true), .init(id: 77, name: "Mountain_collection", count: 2, description: "A synthetic collection for testing.", hasKnownCount: true)] : []
     }
     func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch {
         .init(posts: page == 0 ? [Self.post(102, server: server), Self.post(101, server: server)] : [], hasMore: false)

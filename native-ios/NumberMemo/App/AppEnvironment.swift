@@ -78,11 +78,20 @@ public final class AppEnvironment: @unchecked Sendable {
         let value = LibraryCloudSync(defaults: browserPreferences); syncStorage = value; return value
     }
     func reloadSyncedPreferences() {
-        appLanguage = browserPreferences.string(forKey: "app.language") ?? "system"
-        hitomiTheme = AppTheme(rawValue: browserPreferences.string(forKey: "app_theme") ?? "") ?? .dark
-        booruTheme = AppTheme(rawValue: browserPreferences.string(forKey: "booru.app_theme") ?? "") ?? .dark
-        defaultTags = browserPreferences.string(forKey: "hitomi.defaultTags") ?? ""
-        defaultExcludedTags = browserPreferences.string(forKey: "hitomi.defaultExcludedTags") ?? ""
+        // Assign only changed values: materializing absent defaults would upload them
+        // as fresh edits and overwrite another device's preferences on the next pass.
+        let language = browserPreferences.string(forKey: "app.language") ?? "system"
+        if appLanguage != language { appLanguage = language }
+        let comicsTheme = AppTheme(rawValue: browserPreferences.string(forKey: "app_theme") ?? "") ?? .dark
+        if hitomiTheme != comicsTheme { hitomiTheme = comicsTheme }
+        let imageTheme = AppTheme(rawValue: browserPreferences.string(forKey: "booru.app_theme") ?? "") ?? .dark
+        if booruTheme != imageTheme { booruTheme = imageTheme }
+        let tags = browserPreferences.string(forKey: "hitomi.defaultTags") ?? ""
+        if defaultTags != tags { defaultTags = tags }
+        let exclusions = browserPreferences.string(forKey: "hitomi.defaultExcludedTags") ?? ""
+        if defaultExcludedTags != exclusions { defaultExcludedTags = exclusions }
+        let verified = browserPreferences.bool(forKey: "site_verified")
+        if isSiteVerified != verified { isSiteVerified = verified }
     }
     private let browserPreferences: UserDefaults
 

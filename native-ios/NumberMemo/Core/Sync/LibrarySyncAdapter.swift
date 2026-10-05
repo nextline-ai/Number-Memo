@@ -7,7 +7,7 @@ struct LibrarySyncAdapter {
     let booru: BooruStore
     let hitomiDefaults: UserDefaults
     let booruDefaults: UserDefaults
-    static let commonPreferences = ["app.language", "app_theme", "booru.app_theme", "hitomi.defaultTags", "hitomi.defaultExcludedTags", "search.retentionDays", "search.rememberHistory", "reader.translationLanguage"]
+    static let commonPreferences = ["site_verified", "app.language", "app_theme", "booru.app_theme", "hitomi.defaultTags", "hitomi.defaultExcludedTags", "search.retentionDays", "search.rememberHistory", "reader.translationLanguage"]
     static let booruPreferences = ["search.retentionDays", "reader.translationLanguage", "booru.rememberHistory", "booru.rating", "booru.showNotes"]
     static let columns: [String: [String]] = [
         "hitomi.library_order": ["key", "value"],
@@ -22,7 +22,7 @@ struct LibrarySyncAdapter {
         "booru.settings": ["key", "value"]
     ]
 
-    func snapshot() throws -> [String: LibrarySyncRow] {
+    private func assignFolderIdentities() throws {
         // Also assigns identities to legacy imports and share-extension-created folders.
         try hitomi.dbWriter.write { db in
             for row in try Row.fetchAll(db, sql: "SELECT id, name FROM folders WHERE sync_id IS NULL") {
@@ -30,6 +30,10 @@ struct LibrarySyncAdapter {
                 try db.execute(sql: "UPDATE folders SET sync_id = ? WHERE id = ?", arguments: [name == "미분류" ? "unsorted" : UUID().uuidString, row["id"] as Int64])
             }
         }
+    }
+
+    func snapshot() throws -> [String: LibrarySyncRow] {
+        try assignFolderIdentities()
         var rows = try hitomi.dbWriter.read { db -> [LibrarySyncRow] in
             var result: [LibrarySyncRow] = []
             for (table, columns) in Self.columns where table.hasPrefix("hitomi.") {
@@ -84,6 +88,7 @@ struct LibrarySyncAdapter {
     }
 
     func apply(_ changes: [String: LibrarySyncChange]) throws {
+        try assignFolderIdentities()
         let values = Array(changes.values)
         try hitomi.dbWriter.write { db in
             // Remove dependent links before parents; never replace a whole database.

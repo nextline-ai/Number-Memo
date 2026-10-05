@@ -216,7 +216,10 @@ struct BooruFeedView: View {
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 18))
                     }
                     if !loader.loading && loader.errors.isEmpty && visiblePosts.isEmpty {
-                        ContentUnavailableView(L10n.text(loader.posts.isEmpty ? "No Posts" : "Posts Hidden"), systemImage: "photo.on.rectangle", description: Text(L10n.text(loader.posts.isEmpty ? "Try different tags or another server." : "These posts match your blacklist. You can load the next page.")))
+                        ContentUnavailableView(L10n.text(loader.posts.isEmpty ? (pool == nil ? "No Posts" : "No Available Posts") : "Posts Hidden"), systemImage: "photo.on.rectangle", description: Text(L10n.text(loader.posts.isEmpty ? (pool == nil ? "Try different tags or another server." : "This website returned no posts for this pool. It may be empty or its posts may no longer be available.") : "These posts match your blacklist. You can load the next page.")))
+                        if pool != nil {
+                            Button(L10n.text("Open in Browser"), systemImage: "globe") { useEmbeddedBrowser = true }
+                        }
                     }
                     if loader.hasMore && !loader.loading {
                         Button(L10n.text("Load More")) { Task { await load(reset: false) } }

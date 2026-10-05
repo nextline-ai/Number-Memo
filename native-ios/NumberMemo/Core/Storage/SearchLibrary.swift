@@ -37,7 +37,10 @@ extension AppDatabase {
     }
     func reorderFolders(_ ids: [Int64]) throws {
         try dbWriter.write { db in
-            for (position, id) in ids.enumerated() {
+            let existing = try Int64.fetchAll(db, sql: "SELECT id FROM folders ORDER BY sort_order, id")
+            var seen = Set<Int64>()
+            let completeOrder = (ids + existing).filter { existing.contains($0) && seen.insert($0).inserted }
+            for (position, id) in completeOrder.enumerated() {
                 try db.execute(sql: "UPDATE folders SET sort_order = ?, sync_id = COALESCE(sync_id, CASE WHEN name = '미분류' THEN 'unsorted' ELSE ? END) WHERE id = ?", arguments: [position, UUID().uuidString, id])
             }
             let order = try String.fetchAll(db, sql: "SELECT sync_id FROM folders ORDER BY sort_order, id")
@@ -54,8 +57,11 @@ extension BooruStore {
     }
     func reorderFolders(_ ids: [String]) throws {
         try database.write { db in
-            for (position, id) in ids.enumerated() { try db.execute(sql: "UPDATE folders SET position = ? WHERE id = ?", arguments: [position, id]) }
-            try db.execute(sql: "INSERT OR REPLACE INTO settings VALUES ('folder_order', ?)", arguments: [String(decoding: try JSONEncoder().encode(ids), as: UTF8.self)])
+            let existing = try String.fetchAll(db, sql: "SELECT id FROM folders ORDER BY position, name")
+            var seen = Set<String>()
+            let completeOrder = (ids + existing).filter { existing.contains($0) && seen.insert($0).inserted }
+            for (position, id) in completeOrder.enumerated() { try db.execute(sql: "UPDATE folders SET position = ? WHERE id = ?", arguments: [position, id]) }
+            try db.execute(sql: "INSERT OR REPLACE INTO settings VALUES ('folder_order', ?)", arguments: [String(decoding: try JSONEncoder().encode(completeOrder), as: UTF8.self)])
         }
         try refresh()
     }

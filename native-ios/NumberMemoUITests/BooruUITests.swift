@@ -603,6 +603,80 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["More"].waitForExistence(timeout: 5))
     }
 
+    func testKoreanComicsPoolConnectionCardAndSavedTab() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--booru-ui-test", "--comics-setup-test", "-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
+        app.tabBars.buttons["탐색"].tap()
+        element(app, "app.mode.hitomi").tap()
+        XCTAssertTrue(element(app, "booru.pool.77").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "comics.enterAddress").isHittable)
+        XCTAssertTrue(element(app, "comics.importViolet").isHittable)
+        capture(app, "Korean comics pool setup")
+        app.tabBars.buttons["저장"].tap()
+        XCTAssertTrue(element(app, "comics.connectionCard").waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["콘텐츠를 표시할 수 없습니다"].exists)
+        XCTAssertTrue(element(app, "hitomi.createFolder").isEnabled)
+        capture(app, "Korean disconnected comics library")
+        element(app, "comics.importViolet").tap()
+        XCTAssertTrue(app.buttons["완료"].waitForExistence(timeout: 5))
+        capture(app, "Korean Violet import sheet")
+    }
+
+    func testDisconnectedComicsCanUseLocalFoldersBeforeConnectingReader() {
+        let app = launch(extra: ["--comics-setup-test", "--no-sites-test", "--comics-local-library-test"])
+        element(app, "app.mode.hitomi").tap()
+        app.tabBars.buttons["Saved"].tap()
+        XCTAssertTrue(element(app, "hitomi.createFolder").isEnabled)
+        let folder = app.staticTexts["Offline library"]
+        XCTAssertTrue(folder.waitForExistence(timeout: 5)); folder.tap()
+        let work = element(app, "works.card.900000001")
+        XCTAssertTrue(work.waitForExistence(timeout: 5)); work.tap()
+        XCTAssertTrue(element(app, "comics.enterAddress").waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "reader.canvas").exists)
+        element(app, "content.close").tap()
+        XCTAssertTrue(work.waitForExistence(timeout: 5))
+    }
+
+    func testDisconnectedComicsKeepsTabsAndOffersVioletImport() {
+        let app = launch(extra: ["--comics-setup-test", "--no-sites-test"])
+        element(app, "app.mode.hitomi").tap()
+        XCTAssertTrue(element(app, "comics.enterAddress").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
+        element(app, "comics.importViolet").tap()
+        XCTAssertTrue(app.buttons["Import user.db (Bookmarks, Folders, Artists)"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Backup & Restore"].exists)
+        capture(app, "Violet import from disconnected comics")
+        app.tabBars.buttons["Artists"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Artists"].isSelected)
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(element(app, "settings.connection").waitForExistence(timeout: 5))
+    }
+
+    func testComicsShowsImagePoolsUntilComicsWebsiteIsConnected() {
+        let app = launch(extra: ["--comics-setup-test"])
+        element(app, "app.mode.hitomi").tap()
+        XCTAssertTrue(element(app, "comics.connectionCard").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
+        let pool = element(app, "booru.pool.77")
+        XCTAssertTrue(pool.waitForExistence(timeout: 10))
+        XCTAssertFalse(element(app, "booru.pool.78").exists)
+        capture(app, "Comics mode image pools and connection card")
+        pool.tap()
+        let post = element(app, "booru.post.101")
+        XCTAssertTrue(post.waitForExistence(timeout: 5)); post.tap()
+        XCTAssertTrue(element(app, "booru.media").waitForExistence(timeout: 5))
+        openMenu(app); element(app, "booru.close").tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        element(app, "comics.enterAddress").tap()
+        let input = element(app, "comics.address")
+        input.tap(); input.typeText("hitomi.la")
+        element(app, "comics.connect").tap()
+        XCTAssertTrue(element(app, "content.search").waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "comics.connectionCard").exists)
+        XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
+    }
+
     func testComicsConnectionGateAndInvalidAddress() {
         let app = launch(extra: ["--comics-setup-test"])
         element(app, "app.mode.hitomi").tap()

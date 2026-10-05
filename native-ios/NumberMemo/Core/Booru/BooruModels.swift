@@ -175,6 +175,7 @@ struct BooruPool: Identifiable, Hashable, Sendable {
     var name: String
     var count: Int
     var description: String = ""
+    var hasKnownCount = false
 }
 
 struct BooruNote: Identifiable, Equatable, Sendable {

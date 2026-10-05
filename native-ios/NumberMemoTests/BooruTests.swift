@@ -313,6 +313,51 @@ final class BooruTests: XCTestCase {
         catch { XCTAssertTrue(error is BooruError) }
     }
 
+    func testPoolListReadsKnownEmptyCountsAndPostLinksKeepOrder() throws {
+        let html = Data("""
+        <html><table><tr><td><a href='?page=pool&amp;s=show&amp;id=746'>Empty</a></td><td>Creator</td><td>0</td></tr>
+        <tr><td><a href='?page=pool&amp;s=show&amp;id=685'>Pages</a></td><td>Creator</td><td>7</td></tr></table></html>
+        """.utf8)
+        let pools = try BooruHTML.pools(html)
+        XCTAssertTrue(pools.allSatisfy(\.hasKnownCount))
+        XCTAssertEqual(pools.filter { !$0.hasKnownCount || $0.count > 0 }.map(\.id), [685])
+        let posts = Data("<html><span id='p30'><a href='?page=post&amp;s=view&amp;id=30'>one</a></span><a href='?page=post&amp;s=view&amp;id=10'>two</a><a href='?page=pool&amp;s=show&amp;id=9'>unrelated</a></html>".utf8)
+        XCTAssertEqual(try BooruHTML.postIDs(posts), [30, 10])
+    }
+
+    func testDirectPoolLookupDoesNotExposeAnEmptyPool() async throws {
+        var server = dan; server.engine = .gelbooru
+        let client = mocked { _ in (200, "<html><div id='pool-show'>Empty pool</div></html>") }
+        let pools = try await client.pools(server: server, query: "746", page: 0)
+        XCTAssertTrue(pools.isEmpty)
+    }
+
+    func testPoolUsesPublicPostWhenAPIHasNoRow() async throws {
+        var server = dan; server.engine = .gelbooru
+        let client = mocked { request in
+            let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            switch items.first(where: { $0.name == "page" })?.value {
+            case "pool": return (200, "<html><a href='?page=post&amp;s=view&amp;id=17'>page</a></html>")
+            case "dapi": return (200, "[]")
+            default: return (200, "<html><img id='image' src='https://images.example/page.png'></html>")
+            }
+        }
+        let batch = try await client.poolPosts(server: server, poolID: 5, page: 0)
+        XCTAssertEqual(batch.posts.map(\.postID), [17])
+        XCTAssertNotNil(batch.posts.first?.fileURL)
+    }
+
+    func testLiveSafebooruPoolLoadsAllSevenPagesInOrder() async throws {
+        guard ProcessInfo.processInfo.environment["NUMBER_MEMO_BOORU_LIVE_TESTS"] == "1" else { throw XCTSkip("Opt-in network test") }
+        let server = BooruServer.presets[2]
+        let pools = try await BooruClient.shared.pools(server: server, query: "", page: 0)
+        XCTAssertEqual(pools.first { $0.id == 685 }?.count, 7)
+        let batch = try await BooruClient.shared.poolPosts(server: server, poolID: 685, page: 0)
+        XCTAssertEqual(batch.posts.map(\.postID), [4455261, 4378770, 3776896, 416533, 4378768, 4583271, 3776895])
+        XCTAssertTrue(batch.posts.allSatisfy { $0.fileURL != nil && $0.previewURL != nil })
+        XCTAssertFalse(batch.hasMore)
+    }
+
     func testLegacyWholePoolIsPagedLocallyWithoutDuplicates() async throws {
         var server = dan; server.engine = .gelbooru; server.id = UUID().uuidString
         let client = mocked { request in

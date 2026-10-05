@@ -4,13 +4,24 @@ import GRDB
 /// One entry point for library links and Explore, including the website fallback.
 struct ContentEntryView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.dismiss) private var dismiss
     var initialUrl: String = HitomiUrls.home
     var embedded = false
     var body: some View {
-        if env.useEmbeddedBrowser {
-            if embedded && !siteAvailable {
-                NavigationStack { ContentUnavailableView(L10n.text("Connect a Website"), systemImage: "globe", description: Text(L10n.text("Connect the website address in Settings."))).appRootHeader("Explore") }
-            } else if embedded {
+        if !env.isSiteVerified {
+            NavigationStack {
+                ComicsSetupView()
+                    .toolbar {
+                        if !embedded {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button(L10n.text("Close"), systemImage: "xmark") { dismiss() }
+                                    .labelStyle(.iconOnly).accessibilityIdentifier("content.close")
+                            }
+                        }
+                    }
+            }
+        } else if env.useEmbeddedBrowser {
+            if embedded {
                 NavigationStack { InAppHitomiBrowserView(initialUrl: initialUrl, embedded: true).appRootHeader("Explore") }
             } else { InAppHitomiBrowserView(initialUrl: initialUrl, embedded: false) }
         } else {
@@ -23,12 +34,7 @@ struct ContentEntryView: View {
             #endif
         }
     }
-    private var siteAvailable: Bool {
-        #if DEBUG
-        if ContentUITestSupport.enabled { return true }
-        #endif
-        return env.isSiteVerified
-    }
+
 }
 
 /// The native content view. It renders data directly and never creates a web view.

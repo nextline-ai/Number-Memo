@@ -18,6 +18,123 @@ final class LibrarySyncTests: XCTestCase {
         try a.apply(la.changes); try b.apply(lb.changes)
         la.baseline = try a.snapshot(); lb.baseline = try b.snapshot()
     }
+    @MainActor func testReloadDoesNotTurnAbsentDefaultsIntoLocalEdits() throws {
+        let a = try adapter()
+        let env = AppEnvironment(database: a.hitomi, browserPreferences: a.hitomiDefaults, booru: a.booru)
+        env.reloadSyncedPreferences()
+        for key in LibrarySyncAdapter.commonPreferences { XCTAssertNil(a.hitomiDefaults.object(forKey: key), key) }
+    }
+
+    func testPreferencesConnectionAndResetSyncWithoutDeviceSettings() throws {
+        let a = try adapter(), b = try adapter()
+        a.hitomiDefaults.set(true, forKey: "site_verified")
+        a.hitomiDefaults.set("ja", forKey: "app.language")
+        a.hitomiDefaults.set(false, forKey: LibraryCloudSync.enabledKey)
+        a.booruDefaults.set("en", forKey: "reader.translationLanguage")
+        a.booruDefaults.set(5, forKey: "grid_columns")
+        var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
+        try exchange(a, b, &la, &lb)
+        XCTAssertTrue(b.hitomiDefaults.bool(forKey: "site_verified"))
+        XCTAssertEqual(b.hitomiDefaults.string(forKey: "app.language"), "ja")
+        XCTAssertEqual(b.booruDefaults.string(forKey: "reader.translationLanguage"), "en")
+        XCTAssertNil(b.hitomiDefaults.object(forKey: LibraryCloudSync.enabledKey))
+        XCTAssertNil(b.booruDefaults.object(forKey: "grid_columns"))
+        a.hitomiDefaults.removeObject(forKey: "app.language")
+        try exchange(a, b, &la, &lb)
+        XCTAssertNil(b.hitomiDefaults.object(forKey: "app.language"))
+    }
+
+    func testComicsFolderRenameColorAndOrderConvergeAcrossDevices() throws {
+        let a = try adapter(), b = try adapter()
+        let first = try XCTUnwrap(a.hitomi.createFolder(name: "First").id)
+        let second = try XCTUnwrap(a.hitomi.createFolder(name: "Second").id)
+        var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
+        try exchange(a, b, &la, &lb)
+        try a.hitomi.renameFolder(id: first, name: "Renamed")
+        try a.hitomi.setFolderColor(id: first, color: 0xFF123456)
+        try a.hitomi.reorderFolders([second, first])
+        try exchange(a, b, &la, &lb)
+        let names = try b.hitomi.listFolders().map(\.name)
+        XCTAssertEqual(Array(names.prefix(2)), ["Second", "Renamed"])
+        XCTAssertEqual(try b.hitomi.listFolders().first { $0.name == "Renamed" }?.color, 0xFF123456)
+        let before = lb.changes
+        lb.capture(try b.snapshot(), device: "B")
+        XCTAssertEqual(lb.changes, before)
+    }
+
+    func testPersistedLedgerRejectsStalePeerAfterOfflineDeleteAndRestart() throws {
+        let a = try adapter(), b = try adapter()
+        _ = try a.hitomi.upsertWork(galleryId: 42, title: "Saved")
+        var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
+        try exchange(a, b, &la, &lb)
+        let stale = lb.changes
+        try a.hitomi.deleteWork(galleryId: 42)
+        la.capture(try a.snapshot(), device: "A")
+        let data = try JSONEncoder().encode(la)
+        la = try JSONDecoder().decode(LibrarySyncLedger.self, from: data)
+        la.merge(stale)
+        try a.apply(la.changes)
+        XCTAssertNil(try a.hitomi.getWork(galleryId: 42))
+        lb.merge(la.changes); try b.apply(lb.changes)
+        XCTAssertNil(try b.hitomi.getWork(galleryId: 42))
+    }
+
+    func testCorruptPeerDoesNotBlockHealthyCloudDocuments() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let a = try adapter(); _ = try a.hitomi.upsertWork(galleryId: 42)
+        var ledger = LibrarySyncLedger(); ledger.capture(try a.snapshot(), device: "A")
+        try CloudLibraryFiles.write(JSONEncoder().encode(LibrarySyncDocument(changes: ledger.changes)), to: root.appendingPathComponent("library-healthy.json"))
+        try Data("interrupted".utf8).write(to: root.appendingPathComponent("library-broken.json"))
+        let result = try CloudLibraryFiles.readState(in: root)
+        XCTAssertEqual(result.documents.count, 1)
+        XCTAssertEqual(result.unreadableFiles, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("library-broken.json").path))
+        XCTAssertThrowsError(try CloudLibraryFiles.read(in: root))
+        let b = try adapter(); try b.apply(result.documents[0].changes)
+        XCTAssertNotNil(try b.hitomi.getWork(galleryId: 42))
+    }
+
+    func testConcurrentFolderRemovalKeepsNewlySavedWorks() throws {
+        let a = try adapter(), b = try adapter()
+        let folder = try a.hitomi.createFolder(name: "Reading")
+        var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
+        try exchange(a, b, &la, &lb)
+        let other = try XCTUnwrap(b.hitomi.listFolders().first { $0.name == "Reading" })
+        _ = try b.hitomi.upsertWork(galleryId: 99, folderId: other.id)
+        try a.hitomi.dbWriter.write { try $0.execute(sql: "DELETE FROM folders WHERE id = ?", arguments: [folder.id]) }
+        try exchange(a, b, &la, &lb)
+        XCTAssertEqual(try b.hitomi.getWork(galleryId: 99)?.folders.first?.name, "미분류")
+    }
+
+    func testLiveICloudContainerUploadAndCoordinatedRead() async throws {
+        guard ProcessInfo.processInfo.environment["NUMBER_MEMO_BOORU_LIVE_TESTS"] == "1" else { throw XCTSkip("Opt-in device iCloud test") }
+        XCTAssertNotNil(FileManager.default.ubiquityIdentityToken, "An iCloud account with Drive enabled is required")
+        let container = await Task.detached { FileManager.default.url(forUbiquityContainerIdentifier: AppStorage.iCloudContainerId) }.value
+        let root = try XCTUnwrap(container, "The signed iCloud container must be available")
+            .appendingPathComponent("Documents/SyncDiagnostics/" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let row = LibrarySyncRow(table: "hitomi.saved_searches", values: ["query": .text("sync diagnostic")])
+        var ledger = LibrarySyncLedger(); ledger.capture([row.key: row], device: "diagnostic")
+        let document = LibrarySyncDocument(changes: ledger.changes)
+        let data = try JSONEncoder().encode(document)
+        let destination = root.appendingPathComponent("library-diagnostic.json")
+        try await Task.detached { try CloudLibraryFiles.write(data, to: destination, ubiquitous: true) }.value
+        let read = try await Task.detached { try CloudLibraryFiles.read(in: root) }.value
+        XCTAssertEqual(read.first?.changes, document.changes)
+        for _ in 0..<60 {
+            var probe = destination
+            probe.removeAllCachedResourceValues()
+            let values = try probe.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey])
+            if values.isUbiquitousItem == true && values.ubiquitousItemIsUploaded == true { return }
+            try await Task.sleep(for: .seconds(1))
+        }
+        var probe = destination; probe.removeAllCachedResourceValues()
+        let state = try probe.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey, .ubiquitousItemUploadingErrorKey])
+        let error = state.ubiquitousItemUploadingError as NSError?
+        XCTFail("iCloud upload timed out: managed=\(String(describing: state.isUbiquitousItem)), uploaded=\(String(describing: state.ubiquitousItemIsUploaded)), error=\(error?.domain ?? "none")/\(error?.code ?? 0)")
+    }
+
     func testManuallyAddedFirstServerSyncsAsUserData() throws {
         let a = try adapter(), b = try adapter()
         let server = BooruServer.presets[2]

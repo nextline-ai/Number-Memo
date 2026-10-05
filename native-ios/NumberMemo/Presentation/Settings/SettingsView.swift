@@ -54,24 +54,60 @@ struct ComicsSetupView: View {
             VStack(alignment: .leading, spacing: 24) {
                 Image(systemName: "book.closed").font(.system(size: 48)).foregroundStyle(.tint)
                 Text(L10n.text("Connect Your Comics Website")).font(.largeTitle.bold())
-                Text(L10n.text("For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access."))
+                Text(L10n.text("Enter a comics website address, or import your Violet library."))
                     .foregroundStyle(.secondary)
                 NavigationLink { ComicsConnectionSettings() } label: {
                     Label(L10n.text("Enter Website Address"), systemImage: "link")
                         .frame(maxWidth: .infinity).padding(.vertical, 8)
                 }.buttonStyle(.borderedProminent).controlSize(.large)
                     .accessibilityIdentifier("comics.enterAddress")
-                Text(L10n.text("You can switch to image mode at any time and connect an image website there."))
-                    .font(.footnote).foregroundStyle(.secondary)
+                NavigationLink { HitomiLibraryToolsView(importOnly: true) } label: {
+                    Label(L10n.text("Import from Violet"), systemImage: "square.and.arrow.down")
+                }.accessibilityIdentifier("comics.importViolet")
             }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("").navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) { LiquidGlassTitleCapsule(L10n.text("Comics")) }
-            ToolbarItem(placement: .principal) { AppModeSwitch() }
-        }
         .accessibilityIdentifier("comics.setup")
+    }
+}
+
+
+/// Available on every unconnected comics library, not just during setup.
+struct ComicsConnectionCard: View {
+    @Environment(AppEnvironment.self) private var env
+    @State private var showConnection = false
+    @State private var showImport = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(L10n.text(env.booru.servers.isEmpty ? "Connect Your Comics Website" : "Pools in Comics Mode"), systemImage: "book.closed")
+                .font(.headline).accessibilityIdentifier("comics.connectionCard")
+            Text(L10n.text(env.booru.servers.isEmpty
+                ? "Enter a comics website address, or import your Violet library."
+                : "With only image websites connected, Explore shows their pools. Connect a comics website to browse comics instead."))
+                .font(.subheadline).foregroundStyle(.secondary)
+            HStack {
+                Button { showConnection = true } label: {
+                    Text(L10n.text("Enter Website Address"))
+                }.buttonStyle(.borderedProminent).accessibilityIdentifier("comics.enterAddress")
+                Button { showImport = true } label: {
+                    Text(L10n.text("Import from Violet"))
+                }.buttonStyle(.bordered).accessibilityIdentifier("comics.importViolet")
+            }.font(.subheadline)
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+            .sheet(isPresented: $showConnection) {
+                NavigationStack {
+                    ComicsConnectionSettings()
+                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Cancel")) { showConnection = false } } }
+                }
+            }
+            .sheet(isPresented: $showImport) {
+                NavigationStack {
+                    HitomiLibraryToolsView(importOnly: true)
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { showImport = false } } }
+                }
+            }
     }
 }
 
@@ -93,7 +129,7 @@ struct ComicsConnectionSettings: View {
                 .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityIdentifier("comics.connect")
             } footer: {
-                Text(L10n.text("For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access."))
+                Text(L10n.text("Enter the website’s home address."))
             }
         }
         .navigationTitle(L10n.text("Website Connection")).navigationBarTitleDisplayMode(.inline)
@@ -104,7 +140,8 @@ struct ComicsConnectionSettings: View {
     }
 }
 
-private struct HitomiLibraryToolsView: View {
+struct HitomiLibraryToolsView: View {
+    var importOnly = false
     @Environment(AppEnvironment.self) private var env
 
     @State private var worksCount = 0
@@ -126,48 +163,49 @@ private struct HitomiLibraryToolsView: View {
 
     var body: some View {
         List {
-            Section(header: Text(L10n.text("Library Status"))) {
-                LabeledContent(L10n.text("Saved Works"), value: L10n.text("%@ items", String(describing: worksCount)))
-                LabeledContent(L10n.text("Catalog Matches"), value: L10n.text("%@ items", String(describing: catalogCount)))
-                LabeledContent(L10n.text("Missing Titles"), value: L10n.text("%@ items", String(describing: missingCount)))
-            }
+            if !importOnly {
+                Section(header: Text(L10n.text("Library Status"))) {
+                    LabeledContent(L10n.text("Saved Works"), value: L10n.text("%@ items", String(describing: worksCount)))
+                    LabeledContent(L10n.text("Catalog Matches"), value: L10n.text("%@ items", String(describing: catalogCount)))
+                    LabeledContent(L10n.text("Missing Titles"), value: L10n.text("%@ items", String(describing: missingCount)))
+                }
 
-            Section(header: Text(L10n.text("Automatic Fetching"))) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(L10n.text("Fill Covers, Titles, and Tags"))
-                                .font(.headline)
-                            if env.coverQueueState.isRunning && env.coverQueueState.total > 0 {
-                                Text(queueProgressText)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            } else {
-                                Text(L10n.text("Fetch missing covers and metadata in the background."))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                Section(header: Text(L10n.text("Automatic Fetching"))) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(L10n.text("Fill Covers, Titles, and Tags"))
+                                    .font(.headline)
+                                if env.coverQueueState.isRunning && env.coverQueueState.total > 0 {
+                                    Text(queueProgressText)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Text(L10n.text("Fetch missing covers and metadata in the background."))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+
+                            Spacer()
+
+                            Button(action: toggleQueue) {
+                                Image(systemName: env.coverQueueState.isRunning && !env.coverQueueState.isPaused ? "pause.circle.fill" : "play.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.accentColor)
                             }
                         }
 
-                        Spacer()
-
-                        Button(action: toggleQueue) {
-                            Image(systemName: env.coverQueueState.isRunning && !env.coverQueueState.isPaused ? "pause.circle.fill" : "play.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.accentColor)
+                        if env.coverQueueState.isRunning && env.coverQueueState.total > 0 {
+                            ProgressView(
+                                value: queueProgressValue,
+                                total: Double(max(1, env.coverQueueState.total))
+                            )
                         }
                     }
-
-                    if env.coverQueueState.isRunning && env.coverQueueState.total > 0 {
-                        ProgressView(
-                            value: queueProgressValue,
-                            total: Double(max(1, env.coverQueueState.total))
-                        )
-                    }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
             }
-
             Section(header: Text(L10n.text("Import Data (Violet)"))) {
                 Button {
                     showUserDbPicker = true
@@ -184,22 +222,23 @@ private struct HitomiLibraryToolsView: View {
                 .disabled(isImporting)
             }
 
-            Section(header: Text(L10n.text("Backup & Restore"))) {
-                Button {
-                    exportBackup()
-                } label: {
-                    Label(L10n.text("Export JSON Backup"), systemImage: "square.and.arrow.up")
-                }
-                .disabled(isImporting)
+            if !importOnly {
+                Section(header: Text(L10n.text("Backup & Restore"))) {
+                    Button {
+                        exportBackup()
+                    } label: {
+                        Label(L10n.text("Export JSON Backup"), systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(isImporting)
 
-                Button {
-                    showBackupPicker = true
-                } label: {
-                    Label(L10n.text("Import / Restore JSON Backup"), systemImage: "square.and.arrow.down")
+                    Button {
+                        showBackupPicker = true
+                    } label: {
+                        Label(L10n.text("Import / Restore JSON Backup"), systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(isImporting)
                 }
-                .disabled(isImporting)
             }
-
             if isImporting || statusMessage != nil {
                 Section(header: Text(L10n.text("Task Status"))) {
                     if isImporting {
@@ -226,7 +265,7 @@ private struct HitomiLibraryToolsView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(L10n.text("Library Management"))
+        .navigationTitle(L10n.text(importOnly ? "Import from Violet" : "Library Management"))
         .navigationBarTitleDisplayMode(.inline)
         .fileImporter(
             isPresented: $showUserDbPicker,

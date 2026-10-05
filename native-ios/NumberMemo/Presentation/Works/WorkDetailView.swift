@@ -328,7 +328,7 @@ public struct WorkDetailView: View {
     }
 
     private func loadGalleryFilesIfNeeded() {
-        guard galleryHashes.isEmpty else { return }
+        guard env.isSiteVerified, galleryHashes.isEmpty else { return }
         Task {
             if let hashes = try? await HitomiAPIClient.fetchGalleryFiles(galleryId: galleryId) {
                 await MainActor.run {
@@ -343,7 +343,7 @@ public struct WorkDetailView: View {
     }
 
     private func applyThumbnailPage(page: Int) {
-        guard !isChangingThumb else { return }
+        guard env.isSiteVerified, !isChangingThumb else { return }
         isChangingThumb = true
 
         Task {
@@ -409,6 +409,7 @@ public struct WorkDetailView: View {
     }
 
     private func refetchMetadata() {
+        guard env.isSiteVerified else { showBrowser = true; return }
         isRefetching = true
         Task {
             do {

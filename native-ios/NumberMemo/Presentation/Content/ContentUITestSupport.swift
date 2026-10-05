@@ -19,7 +19,7 @@ enum ContentUITestSupport {
         if !BooruUITestSupport.enabled && !BooruUITestSupport.liveEnabled { env.mode = .hitomi }
         if BooruUITestSupport.enabled {
             env.mode = .booru
-            if !ProcessInfo.processInfo.arguments.contains("--onboarding-test") {
+            if !ProcessInfo.processInfo.arguments.contains("--onboarding-test") && !ProcessInfo.processInfo.arguments.contains("--no-sites-test") {
                 for server in BooruServer.presets { try! env.booru.saveServer(server) }
                 if !ProcessInfo.processInfo.arguments.contains("--booru-restored-badge-test") { try! env.booru.select(BooruServer.presets[0]) }
             }
@@ -34,6 +34,10 @@ enum ContentUITestSupport {
                 let server = BooruServer(id: "legacy-live", name: "Legacy", baseURL: url, engine: .oldGelbooru)
                 try! env.booru.saveServer(server); try! env.booru.select(server)
             }
+        }
+        if ProcessInfo.processInfo.arguments.contains("--comics-local-library-test") {
+            let folder = try! env.database.createFolder(name: "Offline library")
+            _ = try! env.database.upsertWork(galleryId: 900000001, folderId: folder.id, title: "Imported work")
         }
         if ProcessInfo.processInfo.arguments.contains("--browser-fallback-test") { env.useEmbeddedBrowser = true }
         if libraryJumpTest {

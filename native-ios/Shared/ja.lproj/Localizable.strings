@@ -598,3 +598,21 @@
 "Sync saved items and settings across your devices." = "保存した項目と設定をデバイス間で同期します。";
 "Enter the website’s home address." = "サイトのホームアドレスを入力してください。";
 "Select the server type for this address." = "サーバーの種類を選択してください。";
+
+"Enter a comics website address, or import your Violet library." = "漫画サイトのアドレスを入力するか、Violetのデータを読み込めます。";
+
+"Pools in Comics Mode" = "漫画モードでプールを見る";
+
+"With only image websites connected, Explore shows their pools. Connect a comics website to browse comics instead." = "画像サイトのみ接続している場合、探索にはプールが表示されます。漫画サイトを接続すると漫画が表示されます。";
+
+"Import from Violet" = "Violetから読み込む";
+
+"%@ posts" = "%@件の投稿";
+
+"No Available Posts" = "表示できる投稿がありません";
+
+"This website returned no posts for this pool. It may be empty or its posts may no longer be available." = "サイトからこのプールの投稿が返されませんでした。空か、投稿が削除されている可能性があります。";
+
+"Some iCloud files could not be read. Other changes were merged. Try syncing again." = "一部のiCloudファイルを読み込めませんでした。他の変更は反映されました。もう一度同期してください。";
+
+"Waiting for iCloud to transfer changes. Your data is saved on this device." = "iCloudへの転送を待っています。データはこのデバイスに保存されています。";

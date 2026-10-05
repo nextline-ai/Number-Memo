@@ -224,7 +224,12 @@ actor BooruClient: BooruProviding {
 
     func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] {
         if server.engine.usesGelbooruPages {
-            if let id = Int64(query), id > 0 { return [.init(id: id, name: "Pool #\(id)", count: 0)] }
+            if let id = Int64(query), id > 0 {
+                let raw = try await data(server, "index.php", [("page", "pool"), ("s", "show"), ("id", String(id))], authenticated: false)
+                let ids = try BooruHTML.postIDs(raw)
+                guard !ids.isEmpty else { return [] }
+                return [.init(id: id, name: "Pool #\(id)", count: ids.count, hasKnownCount: false)]
+            }
             let raw = try await data(server, "index.php", [("page", "pool"), ("s", "list"), ("pid", String(page * 25))], authenticated: false)
             return try BooruHTML.pools(raw)
         }
@@ -252,7 +257,7 @@ actor BooruClient: BooruProviding {
         }
         return try BooruDecoder.rows(raw, key: "pool").compactMap { row in
             guard let name = row["name"] as? String else { return nil }
-            return BooruPool(id: Int64(BooruDecoder.integer(row["id"])), name: name, count: BooruDecoder.integer(row["post_count"]), description: row["description"] as? String ?? "")
+            return BooruPool(id: Int64(BooruDecoder.integer(row["id"])), name: name, count: BooruDecoder.integer(row["post_count"]), description: row["description"] as? String ?? "", hasKnownCount: row["post_count"] != nil)
         }
     }
 
@@ -297,7 +302,11 @@ actor BooruClient: BooruProviding {
                 }
                 do {
                     let response = try await data(server, "index.php", [("page", "dapi"), ("s", "post"), ("q", "index"), ("json", "1"), ("id", String(id))])
-                    posts += try BooruDecoder.rows(response, key: "post").map { try BooruDecoder.post($0, server: server) }
+                    let decoded = try BooruDecoder.rows(response, key: "post").map { try BooruDecoder.post($0, server: server) }
+                    if decoded.isEmpty {
+                        let html = try await data(server, "index.php", [("page", "post"), ("s", "view"), ("id", String(id))], authenticated: false)
+                        posts.append(try BooruLegacyHTML.post(html, server: server, id: id))
+                    } else { posts += decoded }
                 } catch BooruError.authentication {
                     let response = try await data(server, "index.php", [("page", "post"), ("s", "view"), ("id", String(id))], authenticated: false)
                     posts.append(try BooruLegacyHTML.post(response, server: server, id: id))
@@ -461,7 +470,7 @@ enum BooruHTML {
             let number = token.lowercased().hasPrefix("x") ? UInt32(token.dropFirst(), radix: 16) : UInt32(token)
             if let number, let scalar = UnicodeScalar(number) { value = value.replacingOccurrences(of: match[0], with: String(scalar)) }
         }
-        for (key, replacement) in [("&quot;", "\""), ("&#39;", "'"), ("&apos;", "'"), ("&lt;", "<"), ("&gt;", ">"), ("&nbsp;", " "), ("&amp;", "&")] {
+        for (key, replacement) in [("&quot;", "\""), ("&#39;", "'"), ("&apos;", "'"), ("&lt;", "<"), ("&gt;", ">"), ("&nbsp;", " "), ("&rsquo;", "’"), ("&lsquo;", "‘"), ("&rdquo;", "”"), ("&ldquo;", "“"), ("&amp;", "&")] {
             value = value.replacingOccurrences(of: key, with: replacement)
         }
         return value
@@ -481,14 +490,27 @@ enum BooruHTML {
         return html
     }
     static func pools(_ data: Data) throws -> [BooruPool] {
-        var seen = Set<Int64>()
-        return matches("<a\\b([^>]*)>(.*?)</a>", try html(data)).compactMap { m in
-            guard let href = attributes(m[1])["href"], let c = URLComponents(string: href),
-                  c.queryItems?.contains(where: { $0.name == "page" && $0.value == "pool" }) == true,
-                  c.queryItems?.contains(where: { $0.name == "s" && $0.value == "show" }) == true,
-                  let raw = c.queryItems?.first(where: { $0.name == "id" })?.value, let id = Int64(raw), seen.insert(id).inserted else { return nil }
-            return BooruPool(id: id, name: plainText(m[2]), count: 0)
+        let document = try html(data)
+        var counts: [Int64: Int] = [:]
+        for row in matches("<tr\\b[^>]*>(.*?)</tr>", document) {
+            let cells = matches("<td\\b[^>]*>(.*?)</td>", row[1])
+            guard cells.count >= 3, let link = matches("<a\\b([^>]*)>", cells[0][1]).first,
+                  let id = poolID(attributes(link[1])["href"]),
+                  let count = Int(plainText(cells[2][1]).replacingOccurrences(of: ",", with: "")) else { continue }
+            counts[id] = count
         }
+        var seen = Set<Int64>()
+        return matches("<a\\b([^>]*)>(.*?)</a>", document).compactMap { m in
+            guard let id = poolID(attributes(m[1])["href"]), seen.insert(id).inserted else { return nil }
+            return BooruPool(id: id, name: plainText(m[2]), count: counts[id] ?? 0, hasKnownCount: counts[id] != nil)
+        }
+    }
+    private static func poolID(_ href: String?) -> Int64? {
+        guard let href, let c = URLComponents(string: href),
+              c.queryItems?.contains(where: { $0.name == "page" && $0.value == "pool" }) == true,
+              c.queryItems?.contains(where: { $0.name == "s" && $0.value == "show" }) == true,
+              let raw = c.queryItems?.first(where: { $0.name == "id" })?.value else { return nil }
+        return Int64(raw)
     }
     static func danbooruPools(_ data: Data) throws -> [BooruPool] {
         let document = try html(data)
@@ -502,7 +524,7 @@ enum BooruHTML {
                       let raw = matches("(?:^|/)pools/([0-9]+)$", href).first?[1],
                       let id = Int64(raw), seen.insert(id).inserted else { continue }
                 let count = cells.count > 1 ? Int(plainText(cells[1][1]).replacingOccurrences(of: ",", with: "")) ?? 0 : 0
-                return BooruPool(id: id, name: plainText(link[2]), count: count)
+                return BooruPool(id: id, name: plainText(link[2]), count: count, hasKnownCount: cells.count > 1)
             }
             return nil
         }
@@ -510,8 +532,14 @@ enum BooruHTML {
 
     static func postIDs(_ data: Data) throws -> [Int64] {
         var seen = Set<Int64>()
-        return matches("\\bid=[\"']p([0-9]+)[\"']", try html(data)).compactMap {
-            guard let id = Int64($0[1]), seen.insert(id).inserted else { return nil }
+        return matches("<(?:a|span|article)\\b([^>]*)>", try html(data)).compactMap { match in
+            let attrs = attributes(match[1])
+            let markedID = attrs["id"].flatMap { matches("^p([0-9]+)$", $0).first?[1] }.flatMap(Int64.init)
+            let components = attrs["href"].flatMap(URLComponents.init(string:))
+            let isPost = components?.queryItems?.contains { $0.name == "page" && $0.value == "post" } == true
+                && components?.queryItems?.contains { $0.name == "s" && $0.value == "view" } == true
+            let linkedID = isPost ? components?.queryItems?.first { $0.name == "id" }?.value.flatMap(Int64.init) : nil
+            guard let id = markedID ?? linkedID, seen.insert(id).inserted else { return nil }
             return id
         }
     }

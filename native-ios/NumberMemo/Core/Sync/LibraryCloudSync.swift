@@ -72,7 +72,7 @@ final class LibraryCloudSync {
             guard let root = cloudRoot, let local = ledgerURL else { return }
             if !queryStarted { queryStarted = query.start() }
             requestDownloads()
-            let incoming = try await Task.detached(priority: .utility) { try CloudLibraryFiles.read(in: root) }.value
+            let incoming = try await Task.detached(priority: .utility) { try CloudLibraryFiles.readState(in: root) }.value
             guard enabled, account == accountID, let currentToken = FileManager.default.ubiquityIdentityToken,
                   Self.digest(try NSKeyedArchiver.archivedData(withRootObject: currentToken, requiringSecureCoding: false)) == accountID else { return }
             let adapter = LibrarySyncAdapter(hitomi: env.database, booru: env.booru, hitomiDefaults: defaults, booruDefaults: ReaderPreferences.booruDefaults)
@@ -81,7 +81,7 @@ final class LibraryCloudSync {
             var next = ledger
             next.capture(try adapter.snapshot(), device: device)
             let captured = next.changes
-            for document in incoming { next.merge(document.changes) }
+            for document in incoming.documents { next.merge(document.changes) }
             if next.changes != captured {
                 try adapter.apply(next.changes)
                 try env.booru.refresh()
@@ -99,12 +99,25 @@ final class LibraryCloudSync {
                 let data = try encoder.encode(LibrarySyncDocument(changes: ledger.changes))
                 let destination = root.appendingPathComponent("library-" + device + ".json")
                 guard enabled else { return }
-                try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(data, to: destination) }.value
+                try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(data, to: destination, ubiquitous: true) }.value
                 needsUpload = false
             }
+            guard enabled, let currentToken = FileManager.default.ubiquityIdentityToken,
+                  Self.digest(try NSKeyedArchiver.archivedData(withRootObject: currentToken, requiringSecureCoding: false)) == accountID else { return }
+            let destination = root.appendingPathComponent("library-" + device + ".json")
+            let uploaded = try await Task.detached(priority: .utility) {
+                let values = try destination.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey])
+                return values.isUbiquitousItem == true && values.ubiquitousItemIsUploaded == true
+            }.value
             guard enabled else { return }
-            lastSynced = Date()
-            status = L10n.text("iCloud Sync On")
+            if incoming.unreadableFiles > 0 {
+                status = L10n.text("Some iCloud files could not be read. Other changes were merged. Try syncing again.")
+            } else if incoming.pendingDownloads || query.isGathering || !uploaded {
+                status = L10n.text("Waiting for iCloud to transfer changes. Your data is saved on this device.")
+            } else {
+                lastSynced = Date()
+                status = L10n.text("iCloud Sync On")
+            }
         } catch {
             guard enabled else { return }
             status = L10n.text("Unable to sync now. Your data is saved on this device.")
@@ -126,49 +139,79 @@ final class LibraryCloudSync {
 
 /// Blocking coordination lives off the main thread. Never open SQLite in iCloud.
 enum CloudLibraryFiles {
+    struct ReadState: Sendable {
+        var documents: [LibrarySyncDocument] = []
+        var pendingDownloads = false
+        var unreadableFiles = 0
+    }
     static func read(in root: URL) throws -> [LibrarySyncDocument] {
+        let result = try readState(in: root)
+        guard result.unreadableFiles == 0 else { throw CocoaError(.fileReadCorruptFile) }
+        return result.documents
+    }
+    static func readState(in root: URL) throws -> ReadState {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let urls = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.ubiquitousItemDownloadingStatusKey, .fileSizeKey])
-        var documents: [LibrarySyncDocument] = []
+        var state = ReadState()
         for url in urls where url.lastPathComponent.hasPrefix("library-") && url.pathExtension == "json" {
-            let resource = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey, .fileSizeKey])
-            if resource.ubiquitousItemDownloadingStatus == .notDownloaded {
-                try FileManager.default.startDownloadingUbiquitousItem(at: url)
-                continue
-            }
-            guard (resource.fileSize ?? 0) <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
-            var coordinationError: NSError?
-            var result: Result<LibrarySyncDocument, Error>?
-            NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordinationError) { coordinatedURL in
-                result = Result {
-                    let data = try Data(contentsOf: coordinatedURL)
+            do {
+                let resource = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey, .fileSizeKey])
+                if let downloadStatus = resource.ubiquitousItemDownloadingStatus, downloadStatus != .current {
+                    try FileManager.default.startDownloadingUbiquitousItem(at: url)
+                    state.pendingDownloads = true
+                    if downloadStatus == .notDownloaded { continue }
+                }
+                guard (resource.fileSize ?? 0) <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
+                var coordinationError: NSError?
+                var result: Result<LibrarySyncDocument, Error>?
+                NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &coordinationError) { coordinatedURL in
+                    result = Result {
+                        let data = try Data(contentsOf: coordinatedURL)
+                        guard data.count <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
+                        let document = try JSONDecoder().decode(LibrarySyncDocument.self, from: data)
+                        guard document.version == 1 else { throw BooruError.invalidResponse }
+                        return document
+                    }
+                }
+                if let coordinationError { throw coordinationError }
+                guard let result else { throw CocoaError(.fileReadUnknown) }
+                state.documents.append(try result.get())
+                // Read unresolved versions too; row clocks resolve concurrent file versions.
+                for version in NSFileVersion.unresolvedConflictVersionsOfItem(at: url) ?? [] {
+                    let size = try version.url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                    guard size <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
+                    let data = try Data(contentsOf: version.url)
                     guard data.count <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
                     let document = try JSONDecoder().decode(LibrarySyncDocument.self, from: data)
                     guard document.version == 1 else { throw BooruError.invalidResponse }
-                    return document
+                    state.documents.append(document)
                 }
-            }
-            if let coordinationError { throw coordinationError }
-            if let result { documents.append(try result.get()) }
-            // Read unresolved versions too; row clocks resolve concurrent file versions.
-            for version in NSFileVersion.unresolvedConflictVersionsOfItem(at: url) ?? [] {
-                let data = try Data(contentsOf: version.url)
-                guard data.count <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
-                let document = try JSONDecoder().decode(LibrarySyncDocument.self, from: data)
-                guard document.version == 1 else { throw BooruError.invalidResponse }
-                documents.append(document)
+            } catch {
+                // One interrupted/unsupported peer file must not block every healthy device.
+                // Keep the original file intact and surface partial failure in settings.
+                state.unreadableFiles += 1
             }
         }
-        return documents
+        return state
     }
-    static func write(_ data: Data, to url: URL) throws {
+    static func write(_ data: Data, to url: URL, ubiquitous: Bool = false) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if ubiquitous && !FileManager.default.fileExists(atPath: url.path) {
+            // Register new documents with iCloud explicitly; a successful local write
+            // alone does not prove that the document is managed by the cloud daemon.
+            let staging = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+            defer { try? FileManager.default.removeItem(at: staging) }
+            try data.write(to: staging, options: .atomic)
+            try FileManager.default.setUbiquitous(true, itemAt: staging, destinationURL: url)
+            return
+        }
         var coordinationError: NSError?
         var result: Result<Void, Error>?
         NSFileCoordinator().coordinate(writingItemAt: url, options: .forReplacing, error: &coordinationError) { coordinatedURL in
             result = Result { try data.write(to: coordinatedURL, options: .atomic) }
         }
         if let coordinationError { throw coordinationError }
-        try result?.get()
+        guard let result else { throw CocoaError(.fileWriteUnknown) }
+        try result.get()
     }
 }

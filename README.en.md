@@ -13,7 +13,7 @@
 1. Tap **Enter Website Address** and enter the home address of a website you use. No sites are included by default. Supported comics websites can also be connected here.
 2. Import a **Violet** or **Anime Boxes** backup if you have one. You can skip this step and import later in Settings.
 3. Tap or slide the **book / image switch** at the top of the screen to move between comics mode and image mode. Onboarding always finishes in image mode.
-4. Comics mode has no website connected by default for licensing reasons. Tap the book icon, then **Enter Website Address**, to connect a supported site. Only use content you have permission to access.
+4. With only image websites connected, **Explore** in comics mode shows their pools. Connect a comics website to switch to comics browsing. **Import from Violet** is also available from comics mode.
 
 The current Swift native app requires **iOS 17 or later** and supports English, Korean, and Japanese. This guide describes the latest features on `main`. See the [release notes](https://github.com/nextline-ai/Number-Memo/releases) for installation and availability.
 

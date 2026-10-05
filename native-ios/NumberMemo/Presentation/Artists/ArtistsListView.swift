@@ -11,13 +11,7 @@ public struct ArtistsListView: View {
 
     public var body: some View {
         List {
-            if !env.isSiteVerified {
-                ContentUnavailableView(
-                    L10n.text("Content Unavailable"),
-                    systemImage: "lock.fill",
-                    description: Text(L10n.text("Enter the correct service address in Settings."))
-                )
-            } else if artists.isEmpty {
+            if artists.isEmpty {
                 ContentUnavailableView(
                     L10n.text("No Favorite Artists"),
                     systemImage: "person.2",
@@ -29,7 +23,6 @@ public struct ArtistsListView: View {
                         WorksGridView(artist: artist.name)
                     } label: {
                         ArtistRowView(artist: artist) {
-                            guard env.isSiteVerified else { return }
                             let target = HitomiUrls.artistAllUrl(for: artist.name)
                             selectedBrowserItem = IdentifiableURL(url: target)
                         }
