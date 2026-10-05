@@ -210,6 +210,8 @@ struct BooruBlacklist {
                 let matches: Bool
                 if value.hasPrefix("rating:") {
                     matches = Self.rating(String(value.dropFirst(7))) == Self.rating(post.rating)
+                } else if value.hasPrefix("artist:") {
+                    matches = post.artists.contains { $0.lowercased() == String(value.dropFirst(7)) }
                 } else if value.hasPrefix("id:") {
                     matches = String(post.postID) == String(value.dropFirst(3))
                 } else if value.contains("*") {

@@ -7,7 +7,7 @@ struct LibrarySyncAdapter {
     let booru: BooruStore
     let hitomiDefaults: UserDefaults
     let booruDefaults: UserDefaults
-    static let commonPreferences = ["app.language", "app_theme", "booru.app_theme", "hitomi.defaultTags", "hitomi.defaultExcludedTags", "search.retentionDays", "reader.translationLanguage"]
+    static let commonPreferences = ["app.language", "app_theme", "booru.app_theme", "hitomi.defaultTags", "hitomi.defaultExcludedTags", "search.retentionDays", "search.rememberHistory", "reader.translationLanguage"]
     static let booruPreferences = ["search.retentionDays", "reader.translationLanguage", "booru.rememberHistory", "booru.rating", "booru.showNotes"]
     static let columns: [String: [String]] = [
         "hitomi.library_order": ["key", "value"],

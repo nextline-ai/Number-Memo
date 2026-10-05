@@ -118,7 +118,7 @@ struct BooruBlacklistView: View {
                 TextEditor(text: $text).frame(minHeight: 240).font(.body.monospaced())
                     .textInputAutocapitalization(.never).autocorrectionDisabled().accessibilityIdentifier("booru.blacklistText")
             } header: { Text(L10n.text("Tag Blacklist")) } footer: {
-                Text(L10n.text("One rule per line. Space-separated tags must all match. Use -tag for exceptions and * for wildcards. Rating rules are supported."))
+                Text(L10n.text("One rule per line. Use tags, rating:explicit, id:123, or artist:name. Remove a rule to unblock content."))
             }
             Section(L10n.text("Example")) { Text("spoilers\ngore -scenery\nrating:explicit\nartist_*").font(.footnote.monospaced()).foregroundStyle(.secondary) }
         }.navigationTitle(server.name).navigationBarTitleDisplayMode(.inline)
@@ -142,9 +142,7 @@ struct BooruMoreView: View {
     private var settingsServer: BooruServer? { store.servers.first { $0.id == settingsServerID } ?? store.selectedServer }
     @State private var validating: BooruServer?
     @State private var cacheCleared = false
-    @SwiftUI.AppStorage("booru.original", store: ReaderPreferences.booruDefaults) private var original = false
-    @SwiftUI.AppStorage("booru.showNotes", store: ReaderPreferences.booruDefaults) private var showNotes = true
-    @SwiftUI.AppStorage("booru.rememberHistory", store: ReaderPreferences.booruDefaults) private var rememberHistory = true
+    @State private var confirmClearCache = false
     @SwiftUI.AppStorage("booru.autoLoad", store: ReaderPreferences.booruDefaults) private var autoLoad = false
     @SwiftUI.AppStorage("booru.fitThumbnails", store: ReaderPreferences.booruDefaults) private var fitThumbnails = false
     @SwiftUI.AppStorage("booru.useEmbeddedBrowser", store: ReaderPreferences.booruDefaults) private var useEmbeddedBrowser = false
@@ -167,26 +165,14 @@ struct BooruMoreView: View {
             ModeAppearanceSettings()
             LanguageSettingsSection(booru: true)
             Section {
-                Button(L10n.text("Replay Onboarding"), systemImage: "sparkles") { showOnboarding = true }
-                    .accessibilityIdentifier("settings.onboarding")
-            }
-            Section {
-                Button(L10n.text("Reader Settings"), systemImage: "slider.horizontal.3") { showReader = true }.accessibilityIdentifier("booru.readerSettings")
-            } footer: { Text(L10n.text("Appearance and reader preferences are saved separately for each mode.")) }
-            Section {
                 Toggle(L10n.text("Use Embedded Browser"), isOn: $useEmbeddedBrowser).accessibilityIdentifier("booru.browserToggle")
                 Toggle(L10n.text("Fit Entire Thumbnails"), isOn: $fitThumbnails)
                 Toggle(L10n.text("Load Next Page Automatically"), isOn: $autoLoad)
-                Toggle(L10n.text("Remember Search History"), isOn: $rememberHistory)
             } header: { Text(L10n.text("Browsing")) } footer: {
-                Text(L10n.text("The embedded browser uses each server’s saved cookies. Switch back to the image grid at any time. All Ratings disables the rating filter, including on old Booru servers."))
-            }
-            Section(L10n.text("Media")) {
-                Toggle(L10n.text("Load Original Images"), isOn: $original)
-                Toggle(L10n.text("Show Notes on Images"), isOn: $showNotes)
+                Text(L10n.text("Use the website if the native viewer stops working. Turn off to return to the native viewer."))
             }
             if let server = settingsServer {
-                Section(L10n.text("Server")) {
+                Section(L10n.text("Connection & Filters")) {
                     Picker(L10n.text("Server"), selection: Binding(get: { server.id }, set: { settingsServerID = $0 })) {
                         ForEach(store.servers) { Text($0.name).tag($0.id) }
                     }
@@ -195,20 +181,24 @@ struct BooruMoreView: View {
                     NavigationLink { BooruCookiesView(server: server) } label: { Label(L10n.text("Cookies"), systemImage: "network.badge.shield.half.filled") }.accessibilityIdentifier("booru.cookies")
                 }
             }
-            Section(L10n.text("Import Data")) {
-                NavigationLink { AnimeBoxesImportView() } label: { Label(L10n.text("Import from Anime Boxes"), systemImage: "shippingbox") }
-                    .accessibilityIdentifier("booru.importLink")
-            }
-            Section {
-                Button(L10n.text(cacheCleared ? "Image Cache Cleared" : "Clear Image Cache")) {
-                    Task { await BooruThumbnailCache.shared.clear(); cacheCleared = true }
-                }
-            } footer: { Text(L10n.text("Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server.")) }
+            ReaderSettingsSection(booru: true, isPresented: $showReader)
             SearchHistorySettings(booru: true)
             CloudSyncSection()
+            Section {
+                NavigationLink { AnimeBoxesImportView() } label: { Label(L10n.text("Import from Anime Boxes"), systemImage: "shippingbox") }
+                    .accessibilityIdentifier("booru.importLink")
+                Button(L10n.text(cacheCleared ? "Image Cache Cleared" : "Clear Image Cache")) {
+                    confirmClearCache = true
+                }.accessibilityIdentifier("settings.clearCache")
+            } header: { Text(L10n.text("Data & Storage")) } footer: { Text(L10n.text("Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server.")) }
+            SettingsSupportSection(showOnboarding: $showOnboarding)
             DeveloperInfoSection()
         }
         .toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }
+        .alert(L10n.text("Clear Image Cache?"), isPresented: $confirmClearCache) {
+            Button(L10n.text("Clear Image Cache"), role: .destructive) { Task { await BooruThumbnailCache.shared.clear(); cacheCleared = true } }
+            Button(L10n.text("Cancel"), role: .cancel) {}
+        } message: { Text(L10n.text("Saved favorites are kept. Images will be downloaded again when needed.")) }
         .sheet(isPresented: $showReader) { ReaderSettingsView(booru: true) }
         .fullScreenCover(isPresented: $showOnboarding) { OnboardingView().environment(env) }
         .sheet(item: $validating) { BooruValidationView(server: $0) }

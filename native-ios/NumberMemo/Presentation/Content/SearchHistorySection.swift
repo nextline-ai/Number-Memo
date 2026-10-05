@@ -37,18 +37,21 @@ struct SearchHistorySection: View {
 struct SearchHistorySettings: View {
     let booru: Bool
     @SwiftUI.AppStorage private var days: Int
+    @SwiftUI.AppStorage private var remember: Bool
     init(booru: Bool = false) {
         self.booru = booru
+        _remember = .init(wrappedValue: true, booru ? "booru.rememberHistory" : "search.rememberHistory", store: booru ? ReaderPreferences.booruDefaults : ReaderPreferences.defaults)
         _days = .init(wrappedValue: 3, "search.retentionDays", store: booru ? ReaderPreferences.booruDefaults : ReaderPreferences.defaults)
     }
     var body: some View {
         Section(L10n.text("Search History")) {
+            Toggle(L10n.text("Remember Search History"), isOn: $remember).accessibilityIdentifier("settings.rememberHistory")
             Picker(L10n.text("Keep History"), selection: $days) {
                 Text(L10n.text("3 Days")).tag(3)
                 Text(L10n.text("7 Days")).tag(7)
                 Text(L10n.text("30 Days")).tag(30)
                 Text(L10n.text("Always")).tag(0)
-            }
+            }.disabled(!remember).accessibilityIdentifier("settings.historyRetention")
         }
     }
 }

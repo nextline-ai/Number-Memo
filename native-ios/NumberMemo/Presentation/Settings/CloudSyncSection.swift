@@ -15,7 +15,7 @@ struct CloudSyncSection: View {
                     .disabled(env.sync.syncing)
             }
         } header: { Text("iCloud") } footer: {
-            Text(L10n.text("Saved items, folders, colors, order, artists, searches and general settings sync across devices. Grid layout, playback preferences, cached media, account keys and browser cookies stay on each device."))
+            Text(L10n.text("Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device."))
         }
         .alert(L10n.text("Turn Off iCloud Sync?"), isPresented: $confirmDisable) {
             Button(L10n.text("Turn Off"), role: .destructive) { env.sync.enabled = false }

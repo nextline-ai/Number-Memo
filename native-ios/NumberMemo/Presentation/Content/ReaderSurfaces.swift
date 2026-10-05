@@ -51,6 +51,9 @@ struct ReaderDetailsView: View {
         NavigationStack {
             List {
                 Section { Text(gallery.title).font(.headline).textSelection(.enabled) }
+                NavigationLink { ContentReportView(page: URL(string: HitomiUrls.galleryUrl(for: gallery.id))!) } label: {
+                    Label(L10n.text("Report Content"), systemImage: "flag")
+                }.accessibilityIdentifier("reader.report")
                 LabeledContent(L10n.text("Work Number"), value: String(gallery.id))
                 Section(L10n.text("Artists")) {
                     FlowLayout(spacing: 8) {

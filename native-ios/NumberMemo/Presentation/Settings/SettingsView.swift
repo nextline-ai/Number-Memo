@@ -3,9 +3,73 @@ import UniformTypeIdentifiers
 
 public struct SettingsView: View {
     @Environment(AppEnvironment.self) private var env
+    @State private var showReader = false
+    @State private var showOnboarding = false
+    public init() {}
+    public var body: some View {
+        @Bindable var env = env
+        List {
+            ModeAppearanceSettings()
+            LanguageSettingsSection()
+            Section {
+                NavigationLink { HitomiConnectionSettings() } label: {
+                    Label(L10n.text("Website Connection"), systemImage: "globe")
+                }.accessibilityIdentifier("settings.connection")
+                Toggle(L10n.text("Use Embedded Browser"), isOn: $env.useEmbeddedBrowser)
+                    .accessibilityIdentifier("settings.embeddedBrowser")
+            } header: { Text(L10n.text("Browsing")) } footer: {
+                Text(L10n.text("Use the website if the native viewer stops working. Turn off to return to the native viewer."))
+            }
+            HitomiDefaultTagsSettings()
+            ReaderSettingsSection(booru: false, isPresented: $showReader)
+            SearchHistorySettings()
+            CloudSyncSection()
+            Section {
+                NavigationLink { HitomiLibraryToolsView() } label: {
+                    Label(L10n.text("Library Management"), systemImage: "externaldrive")
+                }.accessibilityIdentifier("settings.libraryManagement")
+            } header: { Text(L10n.text("Data & Storage")) } footer: {
+                Text(L10n.text("Import, back up, and fill missing information for your saved works."))
+            }
+            SettingsSupportSection(showOnboarding: $showOnboarding)
+            DeveloperInfoSection()
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) { AppModeSwitch() }
+            ToolbarItem(placement: .topBarLeading) { LiquidGlassTitleCapsule(L10n.text("Settings")) }
+        }
+        .sheet(isPresented: $showReader) { ReaderSettingsView() }
+        .fullScreenCover(isPresented: $showOnboarding) { OnboardingView().environment(env) }
+    }
+}
 
-    @State private var showReaderHelp = false
-    @State private var showReaderSettings = false
+private struct HitomiConnectionSettings: View {
+    @Environment(AppEnvironment.self) private var env
+    @State private var address = ""
+    @State private var invalid = false
+    var body: some View {
+        Form {
+            Section {
+                Label(L10n.text(env.isSiteVerified ? "Service Enabled (hitomi.la)" : "Connection Disabled"), systemImage: env.isSiteVerified ? "checkmark.circle" : "globe")
+                TextField(L10n.text("Website Address"), text: $address)
+                    .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                Button(L10n.text("Save")) { invalid = !env.verifySite(input: address) }
+                    .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } footer: { Text(L10n.text("Enter the correct address (hitomi.la) to enable the library and shortcuts.")) }
+        }
+        .navigationTitle(L10n.text("Website Connection")).navigationBarTitleDisplayMode(.inline)
+        .onAppear { if env.isSiteVerified { address = "hitomi.la" } }
+        .alert(L10n.text("Invalid Address"), isPresented: $invalid) { Button(L10n.text("OK"), role: .cancel) {} }
+    }
+}
+
+private struct HitomiLibraryToolsView: View {
+    @Environment(AppEnvironment.self) private var env
+
     @State private var worksCount = 0
     @State private var catalogCount = 0
     @State private var missingCount = 0
@@ -20,43 +84,11 @@ public struct SettingsView: View {
     @State private var showShareSheet = false
     @State private var showBackupPicker = false
     @State private var backupFileURL: URL?
-    @State private var showOnboardingFlow = false
 
-    public init() {}
 
-    public var body: some View {
-        @Bindable var bindableEnv = env
 
+    var body: some View {
         List {
-            LanguageSettingsSection()
-            Section {
-                Button(L10n.text("Replay Onboarding"), systemImage: "sparkles") { showOnboardingFlow = true }
-                    .accessibilityIdentifier("settings.onboarding")
-            }
-            Section(header: Text(L10n.text("Website Connection"))) {
-                HStack {
-                    Label(
-                        env.isSiteVerified ? L10n.text("Service Enabled (hitomi.la)") : L10n.text("Connection Disabled"),
-                        systemImage: env.isSiteVerified ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-                    )
-                    .foregroundColor(env.isSiteVerified ? .green : .orange)
-
-                    Spacer()
-
-                    Button(L10n.text("Reset Address")) {
-                        showOnboardingFlow = true
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-
-                if !env.isSiteVerified {
-                    Text(L10n.text("Enter the correct address (hitomi.la) to enable the library and shortcuts."))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
             Section(header: Text(L10n.text("Library Status"))) {
                 LabeledContent(L10n.text("Saved Works"), value: L10n.text("%@ items", String(describing: worksCount)))
                 LabeledContent(L10n.text("Catalog Matches"), value: L10n.text("%@ items", String(describing: catalogCount)))
@@ -99,18 +131,6 @@ public struct SettingsView: View {
                 .padding(.vertical, 4)
             }
 
-            ModeAppearanceSettings()
-            HitomiDefaultTagsSettings()
-
-            Section(header: Text(L10n.text("Behavior"))) {
-                Button(L10n.text("Reader Settings")) { showReaderSettings = true }
-                Button(L10n.text("Reader Guide")) { showReaderHelp = true }
-                Toggle(L10n.text("Open in Built-in Browser"), isOn: $bindableEnv.useEmbeddedBrowser)
-                    .accessibilityIdentifier("settings.embeddedBrowser")
-                Text(L10n.text("Use the website if the native viewer stops working. Turn off to return to the native viewer."))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-
             Section(header: Text(L10n.text("Import Data (Violet)"))) {
                 Button {
                     showUserDbPicker = true
@@ -127,7 +147,7 @@ public struct SettingsView: View {
                 .disabled(isImporting)
             }
 
-            Section(header: Text(L10n.text("Backup & Restore (iCloud Compatible)"))) {
+            Section(header: Text(L10n.text("Backup & Restore"))) {
                 Button {
                     exportBackup()
                 } label: {
@@ -167,25 +187,10 @@ public struct SettingsView: View {
                     }
                 }
             }
-            SearchHistorySettings(booru: false)
-            CloudSyncSection()
-            DeveloperInfoSection()
         }
         .listStyle(.insetGrouped)
-        .sheet(isPresented: $showReaderSettings) { ReaderSettingsView() }
-        .navigationTitle("")
+        .navigationTitle(L10n.text("Library Management"))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) { AppModeSwitch() }
-            ToolbarItem(placement: .topBarLeading) {
-                LiquidGlassTitleCapsule(L10n.text("Settings"))
-            }
-        }
-        .fullScreenCover(isPresented: $showOnboardingFlow) {
-            OnboardingView()
-                .environment(env)
-        }
         .fileImporter(
             isPresented: $showUserDbPicker,
             allowedContentTypes: [.item],
@@ -240,7 +245,6 @@ public struct SettingsView: View {
         } message: {
             Text(L10n.text("There are no saved works to match. Import user.db (bookmarks) first, then import data.db to fill the information you need."))
         }
-        .sheet(isPresented: $showReaderHelp) { ReaderHelpView() }
         .sheet(isPresented: $showShareSheet) {
             if let backupFileURL {
                 ShareSheet(items: [backupFileURL])

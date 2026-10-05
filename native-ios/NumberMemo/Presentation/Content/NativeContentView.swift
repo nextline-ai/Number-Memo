@@ -290,7 +290,7 @@ private struct GalleryFeedView: View {
         isSearchFocused = false
         suggestions = []
         let text = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        try? env.database.recordSearch(text)
+        if ReaderPreferences.defaults.object(forKey: "search.rememberHistory") as? Bool ?? true { try? env.database.recordSearch(text) }
         reloadSearches()
         if let route = ContentRoute.initial(text) { navigate(route) }
         else if !text.isEmpty, text.allSatisfy({ $0.isASCII && $0.isNumber }), let id = Int64(text), id > 0 { navigate(.gallery(id)) }

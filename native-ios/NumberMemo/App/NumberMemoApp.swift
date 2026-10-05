@@ -115,9 +115,6 @@ struct NumberMemoApp: App {
     #endif
 
     public init() {
-        UserDefaults.standard.register(defaults: [
-            "NSApplicationCrashOnExceptions": false
-        ])
         #if os(iOS) && !targetEnvironment(macCatalyst)
         UIDevice.current.isBatteryMonitoringEnabled = true
         #endif

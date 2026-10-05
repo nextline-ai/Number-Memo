@@ -38,6 +38,10 @@ public struct OnboardingView: View {
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
                     }.buttonStyle(.borderedProminent).controlSize(.large).disabled(isImporting)
                         .accessibilityIdentifier("onboarding.continue")
+                    if step == 0 {
+                        NavigationLink { PrivacyPolicyView() } label: { Text(L10n.text("Privacy Policy")).font(.footnote) }
+                            .accessibilityIdentifier("onboarding.privacy")
+                    }
                     if step == 1 { Text(L10n.text("You can import your data later in Settings.")).font(.caption).foregroundStyle(.secondary) }
                 }.padding(.horizontal, 24).padding(.vertical, 12).background(.bar)
             }
@@ -101,6 +105,11 @@ public struct OnboardingView: View {
                     }
                 }
             }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle(L10n.text("iCloud Sync"), isOn: Binding(get: { env.sync.enabled }, set: { env.sync.enabled = $0 }))
+                Text(L10n.text("iCloud sync is optional and starts enabled. Your library and selected settings sync through your Apple account. You can change this in Settings."))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
         }
     }
 

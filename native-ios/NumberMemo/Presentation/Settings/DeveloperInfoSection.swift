@@ -20,8 +20,8 @@ struct DeveloperInfoSection: View {
                 HStack(spacing: 12) {
                     Label(L10n.text("Website"), systemImage: "globe")
                     Spacer(minLength: 8)
-                    Text("nextline.work").foregroundStyle(.secondary)
-                    Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.secondary)
+                    Text("nextline.work")
+                    Image(systemName: "arrow.up.right").font(.caption)
                 }
             }.accessibilityIdentifier("developer.website")
             Link(destination: URL(string: "mailto:contact@nextline.work")!) {
@@ -45,11 +45,6 @@ struct DeveloperInfoSection: View {
             }.accessibilityIdentifier("developer.community")
         } header: {
             Text(L10n.text("Developer"))
-        } footer: {
-            Link(destination: URL(string: "https://deaum.org")!) {
-                Text("\(L10n.text("Publisher")): DEAUM · deaum.org")
-                    .font(.caption).foregroundStyle(.secondary)
-            }.accessibilityIdentifier("developer.publisher")
         }
     }
 }

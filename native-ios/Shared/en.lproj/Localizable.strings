@@ -524,3 +524,51 @@
 "Rename Folder" = "Rename Folder";
 
 "Publisher" = "Publisher";
+
+"Library Management" = "Library Management";
+
+"Data & Storage" = "Data & Storage";
+
+"Import, back up, and fill missing information for your saved works." = "Import, back up, and fill missing information for your saved works.";
+
+"Backup & Restore" = "Backup & Restore";
+
+"Viewer" = "Viewer";
+
+"Help & Privacy" = "Help & Privacy";
+
+"Privacy Policy" = "Privacy Policy";
+
+"Version" = "Version";
+
+"View Online" = "View Online";
+
+"Unable to load privacy policy." = "Unable to load privacy policy.";
+
+"Connection & Filters" = "Connection & Filters";
+
+"Content Controls" = "Content Controls";
+
+"Report Content" = "Report Content";
+
+"Hide This Post" = "Hide This Post";
+
+"Block Artist" = "Block Artist";
+
+"Report by Email" = "Report by Email";
+
+"Include what is wrong with this content. Your mail app opens a draft containing the page address; nothing is sent until you send it." = "Include what is wrong with this content. Your mail app opens a draft containing the page address; nothing is sent until you send it.";
+
+"NextLine can investigate app behavior. The source website controls its posts; use its reporting tools to request removal there." = "NextLine can investigate app behavior. The source website controls its posts; use its reporting tools to request removal there.";
+
+"Clear Image Cache?" = "Clear Image Cache?";
+
+"Saved favorites are kept. Images will be downloaded again when needed." = "Saved favorites are kept. Images will be downloaded again when needed.";
+
+"iCloud sync is optional and starts enabled. Your library and selected settings sync through your Apple account. You can change this in Settings." = "iCloud sync is optional and starts enabled. Your library and selected settings sync through your Apple account. You can change this in Settings.";
+
+"One rule per line. Use tags, rating:explicit, id:123, or artist:name. Remove a rule to unblock content." = "One rule per line. Use tags, rating:explicit, id:123, or artist:name. Remove a rule to unblock content.";
+
+"Open Source Licenses" = "Open Source Licenses";
+
+"Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device." = "Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device.";

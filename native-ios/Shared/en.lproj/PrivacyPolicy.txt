@@ -1,0 +1,28 @@
+Number Memo Privacy Policy
+Updated: October 6, 2026
+
+NextLine develops Number Memo. Contact: contact@nextline.work · https://nextline.work
+
+Your library and settings
+Saved works, folders, tags, artists, notes, searches, server addresses, and preferences are stored on your device. The two library modes use separate data stores. The app has no NextLine account, advertising SDK, analytics SDK, or developer-operated library server. We do not receive your library through normal app use.
+
+Websites you use
+The app requests content directly from the selected websites and their media servers. These services receive your IP address, requested URLs and search terms, and any credentials or cookies needed for the request. Browser pages may load additional resources under that website’s control. Those operators apply their own privacy policies and retention rules. Only connect to services you trust. NextLine does not control or promise the deletion of records held by these websites.
+
+Credentials and browser data
+Server account credentials are stored in the device’s Keychain and are used to access that server. Validation and embedded browsing store cookies and website data locally. You can clear cookies in the server settings and remove saved credentials by clearing the account fields. Removing a server deletes its local library data, account credentials, and browser data. Keychain entries may survive app uninstallation; remove server credentials before uninstalling if you want to erase them.
+
+iCloud
+Sync is enabled by default when iCloud Drive is available. Library records and selected settings are stored in your Apple account’s iCloud Drive and merged between your devices. Media files, API keys, and browser cookies are not included in this library sync. A pseudonymous installation/device-derived identifier distinguishes each device’s sync file; it is not sent to NextLine. You can turn sync off in Settings. This stops future syncing but does not delete existing local or iCloud copies. To remove cloud copies, turn sync off on all devices and use Apple’s iCloud storage controls. Device backups are also controlled by your Apple settings.
+
+Import, export, and translation
+The app accesses the backup files you select and writes exports only when requested. Exported backups can contain private library information; copies outside the app remain until you delete them. Image text recognition and translation use Apple frameworks. Apple may download language resources. Number Memo does not send images or recognized text to a NextLine translation service.
+
+Retention and deletion
+Search history keeps the most recent three days by default; you can change this duration, stop recording new searches, delete individual searches, or clear history. Saved searches are kept separately. Library items and settings remain until you remove them. Deleting a folder moves or unfiles its contents rather than deleting the works. With sync enabled, supported library deletions merge across devices. Cached images can be recreated from the source website; Booru’s image cache can be cleared in Settings. Uninstalling removes the app’s local container, but exported files, Keychain entries, shared containers used by another installed component, and iCloud copies can remain.
+
+Support and reports
+If you email us or use Discord, you choose what information to send. Content reports open an email draft with the source page address; sending is your choice. Your mail provider and Discord also process those communications. We use support information to respond to the request and investigate the issue, and retain it only as needed for that purpose or applicable obligations. Contact contact@nextline.work to request deletion of support information. Do not send passwords or API keys. Reports about a website’s posts may also need to be submitted to that website.
+
+Policy changes
+We will update this policy when the app’s data practices change. The current policy is available inside the app and in the project’s public repository.

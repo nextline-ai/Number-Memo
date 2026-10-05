@@ -524,3 +524,51 @@
 "Rename Folder" = "폴더 이름 변경";
 
 "Publisher" = "배포";
+
+"Library Management" = "라이브러리 관리";
+
+"Data & Storage" = "데이터와 저장 공간";
+
+"Import, back up, and fill missing information for your saved works." = "가져오기, 백업과 복원, 저장한 작품의 정보 채우기를 관리합니다.";
+
+"Backup & Restore" = "백업과 복원";
+
+"Viewer" = "뷰어";
+
+"Help & Privacy" = "도움말과 개인정보";
+
+"Privacy Policy" = "개인정보처리방침";
+
+"Version" = "버전";
+
+"View Online" = "웹에서 보기";
+
+"Unable to load privacy policy." = "개인정보처리방침을 불러올 수 없습니다.";
+
+"Connection & Filters" = "연결과 제외 규칙";
+
+"Content Controls" = "콘텐츠 관리";
+
+"Report Content" = "콘텐츠 신고";
+
+"Hide This Post" = "이 게시물 숨기기";
+
+"Block Artist" = "작가 차단";
+
+"Report by Email" = "이메일로 신고";
+
+"Include what is wrong with this content. Your mail app opens a draft containing the page address; nothing is sent until you send it." = "문제가 되는 내용을 적어 주세요. 페이지 주소가 포함된 이메일 초안이 열리며, 직접 전송하기 전에는 전달되지 않습니다.";
+
+"NextLine can investigate app behavior. The source website controls its posts; use its reporting tools to request removal there." = "NextLine은 앱 동작을 조사할 수 있습니다. 원본 게시물은 해당 사이트가 관리하므로, 원본 삭제는 사이트의 신고 기능도 이용해 주세요.";
+
+"Clear Image Cache?" = "이미지 캐시를 지울까요?";
+
+"Saved favorites are kept. Images will be downloaded again when needed." = "즐겨찾기는 유지됩니다. 필요한 이미지는 다시 내려받습니다.";
+
+"iCloud sync is optional and starts enabled. Your library and selected settings sync through your Apple account. You can change this in Settings." = "iCloud 동기화는 선택 사항이며 기본으로 켜져 있습니다. 라이브러리와 일부 설정을 Apple 계정으로 동기화하며 설정에서 변경할 수 있습니다.";
+
+"One rule per line. Use tags, rating:explicit, id:123, or artist:name. Remove a rule to unblock content." = "한 줄에 규칙 하나를 입력하세요. 태그, rating:explicit, id:123, artist:name을 사용할 수 있습니다. 규칙을 지우면 차단이 해제됩니다.";
+
+"Open Source Licenses" = "오픈 소스 라이선스";
+
+"Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device." = "라이브러리와 일반 설정을 동기화합니다. 화면 배치, 재생, 미디어, 계정 정보와 쿠키는 기기별로 유지합니다.";

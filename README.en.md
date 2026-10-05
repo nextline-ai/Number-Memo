@@ -32,7 +32,7 @@ Saved items, tags, artists, appearance, and viewer settings are separate for eac
 
 - Organize galleries into folders and save artists. You can also add galleries through Safari's share menu.
 - Set default search tags and excluded tags to avoid entering them each time.
-- Export or restore a JSON backup in Settings. Keep the file in Files or iCloud Drive.
+- Export or restore a JSON backup in **Settings → Library Management**. Keep the file in Files or iCloud Drive.
 
 ### Booru
 
@@ -86,3 +86,4 @@ Developer details and links are also available at the bottom of **More** in Boor
 Report problems through the [Discord community](https://discord.gg/vUTGZNMaMB). Include your app version, device, and steps to reproduce the issue.
 
 Number Memo is an independent client and is not affiliated with Apple or the supported websites.
+[Privacy Policy](docs/privacy-policy.md) · [App Store review checklist](docs/app-store-review.md)

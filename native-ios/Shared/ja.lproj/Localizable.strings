@@ -524,3 +524,51 @@
 "Rename Folder" = "フォルダ名を変更";
 
 "Publisher" = "配信元";
+
+"Library Management" = "ライブラリ管理";
+
+"Data & Storage" = "データとストレージ";
+
+"Import, back up, and fill missing information for your saved works." = "読み込み、バックアップ・復元、保存作品の不足情報を管理します。";
+
+"Backup & Restore" = "バックアップと復元";
+
+"Viewer" = "ビューア";
+
+"Help & Privacy" = "ヘルプとプライバシー";
+
+"Privacy Policy" = "プライバシーポリシー";
+
+"Version" = "バージョン";
+
+"View Online" = "ウェブで表示";
+
+"Unable to load privacy policy." = "プライバシーポリシーを読み込めません。";
+
+"Connection & Filters" = "接続と除外ルール";
+
+"Content Controls" = "コンテンツ管理";
+
+"Report Content" = "コンテンツを報告";
+
+"Hide This Post" = "この投稿を非表示";
+
+"Block Artist" = "作者をブロック";
+
+"Report by Email" = "メールで報告";
+
+"Include what is wrong with this content. Your mail app opens a draft containing the page address; nothing is sent until you send it." = "問題の内容を記入してください。ページのアドレスを含むメールの下書きが開きます。自分で送信するまで送られません。";
+
+"NextLine can investigate app behavior. The source website controls its posts; use its reporting tools to request removal there." = "NextLineはアプリの動作を調査できます。投稿は元のサイトが管理するため、削除の依頼にはそのサイトの報告機能もご利用ください。";
+
+"Clear Image Cache?" = "画像キャッシュを削除しますか？";
+
+"Saved favorites are kept. Images will be downloaded again when needed." = "お気に入りは保持されます。必要な画像は再ダウンロードされます。";
+
+"iCloud sync is optional and starts enabled. Your library and selected settings sync through your Apple account. You can change this in Settings." = "iCloud同期は任意で、標準では有効です。ライブラリと一部の設定をAppleアカウントで同期します。設定で変更できます。";
+
+"One rule per line. Use tags, rating:explicit, id:123, or artist:name. Remove a rule to unblock content." = "1行に1つのルールを入力します。タグ、rating:explicit、id:123、artist:nameが使えます。ルールを削除するとブロックが解除されます。";
+
+"Open Source Licenses" = "オープンソースライセンス";
+
+"Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device." = "ライブラリと一般設定を同期します。画面配置、再生、メディア、認証情報とCookieは端末ごとに保持します。";

@@ -165,6 +165,10 @@ public struct WorkDetailView: View {
                             }
                     }
 
+                    NavigationLink {
+                        ContentReportView(page: URL(string: HitomiUrls.galleryUrl(for: galleryId))!)
+                    } label: { Label(L10n.text("Report Content"), systemImage: "flag") }
+
                     // Action Buttons
                     VStack(spacing: 12) {
                         Button {

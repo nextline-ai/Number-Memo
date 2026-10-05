@@ -47,6 +47,8 @@ struct ReaderSettingsView: View {
     var booru = false
     @Environment(\.dismiss) private var dismiss
     @State private var showHelp = false
+    @SwiftUI.AppStorage("booru.original", store: ReaderPreferences.booruDefaults) private var original = false
+    @SwiftUI.AppStorage("booru.showNotes", store: ReaderPreferences.booruDefaults) private var showNotes = true
     @SwiftUI.AppStorage("reader.pagesPerSpread", store: ReaderPreferences.defaults) private var pagesPerSpread = 1
     @SwiftUI.AppStorage("reader.autoAdvance", store: ReaderPreferences.defaults) private var autoAdvance = false
     @SwiftUI.AppStorage("reader.autoSeconds", store: ReaderPreferences.defaults) private var autoSeconds = 10.0
@@ -78,6 +80,10 @@ struct ReaderSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if booru { Section(L10n.text("Media")) {
+                    Toggle(L10n.text("Load Original Images"), isOn: $original)
+                    Toggle(L10n.text("Show Notes on Images"), isOn: $showNotes)
+                } }
                 Section(L10n.text("Page Navigation")) {
                     if !booru { Picker(L10n.text("Reading Mode"), selection: $mode) {
                         ForEach(ReaderMode.allCases) { Text($0.title).tag($0.rawValue) }
@@ -93,7 +99,7 @@ struct ReaderSettingsView: View {
                 Section {
                     Toggle(L10n.text("Auto Advance"), isOn: $autoAdvance).accessibilityIdentifier("reader.settings.auto")
                     Stepper(L10n.text("Advance every %@ seconds", String(describing: Int(autoSeconds))), value: $autoSeconds, in: 2...120, step: 1)
-                        .accessibilityIdentifier("reader.settings.seconds")
+                        .accessibilityIdentifier("reader.settings.seconds").disabled(!autoAdvance)
                 } header: { Text(L10n.text("Auto Advance")) } footer: {
                     Text(L10n.text("Pauses while menus, settings, translation, or zoom are active. Stops at the last page."))
                 }

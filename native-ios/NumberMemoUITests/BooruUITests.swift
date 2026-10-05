@@ -34,6 +34,45 @@ final class BooruUITests: XCTestCase {
         }
     }
 
+    func testOrganizedSettingsAndOfflinePrivacyInBothModes() {
+        let app = launch()
+        app.tabBars.buttons["More"].tap()
+        for mode in ["booru", "hitomi"] {
+            if mode == "hitomi" { element(app, "app.mode.hitomi").tap() }
+            XCTAssertTrue(element(app, "settings.gridColumns").waitForExistence(timeout: 5))
+            capture(app, mode + " settings overview")
+            reveal(app, mode == "booru" ? "booru.readerSettings" : "settings.reader").tap()
+            XCTAssertTrue(element(app, "reader.settings.done").waitForExistence(timeout: 5))
+            element(app, "reader.settings.done").tap()
+            let remember = reveal(app, "settings.rememberHistory")
+            XCTAssertTrue(remember.isEnabled)
+            reveal(app, "settings.privacy").tap()
+            XCTAssertTrue(element(app, "settings.privacyPolicy").waitForExistence(timeout: 5))
+            XCTAssertFalse(app.staticTexts["Unable to load privacy policy."].exists)
+            XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Number Memo Privacy Policy")).firstMatch.exists)
+            capture(app, mode + " offline privacy policy")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            let website = reveal(app, "developer.website")
+            XCTAssertTrue(website.isEnabled)
+            XCTAssertFalse(element(app, "developer.publisher").exists)
+            capture(app, mode + " NextLine support links")
+        }
+    }
+
+    func testPostReportAndHideControls() {
+        let app = launch()
+        let post = element(app, "booru.post.101")
+        XCTAssertTrue(post.waitForExistence(timeout: 10)); post.tap()
+        openMenu(app); element(app, "booru.info").tap()
+        reveal(app, "booru.report").tap()
+        XCTAssertTrue(element(app, "content.reportEmail").waitForExistence(timeout: 5))
+        capture(app, "Report content without sending automatically")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        reveal(app, "booru.hidePost").tap()
+        XCTAssertTrue(element(app, "booru.post.102").waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "booru.post.101").exists)
+    }
+
     func testModeSwitchKeepsTabSearchAndLoadedPages() {
         let app = launch()
         let search = element(app, "booru.search")
@@ -334,13 +373,13 @@ final class BooruUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(reveal(app, "developer.website").isHittable)
         XCTAssertTrue(element(app, "developer.logo").exists)
-        XCTAssertTrue(element(app, "developer.community").isHittable)
+        XCTAssertTrue(reveal(app, "developer.community").isHittable)
         capture(app, "Booru developer and community")
         element(app, "app.mode").buttons["Hitomi"].tap()
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(reveal(app, "developer.website").isHittable)
         XCTAssertTrue(element(app, "developer.logo").exists)
-        XCTAssertTrue(element(app, "developer.community").isHittable)
+        XCTAssertTrue(reveal(app, "developer.community").isHittable)
         capture(app, "Hitomi developer and community")
     }
 

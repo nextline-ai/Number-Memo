@@ -3,6 +3,32 @@ import GRDB
 @testable import NumberMemo
 
 final class BooruLibraryTests: XCTestCase {
+    func testContentControlsMatchPostAndArtistWithoutHidingUnrelatedPosts() {
+        let server = BooruServer.presets[0]
+        var post = BooruFixtureSource.post(123, server: server)
+        post.artists = ["sample_artist"]
+        post.tags = ["scenery"]
+        XCTAssertTrue(BooruBlacklist("id:123").contains(post))
+        XCTAssertFalse(BooruBlacklist("id:124").contains(post))
+        XCTAssertTrue(BooruBlacklist("artist:SAMPLE_ARTIST").contains(post))
+        XCTAssertFalse(BooruBlacklist("artist:someone_else").contains(post))
+        XCTAssertTrue(BooruBlacklist("artist:sample_artist -spoilers").contains(post))
+    }
+
+    func testPrivacyPolicyAndRequiredReasonManifestAreBundled() throws {
+        for language in ["en", "ko", "ja"] {
+            let url = try XCTUnwrap(Bundle.main.url(forResource: "PrivacyPolicy", withExtension: "txt", subdirectory: nil, localization: language))
+            let policy = try String(contentsOf: url, encoding: .utf8)
+            XCTAssertTrue(policy.contains("contact@nextline.work"))
+            XCTAssertTrue(policy.contains("iCloud"))
+        }
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy"))
+        let manifest = try XCTUnwrap(PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil) as? [String: Any])
+        XCTAssertEqual(manifest["NSPrivacyTracking"] as? Bool, false)
+        let apis = try XCTUnwrap(manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
+        XCTAssertEqual(apis.first?["NSPrivacyAccessedAPITypeReasons"] as? [String], ["CA92.1", "1C8F.1"])
+    }
+
     func testMultipleSelectionAndFoldersPersistWithoutMixingServers() throws {
         let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".sqlite").path
         defer { try? FileManager.default.removeItem(atPath: path) }

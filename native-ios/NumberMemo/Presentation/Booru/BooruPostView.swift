@@ -247,6 +247,20 @@ struct BooruPostView: View {
                     }
                     Link(L10n.text("Open on Website"), destination: server.pageURL(postID: post.postID))
                 }
+                Section(L10n.text("Content Controls")) {
+                    NavigationLink { ContentReportView(page: server.pageURL(postID: post.postID)) } label: {
+                        Label(L10n.text("Report Content"), systemImage: "flag")
+                    }.accessibilityIdentifier("booru.report")
+                    Button(L10n.text("Hide This Post"), systemImage: "eye.slash") { hideContent(rule: "id:\(post.postID)") }
+                        .accessibilityIdentifier("booru.hidePost")
+                    if !post.artists.isEmpty {
+                        Menu(L10n.text("Block Artist"), systemImage: "person.crop.circle.badge.xmark") {
+                            ForEach(post.artists, id: \.self) { artist in
+                                Button(artist) { hideContent(rule: "artist:" + artist) }
+                            }
+                        }
+                    }
+                }
                 if !post.artists.isEmpty {
                     Section(L10n.text("Artists")) { ForEach(post.artists, id: \.self) { tag in tagRow(tag, artist: true) } }
                 }
@@ -271,6 +285,15 @@ struct BooruPostView: View {
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { info = false } } }
         }.presentationDragIndicator(.visible)
     }
+    private func hideContent(rule: String) {
+        store.perform {
+            let old = store.blacklist(serverID: server.id)
+            try store.setBlacklist(old.isEmpty ? rule : old + "\n" + rule, serverID: server.id)
+            info = false
+            dismiss()
+        }
+    }
+
     private func tagRow(_ tag: String, artist: Bool) -> some View {
         HStack {
             NavigationLink { BooruFeedView(server: server, source: source, initialQuery: tag) } label: { Text(tag.replacingOccurrences(of: "_", with: " ")) }
