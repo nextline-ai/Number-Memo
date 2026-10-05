@@ -86,5 +86,3 @@ Developer details and links are also available at the bottom of **More** in Boor
 Report problems through the [Discord community](https://discord.gg/vUTGZNMaMB). Include your app version, device, and steps to reproduce the issue.
 
 Number Memo is an independent client and is not affiliated with Apple or the supported websites.
-
-<sub>Published by <a href="https://deaum.org">DEAUM</a></sub>
