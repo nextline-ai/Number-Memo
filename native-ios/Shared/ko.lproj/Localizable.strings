@@ -621,3 +621,5 @@
 "Restore Image Library?" = "이미지 보관함을 복원할까요?";
 "Restore" = "복원";
 "The backup will be merged with your library. Matching favorites, folder colors and order will use the backup values. These changes also sync when iCloud is enabled." = "백업을 현재 보관함에 합칩니다. 같은 즐겨찾기와 폴더의 색상·순서는 백업 값으로 복원합니다. iCloud가 켜져 있으면 변경 내용도 동기화됩니다.";
+
+"Applies to folders and works. Automatic adjusts to the window width." = "폴더와 작품에 함께 적용됩니다. 자동은 창 너비에 맞춰 조절합니다.";

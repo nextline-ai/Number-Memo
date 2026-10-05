@@ -74,6 +74,7 @@
 		B205352413DDF87B3797E5E7 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC82F197835D88FC92F979D /* L10n.swift */; };
 		B47065C6484C999BAE01C865 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BAF3C2DCC06421AB540952AD /* InfoPlist.strings */; };
 		BA28F904E000E535FCD4F84C /* AddWorkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E775D9AAE076228E7E440E8C /* AddWorkSheet.swift */; };
+		BA64A4EEBAEB6973149849AB /* GridLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13607A445BF764C6E101E808 /* GridLayoutTests.swift */; };
 		BC9B2011765BD8012C1C6461 /* HitomiDefaultTagsSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B491282DB93F2259627DEFFC /* HitomiDefaultTagsSettings.swift */; };
 		BF509BF83941D8832BA4FC59 /* AppRootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA64BC50201F2B264750FB9E /* AppRootTabView.swift */; };
 		C0510C234AE7CFF966FD76C5 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BAF3C2DCC06421AB540952AD /* InfoPlist.strings */; };
@@ -149,6 +150,7 @@
 		049FCB9C7DD396BBAB69C28D /* BooruPostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruPostView.swift; sourceTree = "<group>"; };
 		0CCB3259837D1E918779915E /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		134C3749F5882A5E7C51E003 /* NativeContentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeContentTests.swift; sourceTree = "<group>"; };
+		13607A445BF764C6E101E808 /* GridLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridLayoutTests.swift; sourceTree = "<group>"; };
 		158CA33375FE5A41376A0AA1 /* BooruUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruUITests.swift; sourceTree = "<group>"; };
 		190113C69D7BCDAA37E28C94 /* NumberMemoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = NumberMemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A43CD02402545179DA392A4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -365,6 +367,7 @@
 				AF1291AD1D0E2E2F74F73C0F /* BooruRevisionTests.swift */,
 				F9A5E549BC3A992CAE3BE32D /* BooruTests.swift */,
 				4B2DCD5BCF18F0F15745D09B /* GalleryIDParserTests.swift */,
+				13607A445BF764C6E101E808 /* GridLayoutTests.swift */,
 				31F4737CDB76989ABF03A465 /* LibrarySyncTests.swift */,
 				134C3749F5882A5E7C51E003 /* NativeContentTests.swift */,
 				FCDDBA7681C1BCD83769C7A5 /* ReaderUXTests.swift */,
@@ -857,6 +860,7 @@
 				C4E563AAFF6C1AF00B6FF425 /* BooruRevisionTests.swift in Sources */,
 				9222CF5DF347B12600C8154F /* BooruTests.swift in Sources */,
 				69BEADC98520A8FFD8B0D31C /* GalleryIDParserTests.swift in Sources */,
+				BA64A4EEBAEB6973149849AB /* GridLayoutTests.swift in Sources */,
 				A0F169C6BB893FB451AF32A7 /* LibrarySyncTests.swift in Sources */,
 				FEBE8B7F1A0A6CABAC5BBBF0 /* NativeContentTests.swift in Sources */,
 				667DF944A204641CB1A783F9 /* ReaderUXTests.swift in Sources */,
@@ -947,6 +951,8 @@
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deaum.numbermemo;
 				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_VERSION = 5.10;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1063,6 +1069,8 @@
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deaum.numbermemo;
 				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_VERSION = 5.10;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

@@ -17,10 +17,7 @@ public struct FoldersView: View {
     @State private var editError: String?
     @State private var reordering = false
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 14),
-        GridItem(.flexible(), spacing: 14)
-    ]
+    private var columns: [GridItem] { WorkGridLayout.columns(env.gridColumns) }
 
     public init() {}
 

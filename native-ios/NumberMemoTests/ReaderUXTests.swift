@@ -215,12 +215,6 @@ final class ReaderUXTests: XCTestCase {
         XCTAssertTrue(regions.allSatisfy { $0.bounds.width > 0 && $0.bounds.height > 0 })
     }
 
-    func testGridUsesSharedColumnRules() {
-        XCTAssertEqual(WorkGridLayout.columns(3, regular: false).count, 3)
-        XCTAssertEqual(WorkGridLayout.columns(2, regular: true).count, 4)
-        XCTAssertEqual(WorkGridLayout.columns(4, regular: true).count, 4)
-    }
-
     @MainActor func testBookmarkIsIdempotentAndPreservesFolders() throws {
         let env = AppEnvironment.preview()
         XCTAssertEqual(try ContentBookmarkAction.save(id: 900000001, gallery: nil, env: env), L10n.text("Saved to bookmarks"))

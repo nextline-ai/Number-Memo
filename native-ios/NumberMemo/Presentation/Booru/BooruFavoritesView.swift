@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BooruFavoritesView: View {
     let source: any BooruProviding
+    @Environment(AppEnvironment.self) private var env
     @Environment(BooruStore.self) private var store
     @State private var creating = false
     @State private var newFolderName = ""
@@ -24,7 +25,7 @@ struct BooruFavoritesView: View {
                         Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.secondary)
                     }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
                 }.accessibilityIdentifier("booru.allFavorites")
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+                LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 14) {
                     ForEach(store.folders()) { folder in
                         NavigationLink { BooruFolderContentsView(source: source, folderID: folder.id) } label: {
                             BooruFolderCard(folder: folder, posts: store.visibleFavorites(folderID: folder.id))

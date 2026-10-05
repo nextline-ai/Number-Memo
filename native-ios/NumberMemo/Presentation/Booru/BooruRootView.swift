@@ -349,11 +349,10 @@ struct BooruPostGrid: View {
     let open: (BooruPost) -> Void
     @Environment(BooruStore.self) private var store
     @Environment(AppEnvironment.self) private var env
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var filing: BooruPost?
     var body: some View {
         let favorites = store.favoriteIDs
-        return LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns, regular: sizeClass == .regular), spacing: 12) {
+        return LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 12) {
             ForEach(posts) { post in
                 if let server = store.servers.first(where: { $0.id == post.serverID }) ?? server {
                     Group {

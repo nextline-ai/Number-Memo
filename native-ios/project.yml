@@ -31,6 +31,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.deaum.numbermemo
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
+        SUPPORTS_MACCATALYST: NO
         INFOPLIST_FILE: NumberMemo/Info.plist
         CODE_SIGN_ENTITLEMENTS: NumberMemo/NumberMemo.entitlements
         CURRENT_PROJECT_VERSION: 6

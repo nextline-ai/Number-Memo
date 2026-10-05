@@ -124,7 +124,6 @@ private struct ContentBookmark: Identifiable {
 
 private struct GalleryFeedView: View {
     @Environment(AppEnvironment.self) private var env
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var toast: String?
     let artist: String?
     let source: any ContentProviding
@@ -173,7 +172,7 @@ private struct GalleryFeedView: View {
                     ForEach(GallerySort.allCases) { Text($0.title).tag($0) }
                 }.pickerStyle(.menu).accessibilityIdentifier("content.sort")
                 }
-                LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns, regular: horizontalSizeClass == .regular), spacing: 16) {
+                LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 16) {
                     ForEach(loader.ids, id: \.self) { id in
                         GalleryGridCard(id: id, isBookmarked: bookmarkedIDs.contains(id), source: source, images: images, open: { navigate(.gallery(id)) }) { gallery in
                             do { toast = try ContentBookmarkAction.toggle(id: id, gallery: gallery, env: env, images: images) }

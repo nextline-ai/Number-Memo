@@ -59,7 +59,7 @@ public final class AppEnvironment: @unchecked Sendable {
     public var gridColumns: Int {
         get { mode == .hitomi ? hitomiColumns : booruColumns }
         set {
-            let value = min(5, max(1, newValue))
+            let value = min(5, max(0, newValue))
             if mode == .hitomi { hitomiColumns = value } else { booruColumns = value }
             browserPreferences.set(value, forKey: mode == .hitomi ? "grid_columns" : "booru.grid_columns")
         }
@@ -132,8 +132,8 @@ public final class AppEnvironment: @unchecked Sendable {
         self.booruTheme = AppTheme(rawValue: browserPreferences.string(forKey: "booru.app_theme") ?? "") ?? .dark
         let hitomiColumns = browserPreferences.integer(forKey: "grid_columns")
         let booruColumns = browserPreferences.integer(forKey: "booru.grid_columns")
-        self.hitomiColumns = hitomiColumns > 0 ? min(5, hitomiColumns) : 2
-        self.booruColumns = booruColumns > 0 ? min(5, booruColumns) : 3
+        self.hitomiColumns = min(5, max(0, hitomiColumns))
+        self.booruColumns = min(5, max(0, booruColumns))
         self.defaultTags = browserPreferences.string(forKey: "hitomi.defaultTags") ?? ""
         self.defaultExcludedTags = browserPreferences.string(forKey: "hitomi.defaultExcludedTags") ?? ""
 

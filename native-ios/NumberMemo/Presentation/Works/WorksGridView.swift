@@ -4,7 +4,6 @@ import GRDB
 public struct WorksGridView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     public let folder: Folder?
     public let artist: String?
@@ -39,7 +38,7 @@ public struct WorksGridView: View {
     }
 
     private var columns: [GridItem] {
-        WorkGridLayout.columns(env.gridColumns, regular: horizontalSizeClass == .regular)
+        WorkGridLayout.columns(env.gridColumns)
     }
 
     public var body: some View {
