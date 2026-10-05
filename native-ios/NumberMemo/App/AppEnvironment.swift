@@ -135,10 +135,18 @@ public final class AppEnvironment: @unchecked Sendable {
         self.isSiteVerified = browserPreferences.bool(forKey: "site_verified")
     }
 
+    static func supportsComicsAddress(_ input: String) -> Bool {
+        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URLComponents(string: value.contains("://") ? value : "https://" + value) else { return false }
+        return url.scheme?.lowercased() == "https" && url.host?.lowercased() == "hitomi.la"
+            && (url.path.isEmpty || url.path == "/") && url.query == nil && url.fragment == nil
+            && url.user == nil && url.password == nil && (url.port == nil || url.port == 443)
+    }
+
     @discardableResult
     public func verifySite(input: String) -> Bool {
         let cleaned = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let isValid = (cleaned == "hitomi.la" || cleaned == "hitomi" || cleaned == "https://hitomi.la")
+        let isValid = cleaned == "hitomi" || Self.supportsComicsAddress(input)
         if isValid { self.isSiteVerified = true }
         return isValid
     }

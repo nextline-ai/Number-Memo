@@ -440,7 +440,6 @@
 "Select one or more servers. Their images and favorites appear together." = "Select one or more servers. Their images and favorites appear together.";
 "Manage Servers" = "Manage Servers";
 "If a server cannot connect, use Validate Client to complete its browser check." = "If a server cannot connect, use Validate Client to complete its browser check.";
-"Bring your collection" = "Bring your collection";
 "Move your servers, favorites and search history from Anime Boxes." = "Move your servers, favorites and search history from Anime Boxes.";
 "Move your folders and works from Violet. You can also start with an empty library." = "Move your folders and works from Violet. You can also start with an empty library.";
 "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata." = "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata.";
@@ -463,9 +462,7 @@
 "Connect your own websites. Books and images keep separate libraries and settings." = "Connect your own websites. Books and images keep separate libraries and settings.";
 "Your reading library is already connected." = "Your reading library is already connected.";
 "Enter the Hitomi website address to enable books. You can set it up later." = "Enter the comics mode website address to enable books. You can set it up later.";
-"Import either library, or both. Your data stays in its own mode." = "Import either library, or both. Your data stays in its own mode.";
 "Switch from the top" = "Switch from the top";
-"Tap or slide the switch at the top of any tab to move between your books and images. Try it here." = "Tap or slide the switch at the top of any tab to move between your books and images. Try it here.";
 "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported." = "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported.";
 
 "All Ratings" = "All Ratings";
@@ -584,18 +581,20 @@
 "This address is not supported. Check the website address and try again." = "This address is not supported. Check the website address and try again.";
 "Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "Browse images, save favorites, and organize your collection. You can connect your own supported websites later.";
 "Terms of Service" = "Terms of Service";
-"Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode.";
 
-"Your Websites, Your Library" = "Your Websites, Your Library";
 "No websites are included. Add a website you use, or bring your servers and favorites from a backup." = "No websites are included. Add a website you use, or bring your servers and favorites from a backup.";
 "Connect an Image Website" = "Connect an Image Website";
-"Have a website in mind? Copy its home address from your browser. We will recognize known server types for you." = "Have a website in mind? Copy its home address from your browser. We will recognize known server types for you.";
 "You can add a website later from Saved, Explore, or More > Servers." = "You can add a website later from Saved, Explore, or More > Servers.";
-"Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use." = "Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use.";
-"We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it." = "We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it.";
 "Connection" = "Connection";
 "Automatic" = "Automatic";
 "Additional Options" = "Additional Options";
 "Name (Optional)" = "Name (Optional)";
 "Set Up Later" = "Set Up Later";
 "You can switch to image mode at any time and connect an image website there." = "You can switch to image mode at any time and connect an image website there.";
+
+"Choose File" = "Choose File";
+"Switch Modes" = "Switch Modes";
+"Use the top switch for comics and images." = "Use the top switch for comics and images.";
+"Sync saved items and settings across your devices." = "Sync saved items and settings across your devices.";
+"Enter the website’s home address." = "Enter the website’s home address.";
+"Select the server type for this address." = "Select the server type for this address.";

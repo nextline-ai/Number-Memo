@@ -65,6 +65,15 @@ final class BooruRevisionTests: XCTestCase {
         XCTAssertTrue(empty.selectedServerIDs.isEmpty)
     }
 
+    func testComicsSetupRecognizesOnlySupportedHomeAddresses() {
+        for address in ["hitomi.la", "https://hitomi.la/", " HITOMI.LA ", "https://hitomi.la:443"] {
+            XCTAssertTrue(AppEnvironment.supportsComicsAddress(address), address)
+        }
+        for address in ["", "safebooru.org", "hitomi.la.example.com", "https://hitomi.la@other.example", "http://hitomi.la", "https://hitomi.la/posts", "https://hitomi.la?site=other", "https://hitomi.la:123"] {
+            XCTAssertFalse(AppEnvironment.supportsComicsAddress(address), address)
+        }
+    }
+
     func testReplayingSetupDoesNotRemoveAnExistingConnectionOnATypo() throws {
         let name = "onboarding-test-" + UUID().uuidString
         let preferences = try XCTUnwrap(UserDefaults(suiteName: name))

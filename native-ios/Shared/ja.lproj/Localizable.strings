@@ -50,7 +50,7 @@
 "Clear Search" = "検索をクリア";
 "Close" = "閉じる";
 "Close Menu" = "メニューを閉じる";
-"Connect a Website" = "サイトへの接続が必要です";
+"Connect a Website" = "サイト接続";
 "Connect the website address in Settings." = "設定でサイトアドレスを接続してください。";
 "Connection Disabled" = "接続無効";
 "Content Unavailable" = "コンテンツを表示できません";
@@ -440,7 +440,6 @@
 "Select one or more servers. Their images and favorites appear together." = "サーバーを1つ以上選択してください。選んだサーバーの画像とお気に入りをまとめて表示します。";
 "Manage Servers" = "サーバー管理";
 "If a server cannot connect, use Validate Client to complete its browser check." = "接続できない場合は「クライアント確認」でブラウザー認証を行ってください。";
-"Bring your collection" = "コレクションを移行";
 "Move your servers, favorites and search history from Anime Boxes." = "Anime Boxesのサーバー、お気に入り、検索履歴を移行できます。";
 "Move your folders and works from Violet. You can also start with an empty library." = "Violetのフォルダと作品を移行できます。空のライブラリから始めることもできます。";
 "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata." = "ファイルアプリでVioletフォルダを開き、ライブラリはuser.db、メタデータはdata.dbを選択してください。";
@@ -463,9 +462,7 @@
 "Connect your own websites. Books and images keep separate libraries and settings." = "利用するサイトのアドレスを入力してください。本と画像のライブラリと設定はそれぞれ独立しています。";
 "Your reading library is already connected." = "本のライブラリは接続済みです。";
 "Enter the Hitomi website address to enable books. You can set it up later." = "漫画モードのアドレスを入力すると本のモードを利用できます。後から設定することもできます。";
-"Import either library, or both. Your data stays in its own mode." = "VioletとAnime Boxesの両方から読み込めます。データはそれぞれのモードに保存されます。";
 "Switch from the top" = "画面上部でモードを切り替え";
-"Tap or slide the switch at the top of any tab to move between your books and images. Try it here." = "どのタブでも上部のスイッチをタップ、またはスライドして本と画像を切り替えられます。ここで試してみましょう。";
 "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported." = "Danbooru、Gelbooru、Old Gelbooru (v0.1.11)、Moebooru互換サーバーに対応しています。";
 
 "All Ratings" = "すべてのレーティング";
@@ -584,18 +581,20 @@
 "This address is not supported. Check the website address and try again." = "このアドレスには対応していません。サイトのアドレスを確認して、もう一度入力してください。";
 "Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "画像を探して、お気に入りをフォルダにまとめましょう。ほかの対応サイトは後から追加できます。";
 "Terms of Service" = "利用規約";
-"Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "漫画モードにはサイトのアドレス入力が必要です。設定後に本のアイコンから接続できます。このガイドを終えると画像モードが開きます。";
 
-"Your Websites, Your Library" = "自分のサイト、自分のライブラリ";
 "No websites are included. Add a website you use, or bring your servers and favorites from a backup." = "初期状態ではサイトは登録されていません。利用するサイトを追加するか、バックアップからサーバーやお気に入りを読み込んでください。";
 "Connect an Image Website" = "画像サイトに接続";
-"Have a website in mind? Copy its home address from your browser. We will recognize known server types for you." = "利用するサイトは決まっていますか？ブラウザからサイトのホームアドレスをコピーして入力してください。既知のサイトはサーバーの種類を自動で選択します。";
 "You can add a website later from Saved, Explore, or More > Servers." = "保存・探索タブ、または「その他 → サーバー」から後で追加することもできます。";
-"Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use." = "ブラウザからサイトのホームアドレスをコピーして入力してください。公開閲覧に対応するサーバーはアカウントなしで利用できます。利用する権利のあるサイトのみ接続してください。";
-"We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it." = "アドレスからサーバーの種類を判別できません。サイトのヘルプで種類を確認し、上で選択してください。";
 "Connection" = "接続";
 "Automatic" = "自動";
 "Additional Options" = "追加オプション";
 "Name (Optional)" = "名前（任意）";
 "Set Up Later" = "後で設定";
 "You can switch to image mode at any time and connect an image website there." = "上部の切り替えでいつでも画像モードに移動し、画像サイトを接続できます。";
+
+"Choose File" = "ファイルを選択";
+"Switch Modes" = "モード切り替え";
+"Use the top switch for comics and images." = "上部で漫画・画像モードを切り替えます。";
+"Sync saved items and settings across your devices." = "保存した項目と設定をデバイス間で同期します。";
+"Enter the website’s home address." = "サイトのホームアドレスを入力してください。";
+"Select the server type for this address." = "サーバーの種類を選択してください。";

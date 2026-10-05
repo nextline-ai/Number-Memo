@@ -63,8 +63,6 @@ struct BooruSetupView: View {
                 NavigationLink { AnimeBoxesImportView() } label: {
                     Label(L10n.text("Import from Anime Boxes"), systemImage: "square.and.arrow.down")
                 }.accessibilityIdentifier("booru.setupImport")
-                Text(L10n.text("Have a website in mind? Copy its home address from your browser. We will recognize known server types for you."))
-                    .font(.footnote).foregroundStyle(.secondary)
             }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
         }
         .sheet(isPresented: $addingServer) { BooruServerEditor(server: nil) }

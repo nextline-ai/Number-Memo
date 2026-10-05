@@ -50,11 +50,13 @@ TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스,
 
 ## 검증 결과
 
+- 빌드 5: 주소 검증 2개와 온보딩 UI 3개 테스트가 통과했다. 초기 입력에서 만화 사이트 연결, 이미지 서버와의 분리, 온보딩 후 이미지 모드, 가져오기 이동을 확인하고 한국어 화면을 캡처로 점검했다.
+
 - 연결된 iPhone에서 관련 테스트 62개가 통과했다(별도 접속 조건이 필요한 7개 제외). 서버 미등록 상태, 주소 인식·등록, 기존 데이터 유지, 서버 삭제 후 재실행, 라이브러리 및 동기화를 검증했다. UI에서는 온보딩·건너뛰기·백업 진입, 주소만 입력한 첫 탐색, 서버 종류 수동 선택, 모드 전환 시 탐색 유지를 확인했다. 별도 서버나 실서비스 접속이 필요한 테스트는 기본 실행에서 제외한다.
 - 두 모드의 설정과 NextLine 링크는 실기기 캡처로 확인했다. 서버·풀 아래에서 Booru 설정을 바로 조절하는 구조를 유지한다.
 - 한국어·영어·일본어 번역 키의 일치와 개인정보 manifest 문법을 확인했다.
 - 수동 연결 예시인 Safebooru API는 점검 시 HTTP 200과 general 등급의 응답을 반환했다. 다른 사용자 지정 서버의 가용성을 보장하는 결과는 아니다.
-- 배포 준비 버전은 1.0.0, 빌드 번호는 4이다. App Store Connect용 IPA 내보내기에 성공했고, 앱·공유 확장의 배포 서명과 번들의 정책·라이선스·개인정보 선언을 확인했다. 업로드·심사 제출은 하지 않았다.
+- 배포 준비 버전은 1.0.0, 빌드 번호는 5이다. App Store Connect용 IPA 내보내기에 성공했고, 앱·공유 확장의 배포 서명과 번들의 정책·라이선스·개인정보 선언을 확인했다. 업로드·심사 제출은 하지 않았다.
 
 ## 입력할 URL
 
@@ -76,7 +78,7 @@ Safebooru is a review example, not a bundled or recommended server. It publishes
 
 Supported image engines include Danbooru, Gelbooru, Old Gelbooru, and Moebooru. Address recognition selects an engine only; it does not create a server until the user saves. Account credentials, when supplied, are stored in Keychain for the relevant server. No credentials are required for the public review example above.
 
-The user-facing Comics Mode uses the Hitomi provider. It is disconnected by default. Tap the book icon at the top, then Enter Website Address, enter hitomi.la, and tap Connect. The setup screen explains licensing and user responsibility for content access. This address enables only the implemented provider, not an arbitrary comics website. Once connected, Settings > Website Connection shows the configured address. All users have the same activation path. There is no review-only mode or remote feature switch. Onboarding always finishes in Image Mode, even if the user tried the comics icon in the tutorial.
+The user-facing Comics Mode uses the Hitomi provider. It is disconnected by default. During onboarding, tap Enter Website Address, enter hitomi.la (or https://hitomi.la/), and tap Save. The form recognizes it as Comics Mode and does not add it to the image-server list. Alternatively, after onboarding tap the book icon at the top, then Enter Website Address, enter hitomi.la, and tap Connect. The unconfigured comics-mode entry screen explains licensing and user responsibility for content access. This address enables only the implemented provider, not an arbitrary comics website. Once connected, Settings > Website Connection shows the configured address. All users have the same activation path. There is no review-only mode or remote feature switch. Onboarding always finishes in Image Mode, even if the user tried the comics icon in the tutorial.
 
 The app includes native browsing and viewers, local folders/favorites, search history, configurable tag exclusions, optional embedded web browsing, image translation using Apple frameworks, and optional iCloud library sync. User-selected servers can return content of different ratings; the app includes rating controls. We do not represent all user-configured servers as Safebooru or as exclusively general-audience content.
 

@@ -50,7 +50,7 @@
 "Clear Search" = "검색 지우기";
 "Close" = "닫기";
 "Close Menu" = "메뉴 닫기";
-"Connect a Website" = "사이트 연결이 필요합니다";
+"Connect a Website" = "사이트 연결";
 "Connect the website address in Settings." = "설정에서 사이트 주소를 연결해주세요.";
 "Connection Disabled" = "연결 비활성화됨";
 "Content Unavailable" = "콘텐츠를 표시할 수 없습니다";
@@ -440,7 +440,6 @@
 "Select one or more servers. Their images and favorites appear together." = "하나 이상의 서버를 선택하세요. 선택한 서버의 이미지와 즐겨찾기를 함께 볼 수 있습니다.";
 "Manage Servers" = "서버 관리";
 "If a server cannot connect, use Validate Client to complete its browser check." = "서버에 연결되지 않으면 ‘클라이언트 확인’에서 브라우저 인증을 진행해 주세요.";
-"Bring your collection" = "기존 보관함 가져오기";
 "Move your servers, favorites and search history from Anime Boxes." = "Anime Boxes의 서버, 즐겨찾기, 검색 기록을 가져오세요.";
 "Move your folders and works from Violet. You can also start with an empty library." = "Violet의 폴더와 작품을 가져오세요. 빈 보관함으로 시작해도 됩니다.";
 "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata." = "파일 앱에서 Violet 폴더를 열어 보관함은 user.db, 메타데이터는 data.db를 선택하세요.";
@@ -463,9 +462,7 @@
 "Connect your own websites. Books and images keep separate libraries and settings." = "사용할 웹사이트 주소를 직접 입력하세요. 책과 이미지는 보관함과 설정이 서로 분리되어 있습니다.";
 "Your reading library is already connected." = "이미 책 라이브러리가 연결되어 있습니다.";
 "Enter the Hitomi website address to enable books. You can set it up later." = "만화 모드 주소를 입력하면 책 모드를 사용할 수 있습니다. 나중에 설정할 수도 있습니다.";
-"Import either library, or both. Your data stays in its own mode." = "Violet과 Anime Boxes 데이터를 모두 가져올 수 있습니다. 각 데이터는 해당 모드에 따로 저장됩니다.";
 "Switch from the top" = "화면 위에서 모드 전환";
-"Tap or slide the switch at the top of any tab to move between your books and images. Try it here." = "어느 탭에서든 상단 스위치를 누르거나 밀어 책과 이미지 모드를 전환할 수 있습니다. 여기서 직접 바꿔보세요.";
 "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported." = "Danbooru, Gelbooru, Old Gelbooru(v0.1.11), Moebooru 호환 서버를 지원합니다.";
 
 "All Ratings" = "전체 수위";
@@ -584,18 +581,20 @@
 "This address is not supported. Check the website address and try again." = "지원하지 않는 주소입니다. 사이트 주소를 확인한 후 다시 입력해 주세요.";
 "Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "이미지를 탐색하고 마음에 드는 작품을 폴더에 모아 보세요. 다른 사이트는 나중에 직접 연결할 수 있습니다.";
 "Terms of Service" = "이용약관";
-"Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "만화 모드는 사이트 주소를 직접 입력해야 합니다. 시작 후 책 아이콘을 눌러 연결하세요. 온보딩을 마치면 이미지 모드가 열립니다.";
 
-"Your Websites, Your Library" = "내 사이트, 내 보관함";
 "No websites are included. Add a website you use, or bring your servers and favorites from a backup." = "기본으로 연결된 사이트는 없습니다. 이용하는 사이트를 직접 추가하거나, 백업에서 서버와 즐겨찾기를 가져오세요.";
 "Connect an Image Website" = "이미지 사이트 연결";
-"Have a website in mind? Copy its home address from your browser. We will recognize known server types for you." = "이용할 사이트가 있나요? 브라우저에서 사이트의 홈 주소를 복사해 입력하세요. 알려진 사이트는 서버 종류를 자동으로 선택해 드립니다.";
 "You can add a website later from Saved, Explore, or More > Servers." = "나중에 저장·탐색 탭이나 더보기 → 서버에서도 추가할 수 있습니다.";
-"Copy the website's home address from your browser. No account is needed for public servers. Only connect sites you have permission to use." = "브라우저에서 사이트의 홈 주소를 복사해 입력하세요. 공개 탐색을 지원하는 서버는 계정 없이 이용할 수 있습니다. 이용 권한이 있는 사이트만 연결해 주세요.";
-"We cannot recognize this server from its address. Choose its type above; the website's help page usually lists it." = "주소만으로 서버 종류를 알 수 없습니다. 사이트 도움말에서 종류를 확인한 뒤 위에서 선택해 주세요.";
 "Connection" = "연결";
 "Automatic" = "자동";
 "Additional Options" = "추가 옵션";
 "Name (Optional)" = "이름 (선택)";
 "Set Up Later" = "나중에 설정";
 "You can switch to image mode at any time and connect an image website there." = "상단에서 언제든 이미지 모드로 전환하여 이미지 사이트를 연결할 수 있습니다.";
+
+"Choose File" = "파일 선택";
+"Switch Modes" = "모드 전환";
+"Use the top switch for comics and images." = "상단에서 만화·이미지 모드를 전환하세요.";
+"Sync saved items and settings across your devices." = "저장한 항목과 설정을 기기 간에 동기화합니다.";
+"Enter the website’s home address." = "사이트의 홈 주소를 입력하세요.";
+"Select the server type for this address." = "서버 종류를 선택하세요.";

@@ -589,7 +589,7 @@ final class BooruUITests: XCTestCase {
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.tutorial").waitForExistence(timeout: 5))
         element(app, "app.mode.hitomi").tap()
-        XCTAssertTrue(app.staticTexts["Organize works, follow artists and read with image translation."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Comics Mode"].waitForExistence(timeout: 5))
         element(app, "app.mode.booru").tap()
         capture(app, "Unified onboarding switch tutorial")
         element(app, "app.mode.hitomi").tap()
@@ -636,6 +636,29 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["sample.booru.org"].waitForExistence(timeout: 5))
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.violetImport").waitForExistence(timeout: 5))
+    }
+
+    func testOnboardingConnectsComicsWithoutAddingAnImageServer() {
+        let app = launch(extra: ["--onboarding-test", "-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"])
+        capture(app, "Concise onboarding setup")
+        element(app, "onboarding.addServer").tap()
+        let address = element(app, "booru.serverURL")
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        address.tap(); address.typeText("https://hitomi.la/")
+        XCTAssertTrue(app.staticTexts["만화 모드"].exists)
+        XCTAssertFalse(element(app, "booru.serverEngine").exists)
+        capture(app, "Comics address in initial connection")
+        element(app, "booru.serverSave").tap()
+        XCTAssertTrue(element(app, "onboarding.comicsConnected").waitForExistence(timeout: 5))
+        element(app, "onboarding.continue").tap()
+        capture(app, "Concise onboarding imports")
+        element(app, "onboarding.continue").tap()
+        capture(app, "Concise onboarding mode tutorial")
+        element(app, "onboarding.continue").tap()
+        XCTAssertTrue(element(app, "booru.setupAddress").waitForExistence(timeout: 5))
+        element(app, "app.mode.hitomi").tap()
+        XCTAssertTrue(app.tabBars.buttons["설정"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "comics.enterAddress").exists)
     }
 
     func testEmptyLibraryCanConnectWithOnlyAnAddress() {
