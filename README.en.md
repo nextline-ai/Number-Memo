@@ -77,7 +77,6 @@ Hitomi also offers **Open in Built-in Browser** in Settings. You can replay the 
 <img src="design/branding/nextline-logo.svg" alt="NextLine" width="160" align="right">
 
 - **Developer:** NextLine
-- **Publisher:** DEAUM (daeummoyang)
 - **Email:** [contact@nextline.work](mailto:contact@nextline.work)
 - **Website:** [nextline.work](https://nextline.work)
 - **Community / bug reports:** [Discord](https://discord.gg/vUTGZNMaMB)
@@ -87,3 +86,5 @@ Developer details and links are also available at the bottom of **More** in Boor
 Report problems through the [Discord community](https://discord.gg/vUTGZNMaMB). Include your app version, device, and steps to reproduce the issue.
 
 Number Memo is an independent client and is not affiliated with Apple or the supported websites.
+
+<sub>Published by <a href="https://deaum.org">DEAUM</a></sub>

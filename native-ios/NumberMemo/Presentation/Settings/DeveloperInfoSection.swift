@@ -16,7 +16,6 @@ struct DeveloperInfoSection: View {
                 Spacer(minLength: 0)
             }.padding(.vertical, 8)
             LabeledContent(L10n.text("Developer"), value: "NextLine")
-            LabeledContent(L10n.text("Publisher"), value: "DEAUM")
             Link(destination: website) {
                 HStack(spacing: 12) {
                     Label(L10n.text("Website"), systemImage: "globe")
@@ -46,6 +45,11 @@ struct DeveloperInfoSection: View {
             }.accessibilityIdentifier("developer.community")
         } header: {
             Text(L10n.text("Developer"))
+        } footer: {
+            Link(destination: URL(string: "https://deaum.org")!) {
+                Text("\(L10n.text("Publisher")): DEAUM · deaum.org")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.accessibilityIdentifier("developer.publisher")
         }
     }
 }

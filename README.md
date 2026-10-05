@@ -77,7 +77,6 @@ Hitomi에도 설정의 **내장 브라우저에서 열기** 옵션이 있습니�
 <img src="design/branding/nextline-logo.svg" alt="NextLine" width="160" align="right">
 
 - **개발자:** NextLine
-- **배포:** DEAUM (daeummoyang)
 - **이메일:** [contact@nextline.work](mailto:contact@nextline.work)
 - **웹사이트:** [nextline.work](https://nextline.work)
 - **커뮤니티 / 버그 제보:** [Discord](https://discord.gg/vUTGZNMaMB)
@@ -87,3 +86,5 @@ Booru의 **더보기**, Hitomi의 **설정** 하단에서도 개발자 정보와
 불편한 점은 [Discord 커뮤니티](https://discord.gg/vUTGZNMaMB)에 남겨 주세요. 사용한 앱 버전·기기·재현 방법을 적어 주시면 도움이 됩니다.
 
 품번메모는 Apple 및 지원 사이트와 무관한 독립 클라이언트입니다.
+
+<sub>배포: <a href="https://deaum.org">DEAUM</a></sub>
