@@ -220,8 +220,8 @@ struct BooruMoreView: View {
             SearchHistorySettings(booru: true)
             CloudSyncSection()
             Section {
-                NavigationLink { AnimeBoxesImportView() } label: { Label(L10n.text("Import from Anime Boxes"), systemImage: "shippingbox") }
-                    .accessibilityIdentifier("booru.importLink")
+                NavigationLink { BooruBackupView() } label: { Label(L10n.text("Library Management"), systemImage: "externaldrive") }
+                    .accessibilityIdentifier("booru.libraryManagement")
                 Button(L10n.text(cacheCleared ? "Image Cache Cleared" : "Clear Image Cache")) {
                     confirmClearCache = true
                 }.accessibilityIdentifier("settings.clearCache")

@@ -19,6 +19,10 @@ The current Swift native app requires **iOS 17 or later** and supports English, 
 
 No address yet? Choose **Set Up Later**. Add a site from **Saved**, **Explore**, or **More → Servers** whenever you are ready. If the type is not recognized, check the website’s help page and select it yourself. Review the site’s terms and only access content you have permission to use.
 
+## Image library backups
+
+Open **More → Library Management** to export or restore a JSON backup, or import from Anime Boxes. Backups include servers, favorites, folder colors and order, saved tags and artists, saved searches, recent search history, and blacklists. Restoring merges into the current library; matching favorites and folder colors/order use the backup values. Image files, sign-in credentials and cookies are not included. Restored library changes also sync when iCloud is enabled. Both modes automatically choose unused colors from the same folder palette.
+
 ## Two modes
 
 | | Comics mode | Image mode (Booru) |

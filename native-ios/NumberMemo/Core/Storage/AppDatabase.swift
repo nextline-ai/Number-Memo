@@ -186,6 +186,11 @@ public final class AppDatabase: Sendable {
 
     public func nextUniqueFolderColor(in db: Database, excluding: Set<Int64> = []) -> Int64 {
         let existingColors = (try? Int64.fetchAll(db, sql: "SELECT color FROM folders")) ?? []
+        return Self.nextFolderColor(existingColors: existingColors, excluding: excluding)
+    }
+
+    /// Shared by both libraries: unused palette colors first, then golden-angle hues.
+    public static func nextFolderColor(existingColors: [Int64], excluding: Set<Int64> = []) -> Int64 {
         var used = Set(existingColors)
         used.formUnion(excluding)
 

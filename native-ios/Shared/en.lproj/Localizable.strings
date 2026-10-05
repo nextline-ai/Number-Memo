@@ -616,3 +616,8 @@
 "Some iCloud files could not be read. Other changes were merged. Try syncing again." = "Some iCloud files could not be read. Other changes were merged. Try syncing again.";
 
 "Waiting for iCloud to transfer changes. Your data is saved on this device." = "Waiting for iCloud to transfer changes. Your data is saved on this device.";
+
+"Back up servers, favorites, folder colors and order, saved tags, searches and blacklists. Images and sign-in details are not included." = "Back up servers, favorites, folder colors and order, saved tags, searches and blacklists. Images and sign-in details are not included.";
+"Restore Image Library?" = "Restore Image Library?";
+"Restore" = "Restore";
+"The backup will be merged with your library. Matching favorites, folder colors and order will use the backup values. These changes also sync when iCloud is enabled." = "The backup will be merged with your library. Matching favorites, folder colors and order will use the backup values. These changes also sync when iCloud is enabled.";

@@ -616,3 +616,8 @@
 "Some iCloud files could not be read. Other changes were merged. Try syncing again." = "일부 iCloud 파일을 읽지 못했습니다. 나머지 변경 사항은 반영되었습니다. 다시 동기화해 주세요.";
 
 "Waiting for iCloud to transfer changes. Your data is saved on this device." = "iCloud 전송을 기다리고 있습니다. 데이터는 이 기기에 저장되어 있습니다.";
+
+"Back up servers, favorites, folder colors and order, saved tags, searches and blacklists. Images and sign-in details are not included." = "사이트, 즐겨찾기, 폴더 색상과 순서, 저장한 태그, 검색 및 제외 태그를 백업합니다. 이미지 파일과 로그인 정보는 포함하지 않습니다.";
+"Restore Image Library?" = "이미지 보관함을 복원할까요?";
+"Restore" = "복원";
+"The backup will be merged with your library. Matching favorites, folder colors and order will use the backup values. These changes also sync when iCloud is enabled." = "백업을 현재 보관함에 합칩니다. 같은 즐겨찾기와 폴더의 색상·순서는 백업 값으로 복원합니다. iCloud가 켜져 있으면 변경 내용도 동기화됩니다.";

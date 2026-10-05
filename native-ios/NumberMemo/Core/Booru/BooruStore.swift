@@ -201,11 +201,13 @@ final class BooruStore: @unchecked Sendable {
         }) ?? []
     }
 
-    @discardableResult func saveFolder(id: String = UUID().uuidString, name: String, color: Int64 = 0xFF6478D3) throws -> String {
+    @discardableResult func saveFolder(id: String = UUID().uuidString, name: String, color: Int64? = nil) throws -> String {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, id != "unsorted" else { throw BooruError.invalidResponse }
         try database.write { db in
-            try db.execute(sql: "INSERT INTO folders VALUES (?, ?, ?, (SELECT COUNT(*) FROM folders)) ON CONFLICT(id) DO UPDATE SET name = excluded.name, color = excluded.color", arguments: [id, name, color])
+            let existing = try Int64.fetchOne(db, sql: "SELECT color FROM folders WHERE id = ?", arguments: [id])
+            let resolved = try color ?? existing ?? AppDatabase.nextFolderColor(existingColors: Int64.fetchAll(db, sql: "SELECT color FROM folders"))
+            try db.execute(sql: "INSERT INTO folders VALUES (?, ?, ?, (SELECT COUNT(*) FROM folders)) ON CONFLICT(id) DO UPDATE SET name = excluded.name, color = excluded.color", arguments: [id, name, resolved])
         }
         revision += 1
         return id

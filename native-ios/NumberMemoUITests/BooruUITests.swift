@@ -464,6 +464,7 @@ final class BooruUITests: XCTestCase {
         let app = launch(extra: ["--booru-import-test", "--booru-import-badge-test"])
         XCTAssertTrue(element(app, "booru.post.201").waitForExistence(timeout: 10))
         app.tabBars.buttons["More"].tap()
+        reveal(app, "booru.libraryManagement").tap()
         reveal(app, "booru.importLink").tap()
         reveal(app, "booru.import.confirm").tap()
         XCTAssertTrue(element(app, "booru.import.result").waitForExistence(timeout: 10))
@@ -522,7 +523,8 @@ final class BooruUITests: XCTestCase {
         let app = launch(extra: ["--booru-import-test"])
         XCTAssertTrue(element(app, "booru.post.101").waitForExistence(timeout: 10))
         app.tabBars.buttons["More"].tap()
-        for _ in 0..<4 where !element(app, "booru.importLink").isHittable { app.swipeUp() }
+        for _ in 0..<4 where !element(app, "booru.libraryManagement").isHittable { app.swipeUp() }
+        reveal(app, "booru.libraryManagement").tap()
         reveal(app, "booru.importLink").tap()
         XCTAssertTrue(app.staticTexts["Backup Contents"].waitForExistence(timeout: 5))
         capture(app, "Anime Boxes import preview")
