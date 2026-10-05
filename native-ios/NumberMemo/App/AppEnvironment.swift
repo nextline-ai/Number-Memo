@@ -113,7 +113,7 @@ public final class AppEnvironment: @unchecked Sendable {
         self.appLanguage = browserPreferences.string(forKey: "app.language") ?? "system"
         L10n.appLanguage = browserPreferences.string(forKey: "app.language") ?? "system"
         self.booru = booru
-        self.mode = AppMode(rawValue: browserPreferences.string(forKey: "content_mode") ?? "") ?? .hitomi
+        self.mode = AppMode(rawValue: browserPreferences.string(forKey: "content_mode") ?? "") ?? .booru
         self.database = database
         self.coverQueueActor = CoverQueueActor(database: database)
         self.coverQueueState = CoverQueueState()
@@ -160,6 +160,7 @@ public final class AppEnvironment: @unchecked Sendable {
     }
 
     public func startCoverQueue() {
+        guard isSiteVerified else { return }
         Task {
             await coverQueueActor.start(state: coverQueueState)
         }

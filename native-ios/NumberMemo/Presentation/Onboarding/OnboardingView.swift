@@ -5,7 +5,7 @@ public struct OnboardingView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
     @State private var step = 0
-    @State private var domainInput = ""
+    @State private var tutorialMode: AppMode = .booru
     @State private var booruAddress = ""
     @State private var booruEngine: BooruEngine = .danbooru
     @State private var error: String?
@@ -64,18 +64,10 @@ public struct OnboardingView: View {
 
     private var setup: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(L10n.text("Your library, two ways")).font(.largeTitle.bold())
-            Text(L10n.text("Connect your own websites. Books and images keep separate libraries and settings.")).foregroundStyle(.secondary)
+            Text(L10n.text("Start with Safebooru")).font(.largeTitle.bold())
+            Text(L10n.text("Browse images, save favorites, and organize your collection. You can connect your own supported websites later.")).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 12) {
-                Label("Hitomi", systemImage: "book.fill").font(.headline)
-                TextField(L10n.text("Website Address"), text: $domainInput)
-                    .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder).accessibilityIdentifier("onboarding.domain")
-                Text(L10n.text(env.isSiteVerified ? "Your reading library is already connected." : "Enter the Hitomi website address to enable books. You can set it up later."))
-                    .font(.footnote).foregroundStyle(.secondary)
-            }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Booru", systemImage: "photo.fill").font(.headline)
+                Label(L10n.text("Image Mode"), systemImage: "photo.fill").font(.headline)
                 Text(L10n.text("Only Safebooru is included by default. Enter an address to add another server."))
                     .font(.footnote).foregroundStyle(.secondary)
                 TextField("https://example.com", text: $booruAddress)
@@ -95,6 +87,11 @@ public struct OnboardingView: View {
                     Button(L10n.text("Add a Server"), systemImage: "plus.circle") { _ = addServer() }
                         .accessibilityIdentifier("onboarding.addServer")
                 }
+                Divider()
+                Text(L10n.text("Safebooru is an independently operated service for personal use by adults. Review its terms before browsing."))
+                    .font(.footnote).foregroundStyle(.secondary)
+                Link(L10n.text("Terms of Service"), destination: URL(string: "https://safebooru.org/index.php?page=tos")!)
+                    .font(.footnote).accessibilityIdentifier("onboarding.serverTerms")
                 Divider()
                 ForEach(env.booru.servers) { server in
                     HStack {
@@ -119,7 +116,7 @@ public struct OnboardingView: View {
             Text(L10n.text("Bring your collection")).font(.title.bold())
             Text(L10n.text("Import either library, or both. Your data stays in its own mode.")).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 12) {
-                Label("Violet → Hitomi", systemImage: "book.fill").font(.headline)
+                Label("Violet → " + L10n.text("Comics"), systemImage: "book.fill").font(.headline)
                 Text(L10n.text("In Files, open the Violet folder and choose user.db for your library, or data.db for metadata.")).font(.subheadline).foregroundStyle(.secondary)
                 Button(L10n.text("Choose a Violet Database"), systemImage: "doc.badge.plus") { showFilePicker = true }
                     .buttonStyle(.bordered).disabled(isImporting).accessibilityIdentifier("onboarding.violetImport")
@@ -129,7 +126,7 @@ public struct OnboardingView: View {
             }.padding(20).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
             NavigationLink { AnimeBoxesImportView() } label: {
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("Anime Boxes → Booru", systemImage: "shippingbox.fill").font(.headline)
+                    Label("Anime Boxes → " + L10n.text("Images"), systemImage: "shippingbox.fill").font(.headline)
                     Text(L10n.text("Move your servers, favorites and search history from Anime Boxes.")).font(.subheadline).foregroundStyle(.secondary)
                     Label(L10n.text("Import from Anime Boxes"), systemImage: "chevron.right").font(.subheadline.weight(.medium))
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
@@ -147,16 +144,18 @@ public struct OnboardingView: View {
                 HStack {
                     Text(L10n.text("Saved")).font(.headline)
                     Spacer()
-                    AppModeSwitch()
+                    AppModeSwitch(previewMode: $tutorialMode)
                     Spacer()
                     Image(systemName: "plus").frame(width: 32)
                 }
-                Image(systemName: env.mode == .hitomi ? "book.fill" : "photo.fill")
+                Image(systemName: tutorialMode == .hitomi ? "book.fill" : "photo.fill")
                     .font(.system(size: 64)).foregroundStyle(.tint).contentTransition(.symbolEffect(.replace))
-                Text(env.mode.title).font(.title2.bold())
-                Text(L10n.text(env.mode == .hitomi ? "Organize works, follow artists and read with image translation." : "Browse multiple image servers and collect favorites in folders."))
+                Text(tutorialMode.title).font(.title2.bold())
+                Text(L10n.text(tutorialMode == .hitomi ? "Organize works, follow artists and read with image translation." : "Browse multiple image servers and collect favorites in folders."))
                     .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }.padding(24).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
+            Text(L10n.text("Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode."))
+                .font(.subheadline).foregroundStyle(.secondary)
             Label(L10n.text("Each mode keeps its own library and settings."), systemImage: "square.stack.3d.up")
                 .font(.footnote).foregroundStyle(.secondary)
         }.accessibilityElement(children: .contain).accessibilityIdentifier("onboarding.tutorial")
@@ -176,13 +175,11 @@ public struct OnboardingView: View {
     }
     private func next() {
         if step == 0 {
-            let domain = domainInput.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !domain.isEmpty && !env.verifySite(input: domain) { error = L10n.text("Enter the Hitomi website address to continue."); return }
             if !booruAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !addServer() { return }
-            if !env.isSiteVerified && !env.isOnboardingCompleted { env.mode = .booru }
+            env.mode = .booru
             step = 1
         } else if step == 1 { step = 2 }
-        else { env.isOnboardingCompleted = true; dismiss() }
+        else { env.mode = .booru; env.isOnboardingCompleted = true; dismiss() }
     }
 
     private func handleImport(result: Result<[URL], Error>) {

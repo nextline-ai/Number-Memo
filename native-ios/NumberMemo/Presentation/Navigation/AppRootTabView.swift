@@ -10,7 +10,7 @@ public struct AppRootTabView: View {
 
     public var body: some View {
         RetainedModeContainer(mode: env.mode,
-            hitomi: AnyView(hitomiTabs.environment(env).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()),
+            hitomi: AnyView(comicsContent.environment(env).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()),
             booru: AnyView(BooruRootView(selectedTab: $selectedTab).environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()))
         .ignoresSafeArea()
         .clearTopScrollEdge()
@@ -19,6 +19,22 @@ public struct AppRootTabView: View {
             guard !didSetup else { return }
             didSetup = true
             setupApp()
+        }
+        .onChange(of: env.isSiteVerified) { _, verified in
+            if verified {
+                #if DEBUG
+                if ContentUITestSupport.enabled { return }
+                #endif
+                env.startCoverQueue()
+            }
+        }
+    }
+
+    @ViewBuilder private var comicsContent: some View {
+        if env.isSiteVerified {
+            hitomiTabs
+        } else {
+            NavigationStack { ComicsSetupView() }
         }
     }
 
@@ -165,7 +181,7 @@ private struct RetainedModeContainer: UIViewControllerRepresentable {
 
 private final class RetainedModeController: UIViewController {
     private var hosts: [AppMode: UIHostingController<AnyView>] = [:]
-    private var selected: AppMode = .hitomi
+    private var selected: AppMode = .booru
     override var childForStatusBarHidden: UIViewController? { hosts[selected] }
     override var childForStatusBarStyle: UIViewController? { hosts[selected] }
     func update(mode: AppMode, hitomi: AnyView, booru: AnyView) {

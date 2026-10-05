@@ -152,6 +152,10 @@ final class BooruLibraryTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: name) }
         let db = try AppDatabase.inMemory()
         let env = AppEnvironment(database: db, browserPreferences: defaults)
+        XCTAssertEqual(env.mode, .booru)
+        XCTAssertEqual(env.gridColumns, 3)
+        XCTAssertFalse(env.isSiteVerified)
+        env.mode = .hitomi
         XCTAssertEqual(env.gridColumns, 2)
         env.gridColumns = 4; env.appTheme = .light
         env.defaultTags = "tag:scenery"; env.defaultExcludedTags = "tag:spoilers"

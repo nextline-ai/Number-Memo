@@ -194,11 +194,11 @@ final class BooruUITests: XCTestCase {
         element(app, "booru.allFavorites").tap()
         XCTAssertTrue(app.staticTexts["No Favorites"].waitForExistence(timeout: 5))
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         XCTAssertTrue(app.tabBars.buttons["Saved"].waitForExistence(timeout: 5))
         XCTAssertFalse(card.exists)
         capture(app, "Hitomi mode remains separate")
-        element(app, "app.mode").buttons["Booru"].tap()
+        element(app, "app.mode.booru").tap()
         app.tabBars.buttons["Saved"].tap()
         element(app, "booru.server").tap()
         app.buttons["Danbooru"].tap()
@@ -318,7 +318,7 @@ final class BooruUITests: XCTestCase {
         media.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.45)).press(forDuration: 0.05, thenDragTo: media.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.85)))
         expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: state); waitForExpectations(timeout: 5)
         XCTAssertTrue(first.waitForExistence(timeout: 5))
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         app.tabBars.buttons["Settings"].tap()
         app.swipeUp()
         app.buttons["Reader Settings"].tap()
@@ -339,7 +339,7 @@ final class BooruUITests: XCTestCase {
             XCTAssertEqual(mode.frame.height, 44, accuracy: 2)
             capture(app, "Korean Booru tab \(index)")
         }
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         for index in 0..<4 {
             app.tabBars.buttons.element(boundBy: index).tap()
             let mode = element(app, "app.mode")
@@ -375,7 +375,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "developer.logo").exists)
         XCTAssertTrue(reveal(app, "developer.community").isHittable)
         capture(app, "Booru developer and community")
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(reveal(app, "developer.website").isHittable)
         XCTAssertTrue(element(app, "developer.logo").exists)
@@ -424,12 +424,10 @@ final class BooruUITests: XCTestCase {
 
     func testFolderNamePromptsAlignAndResetAcrossModes() {
         let app = launch()
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         app.tabBars.buttons["Settings"].tap()
         element(app, "settings.onboarding").tap()
-        let address = element(app, "onboarding.domain")
-        XCTAssertTrue(address.waitForExistence(timeout: 10))
-        address.tap(); address.typeText("hitomi.la")
+        XCTAssertTrue(element(app, "onboarding.booruAddress").waitForExistence(timeout: 10))
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.violetImport").waitForExistence(timeout: 5))
         element(app, "onboarding.continue").tap()
@@ -437,8 +435,8 @@ final class BooruUITests: XCTestCase {
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(app.tabBars.buttons["Saved"].waitForExistence(timeout: 5))
 
-        for (mode, button) in [("Booru", "booru.createFolder"), ("Hitomi", "hitomi.createFolder")] {
-            element(app, "app.mode").buttons[mode].tap()
+        for (mode, button) in [("booru", "booru.createFolder"), ("hitomi", "hitomi.createFolder")] {
+            element(app, "app.mode." + mode).tap()
             app.tabBars.buttons["Saved"].tap()
             let createFolder = element(app, button)
             XCTAssertTrue(createFolder.waitForExistence(timeout: 5)); createFolder.tap()
@@ -542,7 +540,7 @@ final class BooruUITests: XCTestCase {
         app.tabBars.buttons["More"].tap()
         XCTAssertTrue(element(app, "settings.gridColumns").buttons["3"].isSelected)
         element(app, "settings.gridColumns").buttons["4"].tap()
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         app.tabBars.buttons["Settings"].tap()
         for _ in 0..<4 {
             if element(app, "hitomi.defaultTagsSettings").exists && element(app, "hitomi.defaultTagsSettings").isHittable { break }
@@ -555,7 +553,7 @@ final class BooruUITests: XCTestCase {
         excluded.tap(); excluded.typeText("tag:spoilers")
         capture(app, "Hitomi default search tags")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        element(app, "app.mode").buttons["Booru"].tap()
+        element(app, "app.mode.booru").tap()
         app.tabBars.buttons["More"].tap()
         XCTAssertTrue(element(app, "settings.gridColumns").buttons["4"].isSelected)
     }
@@ -574,7 +572,7 @@ final class BooruUITests: XCTestCase {
 
     func testUnifiedOnboardingSafeDefaultImportsAndSwitchTutorial() {
         let app = launch(extra: ["--onboarding-test", "--booru-import-test"])
-        XCTAssertTrue(element(app, "onboarding.domain").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "onboarding.booruAddress").waitForExistence(timeout: 10))
         XCTAssertTrue(element(app, "onboarding.booruAddress").exists)
         XCTAssertTrue(app.staticTexts["Safebooru"].exists)
         XCTAssertFalse(app.buttons["Validate Client Danbooru"].exists)
@@ -588,10 +586,41 @@ final class BooruUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.tutorial").waitForExistence(timeout: 5))
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         XCTAssertTrue(app.staticTexts["Organize works, follow artists and read with image translation."].waitForExistence(timeout: 5))
-        element(app, "app.mode").buttons["Booru"].tap()
+        element(app, "app.mode.booru").tap()
         capture(app, "Unified onboarding switch tutorial")
+        element(app, "app.mode.hitomi").tap()
+        element(app, "onboarding.continue").tap()
+        XCTAssertTrue(app.tabBars.buttons["More"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "comics.enterAddress").exists)
+        element(app, "app.mode.hitomi").tap()
+        XCTAssertTrue(element(app, "comics.enterAddress").waitForExistence(timeout: 5))
+        capture(app, "Comics requires explicit website setup")
+        element(app, "app.mode.booru").tap()
+        XCTAssertTrue(app.tabBars.buttons["More"].waitForExistence(timeout: 5))
+    }
+
+    func testComicsConnectionGateAndInvalidAddress() {
+        let app = launch(extra: ["--comics-setup-test"])
+        element(app, "app.mode.hitomi").tap()
+        XCTAssertTrue(element(app, "comics.enterAddress").waitForExistence(timeout: 5))
+        element(app, "comics.enterAddress").tap()
+        let input = element(app, "comics.address")
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap(); input.typeText("example.com")
+        element(app, "comics.connect").tap()
+        XCTAssertTrue(app.alerts["Invalid Address"].waitForExistence(timeout: 5))
+        app.alerts.buttons["OK"].tap()
+        input.tap()
+        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "example.com".count) + "hitomi.la")
+        element(app, "comics.connect").tap()
+        XCTAssertTrue(app.tabBars.buttons["Explore"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "comics.enterAddress").exists)
+        element(app, "app.mode.booru").tap()
+        XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
+        element(app, "app.mode.hitomi").tap()
+        XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
     }
 
     func testOnboardingAddsManualOldGelbooruAddress() {
@@ -749,11 +778,11 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(reveal(app, "translation.language.en").isSelected)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         element(app, "settings.onboarding").tap()
-        XCTAssertTrue(element(app, "onboarding.domain").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "onboarding.booruAddress").waitForExistence(timeout: 5))
         capture(app, "Korean replay onboarding")
         // A settings replay remains dismissible without changing the user's library.
         app.buttons["완료"].tap()
-        element(app, "app.mode").buttons["Hitomi"].tap()
+        element(app, "app.mode.hitomi").tap()
         app.tabBars.buttons["설정"].tap()
         element(app, "settings.translationLanguage").tap()
         XCTAssertTrue(element(app, "translation.language.system").waitForExistence(timeout: 5))

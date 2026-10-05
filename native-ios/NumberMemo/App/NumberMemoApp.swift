@@ -128,8 +128,6 @@ struct NumberMemoApp: App {
                     NavigationStack {
                         WorksGridView(folder: try? env.database.listFolders().first(where: { $0.name == "이동 테스트" }))
                     }.environment(env)
-                } else if isContentUITest && ProcessInfo.processInfo.arguments.contains("--onboarding-test") {
-                    OnboardingView().environment(env)
                 } else if isContentUITest && (ProcessInfo.processInfo.arguments.contains("--native-content-tab-test") || BooruUITestSupport.enabled || BooruUITestSupport.liveEnabled) {
                     AppRootTabView().environment(env)
                 } else if isContentUITest {
@@ -207,7 +205,10 @@ struct NumberMemoApp: App {
             }
             #endif
             .fullScreenCover(isPresented: Binding(
-                get: { !isContentUITest && !env.isOnboardingCompleted && !isSplashScreenVisible },
+                get: {
+                    let allowsOnboarding = !isContentUITest || ProcessInfo.processInfo.arguments.contains("--onboarding-test")
+                    return allowsOnboarding && !env.isOnboardingCompleted && (!isSplashScreenVisible || isContentUITest)
+                },
                 set: { _ in }
             )) {
                 OnboardingView()

@@ -85,9 +85,9 @@
 "Enter Service Address" = "サービスアドレスを入力";
 "Enter a folder name" = "フォルダ名を入力してください";
 "Enter a title" = "タイトルを入力";
-"Enter the correct address (hitomi.la) to enable the library and shortcuts." = "正しいアドレス（hitomi.la）を入力すると、ライブラリとショートカットが有効になります。";
+"Enter the correct address (hitomi.la) to enable the library and shortcuts." = "対応サイトのアドレスを入力して漫画モードに接続してください。";
 "Enter the correct service address in Settings." = "設定で正しいサービスアドレスを入力してください。";
-"Enter the website address to get started.\n(Example: hitomi.la)" = "利用するサイトのアドレスを入力してください。\n（例：hitomi.la）";
+"Enter the website address to get started.\n(Example: hitomi.la)" = "対応サイトのアドレスを入力して漫画モードに接続してください。";
 "Exit" = "閉じる";
 "Exit the Work" = "作品を閉じる";
 "Explore" = "探索";
@@ -216,7 +216,7 @@
 "Search, number, or link" = "検索語・番号・リンク";
 "Select the Violet folder" = "Violetフォルダを選択";
 "Select user.db or data.db" = "user.dbまたはdata.dbを選択";
-"Service Enabled (hitomi.la)" = "サービス有効（hitomi.la）";
+"Service Enabled (hitomi.la)" = "対応サイトのアドレスを入力して漫画モードに接続してください。";
 "Settings" = "設定";
 "Show Page Number" = "ページ番号を表示";
 "Show Quick Menu at Bottom" = "下部にクイックメニューを表示";
@@ -293,7 +293,7 @@
 "Add Favorite" = "お気に入りに追加";
 "Add a Server" = "サーバーを追加";
 "Blacklist Tag" = "タグをブロック";
-"Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server." = "Booruのお気に入り、タグ、作者、検索履歴はHitomiとは別に、サーバーごとに保存されます。";
+"Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server." = "Booruのお気に入り、タグ、作者、検索履歴は漫画モードとは別に、サーバーごとに保存されます。";
 "Browse pools or enter a pool ID to open it." = "プールを閲覧するか、プールIDを入力して開けます。";
 "Clear" = "クリア";
 "Clear History" = "履歴を消去";
@@ -374,9 +374,9 @@
 "Cookies" = "Cookie";
 "Reset Cookies" = "Cookieをリセット";
 "Reset Cookies?" = "Cookieをリセットしますか？";
-"Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser." = "CookieはHitomiや他のBooruサーバーから独立しています。リセットするとこのサーバーの認証ブラウザからログアウトします。";
+"Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser." = "Cookieは漫画モードや他のBooruサーバーから独立しています。リセットするとこのサーバーの認証ブラウザからログアウトします。";
 "Website cookies and cached website data for this server will be removed. Your favorites and API key are kept." = "このサーバーのCookieとサイトキャッシュを削除します。お気に入りとAPIキーは保持されます。";
-"Appearance, grid columns and supported reader preferences are shared with Hitomi." = "テーマ、グリッドの列数、共通のビューア設定はHitomiと共有します。";
+"Appearance, grid columns and supported reader preferences are shared with Hitomi." = "テーマ、グリッドの列数、共通のビューア設定は漫画モードと共有します。";
 "Browsing" = "閲覧";
 "Fit Entire Thumbnails" = "サムネイル全体を表示";
 "Load Next Page Automatically" = "次のページを自動で読み込む";
@@ -398,7 +398,7 @@
 "Default Tags" = "既定のタグ";
 "Default Excluded Tags" = "既定の除外タグ";
 "Default Search Tags" = "既定の検索タグ";
-"Applied to every native Hitomi search, including artist pages. Separate tags with spaces; use underscores within a tag. Excluded tags are automatically prefixed with a minus sign." = "作家ページを含むすべてのネイティブHitomi検索に適用されます。タグはスペースで区切り、タグ内のスペースはアンダースコアにしてください。除外タグにはマイナス記号が自動で付きます。";
+"Applied to every native Hitomi search, including artist pages. Separate tags with spaces; use underscores within a tag. Excluded tags are automatically prefixed with a minus sign." = "作家ページを含むすべてのネイティブ漫画モード検索に適用されます。タグはスペースで区切り、タグ内のスペースはアンダースコアにしてください。除外タグにはマイナス記号が自動で付きます。";
 "Uncategorized" = "未分類";
 "All Favorites" = "すべてのお気に入り";
 "Delete Folder?" = "フォルダを削除しますか？";
@@ -421,7 +421,7 @@
 "Import Tag Blacklist" = "除外タグを読み込む";
 "Use Server Selection from Backup" = "バックアップのサーバー選択を適用";
 "Import" = "読み込む";
-"Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. Hitomi data is unchanged." = "既存のお気に入りのフォルダは維持されます。共通の検索履歴と除外タグは各サーバーにコピーされます。API認証情報とCookieはサーバー設定で再設定してください。Hitomiのデータには影響しません。";
+"Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. Hitomi data is unchanged." = "既存のお気に入りのフォルダは維持されます。共通の検索履歴と除外タグは各サーバーにコピーされます。API認証情報とCookieはサーバー設定で再設定してください。漫画モードのデータには影響しません。";
 "Choose an Anime Boxes .abbj backup (version 1.0)." = "Anime Boxesの.abbjバックアップ（バージョン1.0）を選択してください。";
 "This backup exceeds the 64 MB import limit." = "バックアップが64MBの読み込み上限を超えています。";
 "This backup contains no supported servers." = "このバックアップには対応するサーバーがありません。";
@@ -429,7 +429,7 @@
 "Saved Searches" = "保存した検索";
 "Continue" = "続ける";
 "You can import your data later in Settings." = "後で設定からデータを読み込むこともできます。";
-"Enter the Hitomi website address to continue." = "続けるにはHitomiのサイトアドレスを入力してください。";
+"Enter the Hitomi website address to continue." = "続けるには漫画モードのサイトアドレスを入力してください。";
 "Your library, two ways" = "本と画像、\nそれぞれのライブラリ";
 "Choose where to start. Switch between books and images from the top of any tab." = "開始するモードを選んでください。どのタブでも上部の本と画像のアイコンで切り替えられます。";
 "Organize works, follow artists and read with image translation." = "作品と作家を整理して、画像翻訳を使いながら読めます。";
@@ -462,7 +462,7 @@
 "Danbooru limits searches by account level. Regular accounts usually allow up to two tags. For more tags, upgrade on the website and enter your username and API key here. Gelbooru does not have this two-tag limit. Connection errors can have other causes." = "Danbooruでは会員ランクによって検索タグ数が制限されます。通常のアカウントは原則2個までです。さらに多くのタグを使うにはサイトで有料会員になり、このアプリにユーザー名とAPIキーを入力してください。Gelbooruにはこの2タグ制限はありません。接続エラーには別の原因もあります。";
 "Connect your own websites. Books and images keep separate libraries and settings." = "利用するサイトのアドレスを入力してください。本と画像のライブラリと設定はそれぞれ独立しています。";
 "Your reading library is already connected." = "本のライブラリは接続済みです。";
-"Enter the Hitomi website address to enable books. You can set it up later." = "Hitomiのアドレスを入力すると本のモードを利用できます。後から設定することもできます。";
+"Enter the Hitomi website address to enable books. You can set it up later." = "漫画モードのアドレスを入力すると本のモードを利用できます。後から設定することもできます。";
 "Only Safebooru is included by default. Enter an address to add another server." = "初期状態ではSafebooruのみ利用できます。他のサーバーを追加するにはアドレスを入力してください。";
 "Import either library, or both. Your data stays in its own mode." = "VioletとAnime Boxesの両方から読み込めます。データはそれぞれのモードに保存されます。";
 "Switch from the top" = "画面上部でモードを切り替え";
@@ -572,3 +572,20 @@
 "Open Source Licenses" = "オープンソースライセンス";
 
 "Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device." = "ライブラリと一般設定を同期します。画面配置、再生、メディア、認証情報とCookieは端末ごとに保持します。";
+
+"Comics Mode" = "漫画モード";
+"Image Mode" = "画像モード";
+"Comics" = "漫画";
+"Images" = "画像";
+"Connect Your Comics Website" = "漫画サイトに接続";
+"For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access." = "コンテンツのライセンス上の理由により、漫画サイトは初期状態では接続されていません。対応サイトのアドレスをご自身で入力し、利用する権利のあるコンテンツのみご利用ください。";
+"Enter Website Address" = "アドレスを入力";
+"Image mode is ready to use with Safebooru. You can switch back at any time." = "画像モードではSafebooruをすぐに利用できます。上部の切り替えでいつでも戻れます。";
+"Connected" = "接続済み";
+"Connect" = "接続";
+"This address is not supported. Check the website address and try again." = "このアドレスには対応していません。サイトのアドレスを確認して、もう一度入力してください。";
+"Start with Safebooru" = "Safebooruから始めよう";
+"Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "画像を探して、お気に入りをフォルダにまとめましょう。ほかの対応サイトは後から追加できます。";
+"Safebooru is an independently operated service for personal use by adults. Review its terms before browsing." = "Safebooruは独立して運営されている外部サービスで、成人による個人利用が認められています。閲覧前に利用規約をご確認ください。";
+"Terms of Service" = "利用規約";
+"Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "漫画モードにはサイトのアドレス入力が必要です。設定後に本のアイコンから接続できます。このガイドを終えると画像モードが開きます。";

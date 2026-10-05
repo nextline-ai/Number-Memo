@@ -2,14 +2,23 @@
 
 점검일: 2026-10-06 · 대상: native-ios의 실제 배포 앱
 
-TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스, 앱 번들, 연결된 iPhone과 Apple의 공개 심사 기준을 대상으로 했다. App Store Connect의 실제 제출 문구·연령 등급·개인정보 응답·스크린샷·심사 기록에는 접근하지 않았다. 기능 제한이나 심사자 전용 동작은 추가하지 않았다.
+TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스, 앱 번들, 연결된 iPhone과 Apple의 공개 심사 기준을 대상으로 했다. App Store Connect의 실제 제출 문구·연령 등급·개인정보 응답·스크린샷·심사 기록에는 접근하지 않았다. 만화 모드는 모든 사용자에게 동일한 직접 연결 절차를 제공한다. 심사자 전용 동작은 없다.
 
 ## 유지한 제품 동작
 
 - 새 설치에 포함되는 Booru 서버는 Safebooru 하나다. 다른 서버는 사용자가 주소를 입력하거나 선택한 백업에서 가져온다.
-- Hitomi는 온보딩 또는 웹사이트 연결 화면에서 주소를 직접 입력해야 활성화된다. 심사 메모에도 이 경로를 공개한다.
+- 사용자 화면에서는 **만화 모드 / 이미지 모드**로 표시한다. 새 설치와 온보딩 완료 후에는 이미지 모드가 열린다.
+- 연결되지 않은 만화 모드에 진입하면 라이선스 안내와 **주소 입력** 버튼을 표시한다. 이 상태에서는 만화 탐색 화면과 표지 다운로드를 시작하지 않는다. 기존에 직접 연결한 사용자는 연결 상태를 유지한다.
+- 만화 모드의 실제 구현은 Hitomi 제공자를 사용한다. 이름 변경이 제공자나 콘텐츠 범위를 바꾸는 것은 아니므로 심사 메모에 실제 주소와 연결 경로를 공개한다.
 - 사용자 지정 서버, 모든 수위 선택, 내장 브라우저와 기존 라이브러리 기능은 유지한다.
-- [Anime Boxes의 실제 App Store 등록](https://apps.apple.com/ca/app/anime-boxes/id525540312)에서도 사용자 지정 서버와 제외 규칙을 확인했다. 공개 목록으로 그 앱의 비공개 심사 사유까지 알 수는 없다.
+- [Mignori – Booru Browser의 현재 App Store 등록](https://apps.apple.com/ro/app/mignori-booru-browser/id1268897357)은 직접 추가한 서버 탐색과 로컬 컬렉션을 설명한다. 해당 지역 등급은 16+이며 제한 없는 웹 접근을 표시한다. 공개 등록 정보는 유사 제품의 존재를 뒷받침하지만, 최초 승인 시점이나 비공개 심사 사유를 증명하지는 않는다.
+
+## Safebooru 제출 근거
+
+- [공식 API 문서](https://safebooru.org/index.php?page=help&topic=dapi): 게시물·태그 조회 API, JSON 응답 및 요청당 상한을 공개한다. 앱의 기본 이미지 서버는 이 API를 사용한다.
+- [공식 이용약관 및 API 조건](https://safebooru.org/index.php?page=tos): 과도한 요청을 하지 않는 API 이용을 허용하며, API/CDN 이용 시 광고와 유료 장벽을 금지한다. 현재 앱에는 광고나 인앱 결제가 없다. 수익화 시 이 조건을 다시 검토해야 한다.
+- 같은 약관은 개인적 이용과 미성년자 이용 금지를 명시하고, 게시물 정책은 SFW만 허용한다. 온보딩에 이용 조건과 원문 링크를 제공한다. App Store 연령 등급은 서비스 자격 조건도 고려하여 운영자가 설정해야 한다.
+- 이 문서는 API 접근 허용의 근거다. 개별 게시물의 저작권 전체를 앱에 양도하는 라이선스나 Apple의 승인 보증으로 해석하지 않는다. 제출일에 원문을 다시 확인하고, 요청 시 운영자의 별도 허가를 첨부한다.
 
 ## 보완한 항목
 
@@ -20,7 +29,7 @@ TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스,
 | 동기화 안내 | 온보딩에 기본 활성화 상태, 선택 가능 여부와 전송 범위를 설명하고 iCloud 토글을 제공한다. |
 | 신고 | 두 모드의 상세정보에서 페이지 주소를 포함한 이메일 초안을 열 수 있다. 전송은 사용자가 직접 결정한다. 외부 원본 삭제는 사이트 신고도 필요하다고 설명한다. |
 | 콘텐츠 제어 | Booru 상세정보에 게시물 숨기기와 작가 차단을 추가했다. 서버별 제외 규칙에서 해제할 수 있다. |
-| 설정 | 화면 → 언어 → 탐색/연결 → 뷰어 → 검색 기록 → iCloud → 데이터 → 도움말 순서로 정리했다. Hitomi 통계·가져오기·백업은 라이브러리 관리로 모았다. |
+| 설정 | 화면 → 언어 → 탐색/연결 → 뷰어 → 검색 기록 → iCloud → 데이터 → 도움말 순서로 정리했다. 만화 모드 통계·가져오기·백업은 라이브러리 관리로 모았다. |
 | 연락처 | NextLine 웹사이트는 정상 링크 색상으로 표시하며 앱 하단 배포사 표시는 제거했다. 사이트 HTTP 200과 연락처를 확인했다. |
 | 분류 | 프로젝트의 건강·피트니스 분류를 엔터테인먼트로 수정했다. App Store Connect의 분류는 별도로 확인해야 한다. |
 | 라이선스 | GRDB의 MIT 라이선스 및 저작권 고지를 앱에 포함했다. |
@@ -37,11 +46,11 @@ TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스,
 
 ## 검증 결과
 
-- 연결된 iPhone에서 라이브러리·동기화, 개인정보 리소스, 설정 이동, 콘텐츠 신고·숨기기, 기본 온보딩 및 실제 Safebooru API·자동완성 테스트 25개가 통과했다.
+- 연결된 iPhone에서 이번 변경 관련 테스트 14개(라이브러리·기본 모드 단위 테스트 10개, UI 테스트 4개)가 통과했다. UI는 만화 주소 입력·오류 처리, 설정·개인정보 화면, 온보딩 완료 후 이미지 모드 진입, 탭·검색·탐색 결과 유지를 확인했다.
 - 두 모드의 설정과 NextLine 링크는 실기기 캡처로 확인했다. 서버·풀 아래에서 Booru 설정을 바로 조절하는 구조를 유지한다.
 - 한국어·영어·일본어 번역 키의 일치와 개인정보 manifest 문법을 확인했다.
 - 기본 Safebooru API는 점검 시 HTTP 200과 general 등급의 응답을 반환했다. 다른 사용자 지정 서버의 가용성을 보장하는 결과는 아니다.
-- 배포 준비 버전은 1.0.0, 빌드 번호는 2다. App Store Connect용 IPA 내보내기에 성공했고, 앱·공유 확장의 배포 서명과 번들의 정책·라이선스·개인정보 선언을 확인했다. 업로드·심사 제출은 하지 않았다.
+- 배포 준비 버전은 1.0.0, 빌드 번호는 3이다. App Store Connect용 IPA 내보내기에 성공했고, 앱·공유 확장의 배포 서명과 번들의 정책·라이선스·개인정보 선언을 확인했다. 업로드·심사 제출은 하지 않았다.
 
 ## 입력할 URL
 
@@ -51,11 +60,11 @@ TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스,
 
 ## Review Notes 초안
 
-Number Memo is a native client for browsing user-selected websites and organizing local collections. A fresh installation includes Safebooru only. Users can continue onboarding without adding an address, then use the image mode to browse this server. No Number Memo account is required.
+Number Memo is a native client for browsing user-selected websites and organizing local collections. A fresh installation includes Safebooru only. Users can continue onboarding without adding an address, then use the image mode to browse this server. No Number Memo account is required. The default service publishes its API documentation at https://safebooru.org/index.php?page=help&topic=dapi and API terms at https://safebooru.org/index.php?page=tos. These permit API use without excessive requests and prohibit advertising/paywalls; Number Memo has neither advertising nor in-app purchases. The service terms limit use to adults and personal use. Onboarding links to these terms. We provide these as API access documentation, not a blanket license for every third-party post.
 
 Other Booru servers are added explicitly through More > Servers or imported from a backup chosen by the user. Supported engines include Danbooru, Gelbooru, Old Gelbooru, and Moebooru. Account credentials are optional and are stored in Keychain for the relevant server.
 
-The book mode uses the Hitomi provider. Entering hitomi.la during onboarding or under Settings > Website Connection enables this mode. The mode switch remains visible at the top of the app. Both modes and their activation paths are available to all users; there is no review-only mode or remote feature switch.
+The user-facing Comics Mode uses the Hitomi provider. It is disconnected by default. Tap the book icon at the top, then Enter Website Address, enter hitomi.la, and tap Connect. The setup screen explains licensing and user responsibility for content access. This address enables only the implemented provider, not an arbitrary comics website. Once connected, Settings > Website Connection shows the configured address. All users have the same activation path. There is no review-only mode or remote feature switch. Onboarding always finishes in Image Mode, even if the user tried the comics icon in the tutorial.
 
 The app includes native browsing and viewers, local folders/favorites, search history, configurable tag exclusions, optional embedded web browsing, image translation using Apple frameworks, and optional iCloud library sync. User-selected servers can return content of different ratings; the app includes rating controls. We do not represent all user-configured servers as Safebooru or as exclusively general-audience content.
 

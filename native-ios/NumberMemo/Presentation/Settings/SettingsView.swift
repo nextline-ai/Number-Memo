@@ -12,7 +12,7 @@ public struct SettingsView: View {
             ModeAppearanceSettings()
             LanguageSettingsSection()
             Section {
-                NavigationLink { HitomiConnectionSettings() } label: {
+                NavigationLink { ComicsConnectionSettings() } label: {
                     Label(L10n.text("Website Connection"), systemImage: "globe")
                 }.accessibilityIdentifier("settings.connection")
                 Toggle(L10n.text("Use Embedded Browser"), isOn: $env.useEmbeddedBrowser)
@@ -47,23 +47,60 @@ public struct SettingsView: View {
     }
 }
 
-private struct HitomiConnectionSettings: View {
+/// The same setup route is available to every user, including App Review.
+struct ComicsSetupView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Image(systemName: "book.closed").font(.system(size: 48)).foregroundStyle(.tint)
+                Text(L10n.text("Connect Your Comics Website")).font(.largeTitle.bold())
+                Text(L10n.text("For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access."))
+                    .foregroundStyle(.secondary)
+                NavigationLink { ComicsConnectionSettings() } label: {
+                    Label(L10n.text("Enter Website Address"), systemImage: "link")
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                }.buttonStyle(.borderedProminent).controlSize(.large)
+                    .accessibilityIdentifier("comics.enterAddress")
+                Text(L10n.text("Image mode is ready to use with Safebooru. You can switch back at any time."))
+                    .font(.footnote).foregroundStyle(.secondary)
+            }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle("").navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) { LiquidGlassTitleCapsule(L10n.text("Comics")) }
+            ToolbarItem(placement: .principal) { AppModeSwitch() }
+        }
+        .accessibilityIdentifier("comics.setup")
+    }
+}
+
+struct ComicsConnectionSettings: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.dismiss) private var dismiss
     @State private var address = ""
     @State private var invalid = false
     var body: some View {
         Form {
             Section {
-                Label(L10n.text(env.isSiteVerified ? "Service Enabled (hitomi.la)" : "Connection Disabled"), systemImage: env.isSiteVerified ? "checkmark.circle" : "globe")
+                Label(L10n.text(env.isSiteVerified ? "Connected" : "Connection Disabled"), systemImage: env.isSiteVerified ? "checkmark.circle" : "globe")
                 TextField(L10n.text("Website Address"), text: $address)
                     .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                Button(L10n.text("Save")) { invalid = !env.verifySite(input: address) }
-                    .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            } footer: { Text(L10n.text("Enter the correct address (hitomi.la) to enable the library and shortcuts.")) }
+                    .accessibilityIdentifier("comics.address")
+                Button(L10n.text("Connect")) {
+                    if env.verifySite(input: address) { dismiss() } else { invalid = true }
+                }
+                .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("comics.connect")
+            } footer: {
+                Text(L10n.text("For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access."))
+            }
         }
         .navigationTitle(L10n.text("Website Connection")).navigationBarTitleDisplayMode(.inline)
         .onAppear { if env.isSiteVerified { address = "hitomi.la" } }
-        .alert(L10n.text("Invalid Address"), isPresented: $invalid) { Button(L10n.text("OK"), role: .cancel) {} }
+        .alert(L10n.text("Invalid Address"), isPresented: $invalid) {
+            Button(L10n.text("OK"), role: .cancel) {}
+        } message: { Text(L10n.text("This address is not supported. Check the website address and try again.")) }
     }
 }
 

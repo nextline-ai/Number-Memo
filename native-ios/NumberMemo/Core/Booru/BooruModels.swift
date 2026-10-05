@@ -3,7 +3,7 @@ import Foundation
 enum AppMode: String, CaseIterable, Identifiable {
     case hitomi, booru
     var id: String { rawValue }
-    var title: String { self == .hitomi ? "Hitomi" : "Booru" }
+    var title: String { L10n.text(self == .hitomi ? "Comics Mode" : "Image Mode") }
 }
 
 enum BooruEngine: String, Codable, CaseIterable, Identifiable, Sendable {

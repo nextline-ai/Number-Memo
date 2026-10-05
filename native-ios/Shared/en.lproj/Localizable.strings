@@ -85,9 +85,9 @@
 "Enter Service Address" = "Enter Service Address";
 "Enter a folder name" = "Enter a folder name";
 "Enter a title" = "Enter a title";
-"Enter the correct address (hitomi.la) to enable the library and shortcuts." = "Enter the correct address (hitomi.la) to enable the library and shortcuts.";
+"Enter the correct address (hitomi.la) to enable the library and shortcuts." = "Enter a supported website address to connect comics mode.";
 "Enter the correct service address in Settings." = "Enter the correct service address in Settings.";
-"Enter the website address to get started.\n(Example: hitomi.la)" = "Enter the website address to get started.\n(Example: hitomi.la)";
+"Enter the website address to get started.\n(Example: hitomi.la)" = "Enter a supported website address to connect comics mode.";
 "Exit" = "Exit";
 "Exit the Work" = "Exit the Work";
 "Explore" = "Explore";
@@ -216,7 +216,7 @@
 "Search, number, or link" = "Search, number, or link";
 "Select the Violet folder" = "Select the Violet folder";
 "Select user.db or data.db" = "Select user.db or data.db";
-"Service Enabled (hitomi.la)" = "Service Enabled (hitomi.la)";
+"Service Enabled (hitomi.la)" = "Enter a supported website address to connect comics mode.";
 "Settings" = "Settings";
 "Show Page Number" = "Show Page Number";
 "Show Quick Menu at Bottom" = "Show Quick Menu at Bottom";
@@ -293,7 +293,7 @@
 "Add Favorite" = "Add Favorite";
 "Add a Server" = "Add a Server";
 "Blacklist Tag" = "Blacklist Tag";
-"Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server." = "Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server.";
+"Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server." = "Booru favorites, tags, artists and history are stored separately from comics mode, and separately for each server.";
 "Browse pools or enter a pool ID to open it." = "Browse pools or enter a pool ID to open it.";
 "Clear" = "Clear";
 "Clear History" = "Clear History";
@@ -374,9 +374,9 @@
 "Cookies" = "Cookies";
 "Reset Cookies" = "Reset Cookies";
 "Reset Cookies?" = "Reset Cookies?";
-"Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser." = "Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser.";
+"Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser." = "Cookies are isolated from comics mode and other Booru servers. Resetting signs you out of this server's validation browser.";
 "Website cookies and cached website data for this server will be removed. Your favorites and API key are kept." = "Website cookies and cached website data for this server will be removed. Your favorites and API key are kept.";
-"Appearance, grid columns and supported reader preferences are shared with Hitomi." = "Appearance, grid columns and supported reader preferences are shared with Hitomi.";
+"Appearance, grid columns and supported reader preferences are shared with Hitomi." = "Appearance, grid columns and supported reader preferences are shared with comics mode.";
 "Browsing" = "Browsing";
 "Fit Entire Thumbnails" = "Fit Entire Thumbnails";
 "Load Next Page Automatically" = "Load Next Page Automatically";
@@ -398,7 +398,7 @@
 "Default Tags" = "Default Tags";
 "Default Excluded Tags" = "Default Excluded Tags";
 "Default Search Tags" = "Default Search Tags";
-"Applied to every native Hitomi search, including artist pages. Separate tags with spaces; use underscores within a tag. Excluded tags are automatically prefixed with a minus sign." = "Applied to every native Hitomi search, including artist pages. Separate tags with spaces; use underscores within a tag. Excluded tags are automatically prefixed with a minus sign.";
+"Applied to every native Hitomi search, including artist pages. Separate tags with spaces; use underscores within a tag. Excluded tags are automatically prefixed with a minus sign." = "Applied to every native comics mode search, including artist pages. Separate tags with spaces; use underscores within a tag. Excluded tags are automatically prefixed with a minus sign.";
 "Uncategorized" = "Uncategorized";
 "All Favorites" = "All Favorites";
 "Delete Folder?" = "Delete Folder?";
@@ -421,7 +421,7 @@
 "Import Tag Blacklist" = "Import Tag Blacklist";
 "Use Server Selection from Backup" = "Use Server Selection from Backup";
 "Import" = "Import";
-"Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. Hitomi data is unchanged." = "Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. Hitomi data is unchanged.";
+"Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. Hitomi data is unchanged." = "Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. comics mode data is unchanged.";
 "Choose an Anime Boxes .abbj backup (version 1.0)." = "Choose an Anime Boxes .abbj backup (version 1.0).";
 "This backup exceeds the 64 MB import limit." = "This backup exceeds the 64 MB import limit.";
 "This backup contains no supported servers." = "This backup contains no supported servers.";
@@ -429,7 +429,7 @@
 "Saved Searches" = "Saved Searches";
 "Continue" = "Continue";
 "You can import your data later in Settings." = "You can import your data later in Settings.";
-"Enter the Hitomi website address to continue." = "Enter the Hitomi website address to continue.";
+"Enter the Hitomi website address to continue." = "Enter the comics mode website address to continue.";
 "Your library, two ways" = "Your library, two ways";
 "Choose where to start. Switch between books and images from the top of any tab." = "Choose where to start. Switch between books and images from the top of any tab.";
 "Organize works, follow artists and read with image translation." = "Organize works, follow artists and read with image translation.";
@@ -462,7 +462,7 @@
 "Danbooru limits searches by account level. Regular accounts usually allow up to two tags. For more tags, upgrade on the website and enter your username and API key here. Gelbooru does not have this two-tag limit. Connection errors can have other causes." = "Danbooru limits searches by account level. Regular accounts usually allow up to two tags. For more tags, upgrade on the website and enter your username and API key here. Gelbooru does not have this two-tag limit. Connection errors can have other causes.";
 "Connect your own websites. Books and images keep separate libraries and settings." = "Connect your own websites. Books and images keep separate libraries and settings.";
 "Your reading library is already connected." = "Your reading library is already connected.";
-"Enter the Hitomi website address to enable books. You can set it up later." = "Enter the Hitomi website address to enable books. You can set it up later.";
+"Enter the Hitomi website address to enable books. You can set it up later." = "Enter the comics mode website address to enable books. You can set it up later.";
 "Only Safebooru is included by default. Enter an address to add another server." = "Only Safebooru is included by default. Enter an address to add another server.";
 "Import either library, or both. Your data stays in its own mode." = "Import either library, or both. Your data stays in its own mode.";
 "Switch from the top" = "Switch from the top";
@@ -572,3 +572,20 @@
 "Open Source Licenses" = "Open Source Licenses";
 
 "Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device." = "Sync your libraries and general settings. Layout, playback, media, credentials and cookies stay on each device.";
+
+"Comics Mode" = "Comics Mode";
+"Image Mode" = "Image Mode";
+"Comics" = "Comics";
+"Images" = "Images";
+"Connect Your Comics Website" = "Connect Your Comics Website";
+"For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access." = "For licensing reasons, a comics website is not connected by default. Enter a supported website address yourself and only use content you have permission to access.";
+"Enter Website Address" = "Enter Website Address";
+"Image mode is ready to use with Safebooru. You can switch back at any time." = "Image mode is ready to use with Safebooru. You can switch back at any time.";
+"Connected" = "Connected";
+"Connect" = "Connect";
+"This address is not supported. Check the website address and try again." = "This address is not supported. Check the website address and try again.";
+"Start with Safebooru" = "Start with Safebooru";
+"Browse images, save favorites, and organize your collection. You can connect your own supported websites later." = "Browse images, save favorites, and organize your collection. You can connect your own supported websites later.";
+"Safebooru is an independently operated service for personal use by adults. Review its terms before browsing." = "Safebooru is an independently operated service for personal use by adults. Review its terms before browsing.";
+"Terms of Service" = "Terms of Service";
+"Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode." = "Comics mode requires a website address. Select the book icon after setup to connect it. You will start in image mode.";

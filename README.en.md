@@ -5,20 +5,23 @@
 </p>
 
 <h1 align="center">Number Memo</h1>
-<p align="center">Browse Hitomi galleries and Booru images, and organize your favorites into folders.</p>
+<p align="center">Explore images on Safebooru and organize your favorites into folders.</p>
 <p align="center"><a href="https://github.com/nextline-ai/Number-Memo/releases">Updates</a> · <a href="https://discord.gg/vUTGZNMaMB">Help and feedback</a></p>
 
 ## Get started
 
-1. Enter the website addresses you want to use during setup. Booru starts with **Safebooru** if you do not add another address.
+1. Start in image mode with **Safebooru**. Add other supported image servers by entering their addresses.
 2. Import a **Violet** or **Anime Boxes** backup if you have one. You can skip this step and import later in Settings.
-3. Tap or slide the **book / image switch** at the top of the screen to move between Hitomi and Booru.
+3. Tap or slide the **book / image switch** at the top of the screen to move between comics mode and image mode. Onboarding always finishes in image mode.
+4. Comics mode has no website connected by default for licensing reasons. Tap the book icon, then **Enter Website Address**, to connect a supported site. Only use content you have permission to access.
 
 The current Swift native app requires **iOS 17 or later** and supports English, Korean, and Japanese. This guide describes the latest features on `main`. See the [release notes](https://github.com/nextline-ai/Number-Memo/releases) for installation and availability.
 
+Safebooru is for personal use by adults under its [official terms](https://safebooru.org/index.php?page=tos). Please review them before browsing.
+
 ## Two modes
 
-| | Hitomi | Booru |
+| | Comics mode | Image mode (Booru) |
 | --- | --- | --- |
 | Browse | Gallery search, popular galleries, artists | Multiple servers together, latest or popular, rating filters |
 | Save | Gallery bookmarks and folders | Image favorites and folders |
@@ -26,15 +29,15 @@ The current Swift native app requires **iOS 17 or later** and supports English, 
 | View | Full-screen reader, reading direction, continuous scrolling | Large images, GIFs, videos, pools and notes |
 | Import | Violet `user.db` / `data.db` | Anime Boxes `.abbj` backups |
 
-Saved items, tags, artists, appearance, and viewer settings are separate for each mode. Hitomi starts with 2 grid columns and Booru with 3; change these in each mode's settings.
+Saved items, tags, artists, appearance, and viewer settings are separate for each mode. Comics starts with 2 grid columns and Booru with 3; change these in each mode's settings.
 
-### Hitomi
+### Comics mode
 
 - Organize galleries into folders and save artists. You can also add galleries through Safari's share menu.
 - Set default search tags and excluded tags to avoid entering them each time.
 - Export or restore a JSON backup in **Settings → Library Management**. Keep the file in Files or iCloud Drive.
 
-### Booru
+### Image mode (Booru)
 
 - Add servers in **More → Servers**. Supported types include Danbooru, Gelbooru, Old Gelbooru (v0.1.11, used by booru.org), and Moebooru.
 - Select multiple servers from the top server menu to include them in both Explore and Saved.
@@ -70,7 +73,7 @@ Temporary connection failures are retried up to three times. If they continue, f
 
 **Danbooru usually limits regular accounts to two search tags.** To search with more tags, upgrade your account on the website and enter your username and API key in the app's server settings. **Gelbooru does not have this two-tag limit.**
 
-Hitomi also offers **Open in Built-in Browser** in Settings. You can replay the setup guide from either mode's settings.
+Comics also offers **Open in Built-in Browser** in Settings. You can replay the setup guide from either mode's settings.
 
 ## Developer and community
 
@@ -81,7 +84,7 @@ Hitomi also offers **Open in Built-in Browser** in Settings. You can replay the 
 - **Website:** [nextline.work](https://nextline.work)
 - **Community / bug reports:** [Discord](https://discord.gg/vUTGZNMaMB)
 
-Developer details and links are also available at the bottom of **More** in Booru and **Settings** in Hitomi.
+Developer details and links are also available at the bottom of **More** in Booru and **Settings** in Comics.
 
 Report problems through the [Discord community](https://discord.gg/vUTGZNMaMB). Include your app version, device, and steps to reproduce the issue.
 

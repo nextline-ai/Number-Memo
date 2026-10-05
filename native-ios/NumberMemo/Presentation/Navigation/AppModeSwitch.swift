@@ -4,8 +4,11 @@ import SwiftUI
 struct AppModeSwitch: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// A tutorial can preview the switch without changing the active library.
+    var previewMode: Binding<AppMode>? = nil
     @State private var selection: AppMode?
-    private var current: AppMode { selection ?? env.mode }
+    private var activeMode: AppMode { previewMode?.wrappedValue ?? env.mode }
+    private var current: AppMode { selection ?? activeMode }
     var body: some View {
         HStack(spacing: 2) {
             mode(.hitomi, icon: "book")
@@ -19,7 +22,7 @@ struct AppModeSwitch: View {
         .padding(3)
         .glassCapsule(isInteractive: true)
         .highPriorityGesture(DragGesture(minimumDistance: 12).onEnded { change($0.translation.width > 0 ? .booru : .hitomi) })
-        .onChange(of: env.mode) { _, mode in selection = mode }
+        .onChange(of: activeMode) { _, mode in selection = mode }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app.mode")
     }
@@ -42,7 +45,9 @@ struct AppModeSwitch: View {
         withAnimation(reduceMotion ? nil : .snappy(duration: 0.22), completionCriteria: .logicallyComplete) {
             selection = mode
         } completion: {
-            if selection == mode { env.mode = mode }
+            guard selection == mode else { return }
+            if let previewMode { previewMode.wrappedValue = mode }
+            else { env.mode = mode }
         }
     }
 }

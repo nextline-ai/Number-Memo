@@ -13,7 +13,10 @@ enum ContentUITestSupport {
             env = AppEnvironment(database: env.database, browserPreferences: UserDefaults(suiteName: "com.numbermemo.booru-ui-tests")!, booru: try! BooruUITestSupport.restoredBadgeStore())
         }
         env.isOnboardingCompleted = !ProcessInfo.processInfo.arguments.contains("--onboarding-test")
-        if ProcessInfo.processInfo.arguments.contains("--folder-edit-test") { _ = env.verifySite(input: "hitomi.la") }
+        if !ProcessInfo.processInfo.arguments.contains("--onboarding-test") && !ProcessInfo.processInfo.arguments.contains("--comics-setup-test") {
+            _ = env.verifySite(input: "hitomi.la")
+        }
+        if !BooruUITestSupport.enabled && !BooruUITestSupport.liveEnabled { env.mode = .hitomi }
         if BooruUITestSupport.enabled {
             env.mode = .booru
             if !ProcessInfo.processInfo.arguments.contains("--onboarding-test") {
