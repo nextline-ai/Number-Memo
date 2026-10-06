@@ -153,7 +153,7 @@ struct BooruPoolServersView: View {
     var body: some View {
         List(store.servers) { server in
             NavigationLink { BooruPoolsView(server: server, source: source) } label: {
-                Label(server.name, systemImage: "server.rack")
+                Label(server.displayName, systemImage: "server.rack")
             }
         }.navigationTitle(L10n.text("Pools")).navigationBarTitleDisplayMode(.inline)
     }

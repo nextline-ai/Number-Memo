@@ -22,7 +22,7 @@ struct BooruEmbeddedBrowserView: View {
                                 Label(value.name, systemImage: value.id == server.id ? "checkmark" : "globe")
                             }
                         }
-                    } label: { Label(server.name, systemImage: "globe").lineLimit(1) }
+                    } label: { Label(server.displayName, systemImage: "globe").lineLimit(1) }
                         .accessibilityIdentifier("booru.browserServer")
                     Spacer()
                     Button(L10n.text("Show Image Grid"), systemImage: "square.grid.2x2") { useEmbeddedBrowser = false }

@@ -79,10 +79,10 @@ public struct OnboardingView: View {
                 }
                 ForEach(env.booru.servers) { server in
                     HStack {
-                        Label(server.name, systemImage: "checkmark.circle.fill").font(.subheadline)
+                        Label(server.displayName, systemImage: "checkmark.circle.fill").font(.subheadline)
                         Spacer()
                         Button { validating = server } label: { Image(systemName: "checkmark.shield").frame(width: 36, height: 36) }
-                            .accessibilityLabel(L10n.text("Validate Client") + " " + server.name)
+                            .accessibilityLabel(L10n.text("Validate Client") + " " + server.displayName)
                     }
                 }
             }.padding(18).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))

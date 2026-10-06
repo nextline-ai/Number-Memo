@@ -31,6 +31,14 @@ struct BooruServer: Codable, Identifiable, Hashable, Sendable {
     var baseURL: URL
     var engine: BooruEngine
     var isGelbooruWebsite: Bool { engine == .gelbooru && ["gelbooru.com", "www.gelbooru.com"].contains(baseURL.host?.lowercased() ?? "") }
+    var displayName: String { Self.displayName(name) }
+    static func displayName(_ name: String) -> String {
+        let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in ["https://", "http://"] where value.lowercased().hasPrefix(prefix) {
+            return String(value.dropFirst(prefix.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+        return value
+    }
     var canonicalAddress: String { Self.canonicalAddress(baseURL) }
     static func canonicalAddress(_ url: URL) -> String {
         var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)!
@@ -272,7 +280,7 @@ struct BooruFolder: Identifiable, Hashable, Sendable {
     let id: String
     var name: String
     var color: Int64
-    var displayName: String { id == "unsorted" ? L10n.text("Uncategorized") : name }
+    var displayName: String { id == "unsorted" ? L10n.text("Uncategorized") : BooruServer.displayName(name) }
 }
 
 

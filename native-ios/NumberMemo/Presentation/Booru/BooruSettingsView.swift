@@ -18,13 +18,13 @@ struct BooruServersView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: store.selectedServerIDs.contains(server.id) ? "checkmark.circle.fill" : "circle").foregroundStyle(.tint)
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(server.name).foregroundStyle(.primary)
+                                    Text(server.displayName).foregroundStyle(.primary)
                                     Text(server.baseURL.host ?? "").font(.caption).foregroundStyle(.secondary)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }.buttonStyle(.plain)
                         Button { editing = .init(server: server) } label: { Image(systemName: "slider.horizontal.3") }
-                            .buttonStyle(.borderless).accessibilityLabel(L10n.text("Edit") + " " + server.name)
+                            .buttonStyle(.borderless).accessibilityLabel(L10n.text("Edit") + " " + server.displayName)
                     }.padding(.vertical, 4).swipeActions {
                         Button(L10n.text("Delete"), role: .destructive) { deleting = server }
                     }
@@ -116,7 +116,7 @@ struct BooruServerEditor: View {
                 .onAppear {
                     guard !initialized else { return }; initialized = true
                     guard let server else { return }
-                    name = server.name; address = server.baseURL.absoluteString; engineChoice = server.engine; showOptions = true
+                    name = server.displayName; address = server.baseURL.absoluteString; engineChoice = server.engine; showOptions = true
                     do { let credentials = try BooruKeychain.read(serverID: server.id); account = credentials.account; apiKey = credentials.apiKey }
                     catch { self.error = error.localizedDescription }
                 }
@@ -157,7 +157,7 @@ struct BooruBlacklistView: View {
                 Text(L10n.text("One rule per line. Use tags, rating:explicit, id:123, or artist:name. Remove a rule to unblock content."))
             }
             Section(L10n.text("Example")) { Text("spoilers\ngore -scenery\nrating:explicit\nartist_*").font(.footnote.monospaced()).foregroundStyle(.secondary) }
-        }.navigationTitle(server.name).navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle(server.displayName).navigationBarTitleDisplayMode(.inline)
             .onAppear { text = store.blacklist(serverID: server.id) }
             .toolbar { ToolbarItem(placement: .confirmationAction) {
                 Button(L10n.text("Save")) {
@@ -195,7 +195,7 @@ struct BooruMoreView: View {
                         .accessibilityIdentifier("booru.poolsLink")
                 }
             } footer: {
-                Text(store.selectedServers.map(\.name).joined(separator: " · "))
+                Text(store.selectedServers.map(\.displayName).joined(separator: " · "))
             }
 
             ModeAppearanceSettings()
@@ -210,7 +210,7 @@ struct BooruMoreView: View {
             if let server = settingsServer {
                 Section(L10n.text("Connection & Filters")) {
                     Picker(L10n.text("Server"), selection: Binding(get: { server.id }, set: { settingsServerID = $0 })) {
-                        ForEach(store.servers) { Text($0.name).tag($0.id) }
+                        ForEach(store.servers) { Text($0.displayName).tag($0.id) }
                     }
                     NavigationLink { BooruBlacklistView(server: server) } label: { Label(L10n.text("Tag Blacklist"), systemImage: "eye.slash") }.accessibilityIdentifier("booru.blacklist")
                     Button(L10n.text("Validate Client"), systemImage: "checkmark.shield") { validating = server }.accessibilityIdentifier("booru.validate")

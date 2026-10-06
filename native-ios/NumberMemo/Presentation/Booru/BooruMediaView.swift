@@ -78,9 +78,19 @@ struct BooruThumbnail: View {
                 } else if failed { Image(systemName: "photo.badge.exclamationmark").foregroundStyle(.secondary) }
                 else { ProgressView() }
             }
-        }.onReceive(NotificationCenter.default.publisher(for: .booruClientValidated)) { if $0.object as? String == server.id { retry += 1 } }
+        }.allowsHitTesting(false).onReceive(NotificationCenter.default.publisher(for: .booruClientValidated)) { if $0.object as? String == server.id { retry += 1 } }
         .task(id: "\(post.id):\(post.previewURL?.absoluteString ?? post.sampleURL?.absoluteString ?? ""):\(retry)") {
             image = nil; failed = false
+            #if DEBUG
+            if isFixture {
+                // Exercise the same image rendering path as real wide thumbnails.
+                image = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 300)).image { context in
+                    UIColor.systemIndigo.setFill(); context.fill(CGRect(x: 0, y: 0, width: 1600, height: 300))
+                    UIColor.systemCyan.setFill(); context.fill(CGRect(x: 800, y: 0, width: 800, height: 300))
+                }
+                return
+            }
+            #endif
             guard !isFixture, let url = post.previewURL ?? post.sampleURL else { failed = true; return }
             do { image = try await BooruThumbnailCache.shared.image(url: url, server: server) }
             catch { if !Task.isCancelled { failed = true } }

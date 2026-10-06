@@ -3,6 +3,49 @@ import GRDB
 @testable import NumberMemo
 
 final class BooruLibraryTests: XCTestCase {
+    func testLegacyImportFoldersAreRepairedOnUpgradeAndReimport() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".sqlite")
+        defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }
+        let backup = try AnimeBoxesBackup.parse(BooruUITestSupport.importFixture)
+        let store = try BooruStore(path: url.path)
+        var options = AnimeBoxesImportOptions(); options.folderID = "anime-boxes"
+        _ = try store.importAnimeBoxes(backup, options: options)
+        let custom = try store.saveFolder(name: "My picks")
+        let preserved = BooruFixtureSource.post(999, server: backup.servers[0])
+        try store.saveFavorite(preserved, folderID: custom)
+        let dates = try store.database.read { try Double.fetchAll($0, sql: "SELECT saved_at FROM favorites ORDER BY server_id, post_id") }
+        // Simulate a database written by the previous app version.
+        try store.database.write { try $0.execute(sql: "DELETE FROM grdb_migrations WHERE identifier = 'booru_v6_import_site_folders'") }
+        let upgraded = try BooruStore(path: url.path)
+        for server in backup.servers {
+            XCTAssertEqual(upgraded.favorites(serverIDs: [server.id], folderID: "site:" + server.canonicalAddress).count, 1)
+        }
+        XCTAssertEqual(upgraded.folderID(for: preserved), custom)
+        XCTAssertEqual(try upgraded.database.read { try Double.fetchAll($0, sql: "SELECT saved_at FROM favorites ORDER BY server_id, post_id") }, dates)
+        // A backup imported later into the former shared folder is repaired on reimport too.
+        try upgraded.database.write { db in
+            try db.execute(sql: "INSERT INTO folders VALUES ('anime-boxes', 'Anime Boxes', 1, 99)")
+            try db.execute(sql: "UPDATE favorites SET folder_id = 'anime-boxes' WHERE post_id = 201")
+        }
+        let result = try upgraded.importAnimeBoxes(backup, options: .init())
+        XCTAssertEqual(result.added, 0)
+        XCTAssertEqual(upgraded.visibleFavorites().count, 3)
+        XCTAssertEqual(upgraded.folderID(for: preserved), custom)
+        XCTAssertFalse(upgraded.folders().contains { $0.id == "anime-boxes" })
+    }
+
+    func testAddressDisplayNamesDoNotChangeConnectionAddresses() throws {
+        var server = BooruServer.presets[0]
+        server.name = "  HTTPS://danbooru.donmai.us/  "
+        let store = try BooruStore(); try store.saveServer(server)
+        try store.saveFavorite(BooruFixtureSource.post(42, server: server))
+        XCTAssertEqual(server.displayName, "danbooru.donmai.us")
+        XCTAssertEqual(store.folders().first { $0.id.hasPrefix("site:") }?.displayName, "danbooru.donmai.us")
+        XCTAssertEqual(store.servers[0].baseURL.absoluteString, "https://danbooru.donmai.us")
+        XCTAssertEqual(BooruServer.displayName("My collection"), "My collection")
+        XCTAssertEqual(BooruServer.displayName("https://example.com/booru"), "example.com/booru")
+    }
+
     func testContentControlsMatchPostAndArtistWithoutHidingUnrelatedPosts() {
         let server = BooruServer.presets[0]
         var post = BooruFixtureSource.post(123, server: server)

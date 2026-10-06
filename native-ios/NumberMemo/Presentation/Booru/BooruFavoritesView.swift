@@ -35,7 +35,7 @@ struct BooruFavoritesView: View {
                                 Button(L10n.text("Change Color"), systemImage: "paintpalette") { editing = .init(folder: folder) }
                                 Button(L10n.text("Reorder Folders"), systemImage: "arrow.up.arrow.down") { reordering = true }
                                 if folder.id != "unsorted" {
-                                    Button(L10n.text("Rename Folder"), systemImage: "pencil") { renaming = folder; renameDraft = folder.name; showRename = true }
+                                    Button(L10n.text("Rename Folder"), systemImage: "pencil") { renaming = folder; renameDraft = folder.displayName; showRename = true }
                                     Button(L10n.text("Delete Folder"), systemImage: "trash", role: .destructive) { deleting = folder }
                                 }
                             }

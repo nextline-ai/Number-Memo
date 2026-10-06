@@ -5,6 +5,29 @@ import GRDB
 final class LibrarySyncTests: XCTestCase {
     private var suites: [String] = []
     override func tearDown() { for suite in suites { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }; suites = [] }
+    @MainActor func testCloudContainerAccessIsRecheckedAndDisabledRequestsAreDiscarded() async throws {
+        let name = "cloud-access-" + UUID().uuidString; suites.append(name)
+        let resolver = CloudAccessFixture()
+        let sync = LibraryCloudSync(defaults: UserDefaults(suiteName: name)!, resolveContainer: { await resolver.resolve() })
+        let first = await sync.availableContainer()
+        XCTAssertNotNil(first)
+        await resolver.setAvailable(false)
+        let unavailable = await sync.availableContainer()
+        XCTAssertNil(unavailable)
+        await resolver.setAvailable(true)
+        let task = Task { await sync.availableContainer() }
+        // Suspend the resolver while the setting is switched off and on again.
+        try await Task.sleep(for: .milliseconds(20))
+        sync.enabled = false; sync.enabled = true
+        let stale = await task.value
+        XCTAssertNil(stale)
+        let fresh = await sync.availableContainer()
+        XCTAssertNotNil(fresh)
+        sync.enabled = false
+        let disabled = await sync.availableContainer()
+        XCTAssertNil(disabled)
+    }
+
     private func adapter() throws -> LibrarySyncAdapter {
         func defaults() -> UserDefaults {
             let name = "library-sync-tests-" + UUID().uuidString; suites.append(name)
@@ -18,6 +41,29 @@ final class LibrarySyncTests: XCTestCase {
         try a.apply(la.changes); try b.apply(lb.changes)
         la.baseline = try a.snapshot(); lb.baseline = try b.snapshot()
     }
+    func testLegacyCloudImportRepairPropagatesToAnotherDevice() throws {
+        let a = try adapter(), b = try adapter()
+        let backup = try AnimeBoxesBackup.parse(BooruUITestSupport.importFixture)
+        var options = AnimeBoxesImportOptions(); options.folderID = "anime-boxes"
+        _ = try a.booru.importAnimeBoxes(backup, options: options)
+        var original = LibrarySyncLedger(), repaired = LibrarySyncLedger()
+        original.capture(try a.snapshot(), device: "old-device")
+        repaired.merge(original.changes)
+        try b.apply(repaired.changes)
+        repaired.baseline = try b.snapshot()
+        try b.booru.organizeLegacyImports()
+        repaired.capture(try b.snapshot(), device: "new-device")
+        try a.apply(repaired.changes)
+        for library in [a.booru, b.booru] {
+            try library.refresh()
+            for server in backup.servers {
+                let local = try XCTUnwrap(library.servers.first { $0.canonicalAddress == server.canonicalAddress })
+                XCTAssertEqual(library.favorites(serverIDs: [local.id], folderID: "site:" + server.canonicalAddress).count, 1)
+            }
+            XCTAssertFalse(library.folders().contains { $0.id == "anime-boxes" })
+        }
+    }
+
     func testCloudSnapshotExcludesEmbeddedMediaAndPreservesSiteFolderAcrossDevices() throws {
         let a = try adapter(), b = try adapter(), server = BooruServer.presets[0]
         try a.booru.saveServer(server)
@@ -319,5 +365,14 @@ final class LibrarySyncTests: XCTestCase {
         let result = try a.booru.importAnimeBoxes(.parse(data), options: .init())
         XCTAssertEqual(result.serversAdded, 0); XCTAssertEqual(result.added, 1)
         XCTAssertEqual(a.booru.favorites(serverID: server.id).first?.postID, 123)
+    }
+}
+
+private actor CloudAccessFixture {
+    private var available = true
+    func setAvailable(_ value: Bool) { available = value }
+    func resolve() async -> URL? {
+        try? await Task.sleep(for: .milliseconds(100))
+        return available ? URL(fileURLWithPath: "/tmp/test-cloud-container") : nil
     }
 }

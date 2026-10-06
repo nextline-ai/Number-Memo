@@ -81,6 +81,9 @@ final class BooruStore: @unchecked Sendable {
                 }
             }
         }
+        migrations.registerMigration("booru_v6_import_site_folders") { db in
+            try Self.organizeLegacyImports(db: db)
+        }
         try migrations.migrate(database)
         try reload()
     }
@@ -248,6 +251,19 @@ final class BooruStore: @unchecked Sendable {
         revision += 1
     }
 
+    func organizeLegacyImports() throws {
+        try database.write { try Self.organizeLegacyImports(db: $0) }
+    }
+
+    /// Repair the former shared import destination without moving user-created folders.
+    static func organizeLegacyImports(db: Database) throws {
+        for serverID in try String.fetchAll(db, sql: "SELECT DISTINCT server_id FROM favorites WHERE folder_id = 'anime-boxes'") {
+            let folder = try defaultFolder(for: serverID, db: db)
+            try db.execute(sql: "UPDATE favorites SET folder_id = ? WHERE server_id = ? AND folder_id = 'anime-boxes'", arguments: [folder, serverID])
+        }
+        try db.execute(sql: "DELETE FROM folders WHERE id = 'anime-boxes' AND NOT EXISTS (SELECT 1 FROM favorites WHERE folder_id = 'anime-boxes')")
+    }
+
     static func defaultFolder(for serverID: String, db: Database) throws -> String {
         guard let data = try Data.fetchOne(db, sql: "SELECT payload FROM servers WHERE id = ?", arguments: [serverID]) else { throw BooruError.invalidServer }
         let server = try JSONDecoder().decode(BooruServer.self, from: data)
@@ -255,7 +271,7 @@ final class BooruStore: @unchecked Sendable {
         let id = "site:" + server.canonicalAddress
         if try String.fetchOne(db, sql: "SELECT id FROM folders WHERE id = ?", arguments: [id]) == nil {
             let color = try AppDatabase.nextFolderColor(existingColors: Int64.fetchAll(db, sql: "SELECT color FROM folders"))
-            try db.execute(sql: "INSERT INTO folders VALUES (?, ?, ?, (SELECT COUNT(*) FROM folders))", arguments: [id, server.name, color])
+            try db.execute(sql: "INSERT INTO folders VALUES (?, ?, ?, (SELECT COUNT(*) FROM folders))", arguments: [id, server.displayName, color])
         }
         return id
     }

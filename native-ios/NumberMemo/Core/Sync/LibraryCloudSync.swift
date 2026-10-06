@@ -16,7 +16,7 @@ final class LibraryCloudSync {
     var enabled: Bool {
         didSet {
             defaults.set(enabled, forKey: Self.enabledKey)
-            if !enabled { query.stop(); queryStarted = false; status = L10n.text("Sync Off") }
+            if !enabled { invalidateAccess(); status = L10n.text("Sync Off") }
         }
     }
     private let defaults: UserDefaults
@@ -29,8 +29,15 @@ final class LibraryCloudSync {
     private var ledgerURL: URL?
     private var device: String
     private var needsUpload = false
+    private var accessGeneration = 0
+    @ObservationIgnored private let resolveContainer: @Sendable () async -> URL?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, resolveContainer: @escaping @Sendable () async -> URL? = {
+        await Task.detached(priority: .utility) {
+            FileManager.default.url(forUbiquityContainerIdentifier: AppStorage.iCloudContainerId)
+        }.value
+    }) {
+        self.resolveContainer = resolveContainer
         self.defaults = defaults
         enabled = defaults.object(forKey: Self.enabledKey) as? Bool ?? true
         let installation = defaults.string(forKey: "icloud.installation") ?? UUID().uuidString
@@ -40,9 +47,16 @@ final class LibraryCloudSync {
         query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemFSNameKey, "library-*.json")
         for name in [NSNotification.Name.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: query, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.requestDownloads() }
+                Task { @MainActor in
+                    guard let self, let container = await self.availableContainer(),
+                          self.cloudRoot == container.appendingPathComponent("Documents/LibrarySync/v1", isDirectory: true) else { return }
+                    self.requestDownloads()
+                }
             })
         }
+        observers.append(NotificationCenter.default.addObserver(forName: .NSUbiquityIdentityDidChange, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.invalidateAccess() }
+        })
     }
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
 
@@ -56,15 +70,17 @@ final class LibraryCloudSync {
         do {
             guard let token = FileManager.default.ubiquityIdentityToken else {
                 status = L10n.text("Sign in to iCloud and enable iCloud Drive to sync.")
-                cloudRoot = nil; account = nil; query.stop(); queryStarted = false
+                invalidateAccess()
                 return
             }
             let tokenData = try NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: false)
             let accountID = Self.digest(tokenData)
-            if account != accountID || cloudRoot == nil {
-                let root = await Task.detached(priority: .utility) { FileManager.default.url(forUbiquityContainerIdentifier: AppStorage.iCloudContainerId) }.value
-                guard let root else { status = L10n.text("iCloud Drive is unavailable. Your data is saved on this device."); return }
-                cloudRoot = root.appendingPathComponent("Documents/LibrarySync/v1", isDirectory: true)
+            // Identity alone is not permission to access this app's documents. The
+            // system can disable the container without changing the signed-in account.
+            guard let container = await availableContainer() else { return }
+            let resolvedRoot = container.appendingPathComponent("Documents/LibrarySync/v1", isDirectory: true)
+            if account != accountID || cloudRoot != resolvedRoot {
+                cloudRoot = resolvedRoot
                 let local = AppStorage.sharedContainerURL.appendingPathComponent("sync-" + accountID + ".json")
                 if FileManager.default.fileExists(atPath: local.path) {
                     ledger = try JSONDecoder().decode(LibrarySyncLedger.self, from: Data(contentsOf: local))
@@ -75,8 +91,10 @@ final class LibraryCloudSync {
             guard let root = cloudRoot, let local = ledgerURL else { return }
             if !queryStarted { queryStarted = query.start() }
             requestDownloads()
+            let generation = accessGeneration
             let incoming = try await Task.detached(priority: .utility) { try CloudLibraryFiles.readState(in: root) }.value
-            guard enabled, account == accountID, let currentToken = FileManager.default.ubiquityIdentityToken,
+            guard await availableContainer() == container, generation == accessGeneration,
+                  enabled, account == accountID, let currentToken = FileManager.default.ubiquityIdentityToken,
                   Self.digest(try NSKeyedArchiver.archivedData(withRootObject: currentToken, requiringSecureCoding: false)) == accountID else { return }
             let adapter = LibrarySyncAdapter(hitomi: env.database, booru: env.booru, hitomiDefaults: defaults, booruDefaults: ReaderPreferences.booruDefaults)
             // Take a fresh snapshot AFTER file I/O so edits made while downloading win.
@@ -90,6 +108,11 @@ final class LibraryCloudSync {
             next.changes = try LibrarySyncAdapter.mediaFreeChanges(next.changes)
             if next.changes != captured {
                 try adapter.apply(next.changes)
+                // Older cloud documents may still contain the shared Anime Boxes
+                // destination. Publish this repair as new row changes too.
+                next.baseline = try adapter.snapshot()
+                try env.booru.organizeLegacyImports()
+                next.capture(try adapter.snapshot(), device: device)
                 try env.booru.refresh()
                 env.reloadSyncedPreferences()
                 env.database.syncFoldersToAppGroup()
@@ -105,11 +128,12 @@ final class LibraryCloudSync {
             documentBytes = data.count
             if needsUpload {
                 let destination = root.appendingPathComponent("library-" + device + ".json")
-                guard enabled else { return }
+                guard await availableContainer() == container, generation == accessGeneration, enabled else { return }
                 try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(data, to: destination, ubiquitous: true) }.value
+                guard generation == accessGeneration, enabled else { return }
                 needsUpload = false
             }
-            guard enabled, let currentToken = FileManager.default.ubiquityIdentityToken,
+            guard generation == accessGeneration, enabled, let currentToken = FileManager.default.ubiquityIdentityToken,
                   Self.digest(try NSKeyedArchiver.archivedData(withRootObject: currentToken, requiringSecureCoding: false)) == accountID else { return }
             let destination = root.appendingPathComponent("library-" + device + ".json")
             let uploaded = try await Task.detached(priority: .utility) {
@@ -129,6 +153,29 @@ final class LibraryCloudSync {
             guard enabled else { return }
             status = L10n.text("Unable to sync now. Your data is saved on this device.")
         }
+    }
+
+    /// Never treat a previously resolved local iCloud directory as current access.
+    func availableContainer() async -> URL? {
+        guard enabled else { return nil }
+        let generation = accessGeneration
+        let container = await resolveContainer()
+        guard enabled, generation == accessGeneration else { return nil }
+        guard let container else {
+            invalidateAccess()
+            status = L10n.text("iCloud Drive is unavailable. Your data is saved on this device.")
+            return nil
+        }
+        return container
+    }
+
+    private func invalidateAccess() {
+        accessGeneration += 1
+        query.stop(); queryStarted = false
+        cloudRoot = nil; account = nil; ledgerURL = nil
+        ledger = .init()
+        needsUpload = false
+        cloudBytes = nil; cloudDocumentCount = 0
     }
 
     private func requestDownloads() {

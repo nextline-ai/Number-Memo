@@ -130,7 +130,7 @@ struct AnimeBoxesImportResult: Sendable {
 }
 
 extension BooruStore {
-    /// The entire merge commits together. Existing favorites keep their folder and original saved date.
+    /// The entire merge commits together. Existing favorites keep custom folders and their original saved date.
     func importAnimeBoxes(_ backup: AnimeBoxesBackup, options: AnimeBoxesImportOptions) throws -> AnimeBoxesImportResult {
         guard !backup.servers.isEmpty else { throw AnimeBoxesImportError.noServers }
         let result = try database.write { db in
@@ -159,6 +159,7 @@ extension BooruStore {
                 try db.execute(sql: "INSERT OR IGNORE INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?)", arguments: [id, post.postID, try JSONEncoder().encode(post), favorite.savedAt, folderID])
                 if db.changesCount > 0 { added += 1 } else { duplicates += 1 }
             }
+            if options.folderID == "by-site" { try Self.organizeLegacyImports(db: db) }
             for id in Set(mapping.values) {
                 if options.history {
                     for search in backup.history {

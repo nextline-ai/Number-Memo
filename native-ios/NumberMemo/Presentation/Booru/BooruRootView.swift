@@ -76,13 +76,13 @@ struct BooruServerMenu: View {
         Menu {
             ForEach(store.servers) { server in
                 Button { store.perform { try store.toggleServer(server) } } label: {
-                    Label(server.name, systemImage: store.selectedServerIDs.contains(server.id) ? "checkmark.circle.fill" : "globe")
+                    Label(server.displayName, systemImage: store.selectedServerIDs.contains(server.id) ? "checkmark.circle.fill" : "globe")
                 }.disabled(store.selectedServerIDs == [server.id])
             }
         } label: {
             Image(systemName: "server.rack").font(.system(size: 17, weight: .medium))
                 .frame(width: compact ? nil : 32, height: compact ? nil : 32)
-        }.menuActionDismissBehavior(.disabled).accessibilityLabel(L10n.text("Servers") + ": " + store.selectedServers.map(\.name).joined(separator: ", ")).accessibilityIdentifier("booru.server")
+        }.menuActionDismissBehavior(.disabled).accessibilityLabel(L10n.text("Servers") + ": " + store.selectedServers.map(\.displayName).joined(separator: ", ")).accessibilityIdentifier("booru.server")
     }
 }
 
@@ -203,7 +203,7 @@ struct BooruFeedView: View {
                     if loader.loading { ProgressView(L10n.text("Loading")).padding(24) }
                     ForEach(servers.filter { loader.errors[$0.id] != nil }) { server in
                         VStack(alignment: .leading, spacing: 12) {
-                            Label(server.name, systemImage: "server.rack").font(.headline)
+                            Label(server.displayName, systemImage: "server.rack").font(.headline)
                             Text(loader.errors[server.id] ?? "").font(.subheadline).foregroundStyle(.secondary)
                             if server.engine == .danbooru && query.split(whereSeparator: \.isWhitespace).count >= 2 {
                                 Text(L10n.text("Danbooru limits searches by account level. Regular accounts usually allow up to two tags. For more tags, upgrade on the website and enter your username and API key here. Gelbooru does not have this two-tag limit. Connection errors can have other causes."))
@@ -399,9 +399,9 @@ struct BooruPostGrid: View {
                     }
                     .id(post.id)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel(server.name + " · " + String(post.postID))
+                    .accessibilityLabel(server.displayName + " · " + String(post.postID))
                     .accessibilityIdentifier("booru.post.\(post.postID)")
-                    .accessibilityValue(showsFavoriteIndicator && favorites.contains(post.id) ? L10n.text("Saved") : "")
+                    .accessibilityValue(selection.map { $0.wrappedValue.contains(post.id) ? L10n.text("Selected") : "" } ?? (showsFavoriteIndicator && favorites.contains(post.id) ? L10n.text("Saved") : ""))
                 }
             }
         }.sheet(item: $filing) { BooruFolderPicker(post: $0) }
@@ -425,6 +425,8 @@ struct BooruPostGrid: View {
             }
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .clipShape(RoundedRectangle(cornerRadius: 16))
+            // Cropping pixels does not crop SwiftUI hit testing.
+            .contentShape(Rectangle())
     }
 
     private func save(_ post: BooruPost) {

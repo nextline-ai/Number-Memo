@@ -259,7 +259,7 @@ struct BooruPostView: View {
                                 .accessibilityLabel(L10n.text("Copy ID")).accessibilityIdentifier("booru.copyID")
                         }
                     }
-                    LabeledContent(L10n.text("Server"), value: server.name)
+                    LabeledContent(L10n.text("Server"), value: server.displayName)
                     LabeledContent(L10n.text("Resolution"), value: "\(post.width) × \(post.height)")
                     LabeledContent(L10n.text("Format"), value: post.fileExtension.uppercased())
                     LabeledContent(L10n.text("Score"), value: String(post.score))

@@ -18,7 +18,7 @@ struct BooruValidationView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label(model.address?.host ?? server.baseURL.host ?? server.name, systemImage: "lock.shield")
+                    Label(model.address?.host ?? server.baseURL.host ?? server.displayName, systemImage: "lock.shield")
                         .font(.subheadline.weight(.semibold))
                     Text(L10n.text("Complete any verification on the website, then tap Done to retry. Cookies are saved for this server."))
                         .font(.caption).foregroundStyle(.secondary)
@@ -197,7 +197,7 @@ struct BooruCookiesView: View {
                         }
                     }
                 }
-            } header: { Text(server.name) } footer: { Text(L10n.text("Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser.")) }
+            } header: { Text(server.displayName) } footer: { Text(L10n.text("Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser.")) }
             Section {
                 Button(L10n.text("Reset Cookies"), role: .destructive) { confirmReset = true }
                     .disabled(resetting).accessibilityIdentifier("booru.resetCookies")

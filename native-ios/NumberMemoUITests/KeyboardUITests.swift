@@ -4,6 +4,41 @@ final class KeyboardUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
+    func testWideThumbnailTapAndSelectionStayInsideTheirOwnCard() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--booru-ui-test", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let explore = element(app, "globe")
+        XCTAssertTrue(explore.waitForExistence(timeout: 10)); explore.tap()
+        let state = element(app, "booru.viewerState")
+        for id in [101, 102] {
+            let post = element(app, "booru.post.\(id)")
+            XCTAssertTrue(post.waitForExistence(timeout: 10))
+            for x in [0.1, 0.5, 0.9] {
+                post.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.5)).tap()
+                XCTAssertTrue(state.wait(for: \.label, toEqual: "\(id):fit", timeout: 5))
+                element(app, "booru.pointerClose").tap()
+                XCTAssertTrue(state.waitForNonExistence(timeout: 5))
+            }
+            post.press(forDuration: 0.7)
+            XCTAssertTrue(element(app, "booru.favoriteBadge.\(id)").waitForExistence(timeout: 5))
+        }
+        element(app, "folder.fill").tap()
+        element(app, "booru.allFavorites").tap()
+        element(app, "booru.select").tap()
+        let first = element(app, "booru.post.101"), second = element(app, "booru.post.102")
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        first.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(first.value as? String, "Selected")
+        XCTAssertEqual(second.value as? String, "")
+        first.tap()
+        XCTAssertEqual(first.value as? String, "")
+        second.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
+        XCTAssertEqual(second.value as? String, "Selected")
+        XCTAssertEqual(first.value as? String, "")
+    }
+
     func testOnboardingSuggestionsImportBannerAndSafeRefresh() {
         continueAfterFailure = false
         let app = XCUIApplication()

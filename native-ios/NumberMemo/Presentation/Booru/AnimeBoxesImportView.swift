@@ -35,7 +35,7 @@ struct AnimeBoxesImportView: View {
                     LabeledContent(L10n.text("Tag Blacklist"), value: String(backup.blacklist.count))
                     DisclosureGroup(L10n.text("Servers")) {
                         ForEach(backup.servers) { server in
-                            LabeledContent(server.name, value: server.engine.title)
+                            LabeledContent(server.displayName, value: server.engine.title)
                         }
                     }
                     let skipped = backup.skippedServers + backup.skippedFavorites + backup.skippedHistory + backup.skippedRules

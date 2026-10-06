@@ -3,6 +3,32 @@ import WebKit
 @testable import NumberMemo
 
 @MainActor final class MediaInputTests: XCTestCase {
+    func testPrivacyCoverIsImmediateAndSurvivesInterruptedReturn() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 400, height: 800)
+        window.rootViewController = UIViewController()
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let manager = PrivacyCoverManager()
+        manager.show(in: [window])
+        let cover = try XCTUnwrap(window.subviews.last)
+        XCTAssertEqual(cover.accessibilityIdentifier, "privacy.cover")
+        XCTAssertEqual(cover.frame, window.bounds)
+        XCTAssertEqual(cover.alpha, 1)
+        XCTAssertTrue(cover.isOpaque)
+        XCTAssertTrue(cover.layer.animationKeys()?.isEmpty ?? true)
+        manager.hide()
+        manager.show(in: [window])
+        try await Task.sleep(for: .milliseconds(550))
+        XCTAssertTrue(cover.superview === window)
+        XCTAssertEqual(cover.transform, .identity)
+        XCTAssertEqual(cover.alpha, 1)
+        manager.hide()
+        try await Task.sleep(for: .milliseconds(550))
+        XCTAssertNil(cover.superview)
+    }
+
     func testChallengePageCannotBeAdoptedAsValidatedSession() async throws {
         let server = BooruServer.presets[0]
         let model = BooruValidationModel(server: server)

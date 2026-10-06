@@ -1,64 +1,73 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Bulletproof UIKit Privacy Cover Manager (Guaranteed App Switcher Snapshot Privacy)
+// MARK: - App switcher privacy cover
 
 #if os(iOS) && !targetEnvironment(macCatalyst)
 @MainActor
 final class PrivacyCoverManager {
     static let shared = PrivacyCoverManager()
-    private var privacyWindow: UIWindow?
+    private var covers: [ObjectIdentifier: UIView] = [:]
+    private var generation = 0
 
-    private init() {}
+    init() {}
 
     func show() {
-        if let window = privacyWindow {
-            window.layer.removeAllAnimations()
-            window.transform = .identity
-            window.alpha = 1
-            return
-        }
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) else {
-            return
-        }
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).filter { !$0.isHidden && $0.rootViewController != nil }
+        show(in: windows)
+    }
 
-        let window = UIWindow(windowScene: windowScene)
-        window.windowLevel = .alert + 10
-        window.backgroundColor = .black
-
-        let imageView = UIImageView(frame: window.bounds)
-        imageView.image = UIImage(named: "splash_kr")
-        imageView.contentMode = .scaleAspectFill
-        imageView.clipsToBounds = true
-        imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        imageView.backgroundColor = .black
-
-        window.addSubview(imageView)
-        window.isHidden = false
-        self.privacyWindow = window
-        // The opaque background covers content immediately for the switcher snapshot.
-        // Only the artwork animates; privacy never depends on an animation finishing.
-        if !UIAccessibility.isReduceMotionEnabled {
-            imageView.transform = CGAffineTransform(translationX: 0, y: 24)
-            UIView.animate(withDuration: 0.25) { imageView.transform = .identity }
+    func show(in windows: [UIWindow]) {
+        generation += 1
+        // Attach to the actual app windows: their contents are what UIKit snapshots.
+        UIView.performWithoutAnimation {
+            for window in windows {
+                let key = ObjectIdentifier(window)
+                let cover: UIView
+                if let existing = covers[key] { cover = existing }
+                else {
+                    cover = UIView(frame: window.bounds)
+                    let artwork = UIImageView(image: UIImage(named: "splash_kr"))
+                    artwork.frame = cover.bounds
+                    artwork.contentMode = .scaleAspectFill
+                    artwork.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                    cover.addSubview(artwork)
+                }
+                cover.layer.removeAllAnimations()
+                cover.transform = .identity
+                cover.alpha = 1
+                cover.frame = window.bounds
+                cover.backgroundColor = .black
+                cover.isOpaque = true
+                cover.contentMode = .scaleAspectFill
+                cover.clipsToBounds = true
+                cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                cover.isUserInteractionEnabled = true
+                cover.accessibilityIdentifier = "privacy.cover"
+                window.addSubview(cover)
+                covers[key] = cover
+                window.layoutIfNeeded()
+            }
         }
     }
 
     func hide() {
-        guard let window = privacyWindow else { return }
+        let current = generation
         let reduced = UIAccessibility.isReduceMotionEnabled
-        UIView.animate(withDuration: reduced ? 0.15 : 0.45, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
-            if reduced { window.alpha = 0 }
-            else { window.transform = CGAffineTransform(translationX: 0, y: -window.bounds.height) }
-        } completion: { [weak self] finished in
-            guard finished, self?.privacyWindow === window else { return }
-            window.isHidden = true
-            self?.privacyWindow = nil
+        for (key, cover) in covers {
+            UIView.animate(withDuration: reduced ? 0.15 : 0.45, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
+                if reduced { cover.alpha = 0 }
+                else { cover.transform = CGAffineTransform(translationX: 0, y: -cover.bounds.height) }
+            } completion: { [weak self] finished in
+                guard let self, finished, self.generation == current, self.covers[key] === cover else { return }
+                cover.removeFromSuperview()
+                self.covers.removeValue(forKey: key)
+            }
         }
     }
 }
+
 #else
 @MainActor
 final class PrivacyCoverManager {
