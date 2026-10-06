@@ -90,6 +90,7 @@ struct BooruServerMenu: View {
 final class BooruFeedLoader {
     private(set) var posts: [BooruPost] = []
     private(set) var loading = false
+    private(set) var didLoad = false
     private(set) var errors: [String: String] = [:]
     var error: String? { errors.values.first }
     var hasMore: Bool { remaining.contains { errors[$0] == nil } }
@@ -103,12 +104,13 @@ final class BooruFeedLoader {
 
     func load(servers: [BooruServer], source: any BooruProviding, query: String, poolID: Int64? = nil, sort: BooruSort = .latest, rating: BooruRating = .all, reset: Bool) async {
         if !reset && (loading || !hasMore) { return }
-        if reset {
-            generation = UUID(); pages = [:]; posts = []; errors = [:]
-            remaining = Set(servers.map(\.id))
-        }
+        if reset { generation = UUID() }
         let token = generation
-        let requests = servers.filter { remaining.contains($0.id) && errors[$0.id] == nil }.map { ($0, pages[$0.id] ?? 0) }
+        var nextPages = reset ? [:] : pages
+        var nextPosts = reset ? [] : posts
+        var nextErrors = reset ? [:] : errors
+        var nextRemaining = reset ? Set(servers.map(\.id)) : remaining
+        let requests = servers.filter { nextRemaining.contains($0.id) && nextErrors[$0.id] == nil }.map { ($0, nextPages[$0.id] ?? 0) }
         loading = true
         defer { if token == generation { loading = false } }
         await withTaskGroup(of: (String, BooruBatch?, String?).self) { group in
@@ -125,14 +127,18 @@ final class BooruFeedLoader {
             for await (id, batch, error) in group {
                 guard !Task.isCancelled, token == generation else { group.cancelAll(); return }
                 if let batch {
-                    var seen = Set(posts.map(\.id))
-                    posts += batch.posts.filter { seen.insert($0.id).inserted }
-                    if sort == .popular && poolID == nil { posts.sort { $0.score == $1.score ? $0.id < $1.id : $0.score > $1.score } }
-                    pages[id, default: 0] += 1
-                    if !batch.hasMore { remaining.remove(id) }
-                } else { errors[id] = error }
+                    var seen = Set(nextPosts.map(\.id))
+                    nextPosts += batch.posts.filter { seen.insert($0.id).inserted }
+                    if sort == .popular && poolID == nil { nextPosts.sort { $0.score == $1.score ? $0.id < $1.id : $0.score > $1.score } }
+                    nextPages[id, default: 0] += 1
+                    if !batch.hasMore { nextRemaining.remove(id) }
+                } else { nextErrors[id] = error }
             }
         }
+        // A cancelled refresh must never replace a populated feed with an empty one.
+        guard !Task.isCancelled, token == generation else { return }
+        posts = nextPosts; pages = nextPages; errors = nextErrors; remaining = nextRemaining
+        didLoad = true
     }
 }
 
@@ -215,7 +221,7 @@ struct BooruFeedView: View {
                         }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 18))
                     }
-                    if !loader.loading && loader.errors.isEmpty && visiblePosts.isEmpty {
+                    if loader.didLoad && !loader.loading && loader.errors.isEmpty && visiblePosts.isEmpty {
                         ContentUnavailableView(L10n.text(loader.posts.isEmpty ? (pool == nil ? "No Posts" : "No Available Posts") : "Posts Hidden"), systemImage: "photo.on.rectangle", description: Text(L10n.text(loader.posts.isEmpty ? (pool == nil ? "Try different tags or another server." : "This website returned no posts for this pool. It may be empty or its posts may no longer be available.") : "These posts match your blacklist. You can load the next page.")))
                         if pool != nil {
                             Button(L10n.text("Open in Browser"), systemImage: "globe") { useEmbeddedBrowser = true }
@@ -234,7 +240,12 @@ struct BooruFeedView: View {
             }
             .refreshable {
                 let value = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-                if query != value { query = value } else { await load(reset: true) }
+                if query != value { query = value }
+                else {
+                    // SwiftUI can cancel its refresh action while the scroll view updates.
+                    // Keep this user-requested refresh alive until the result is committed.
+                    await Task { await load(reset: true) }.value
+                }
             }
             if pool == nil {
                 VStack(spacing: 0) {
@@ -274,12 +285,14 @@ struct BooruFeedView: View {
             } label: { Label(sort.title, systemImage: "arrow.up.arrow.down").font(.subheadline.weight(.medium)) }
                 .accessibilityIdentifier("booru.sort")
             Spacer()
-            Menu {
-                Picker(L10n.text("Rating"), selection: $rating) {
-                    ForEach(BooruRating.options(for: servers)) { Text($0.title).tag($0) }
-                }
-            } label: { Label(rating.title, systemImage: "line.3.horizontal.decrease").font(.subheadline.weight(.medium)) }
-                .accessibilityLabel(L10n.text("Rating") + ": " + rating.title).accessibilityIdentifier("booru.rating")
+            if BooruRating.options(for: servers).count > 1 {
+                Menu {
+                    Picker(L10n.text("Rating"), selection: $rating) {
+                        ForEach(BooruRating.options(for: servers)) { Text($0.title).tag($0) }
+                    }
+                } label: { Label(rating.title, systemImage: "line.3.horizontal.decrease").font(.subheadline.weight(.medium)) }
+                    .accessibilityLabel(L10n.text("Rating") + ": " + rating.title).accessibilityIdentifier("booru.rating")
+            }
         }
     }
     @ViewBuilder private var searchSuggestions: some View {

@@ -45,6 +45,7 @@ struct AnimeBoxesImportView: View {
                 }
                 Section(L10n.text("Import Options")) {
                     Picker(L10n.text("Destination Folder"), selection: $options.folderID) {
+                        Text(L10n.text("Site Folders")).tag("by-site")
                         if !store.folders().contains(where: { $0.id == "anime-boxes" }) { Text("Anime Boxes").tag("anime-boxes") }
                         ForEach(store.folders()) { Text($0.displayName).tag($0.id) }
                     }

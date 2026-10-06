@@ -17,6 +17,17 @@ enum BooruBrowserSession {
     static func clearChallenge(for server: BooruServer) { challengedPages.removeValue(forKey: server.id) }
     nonisolated static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
 
+    private static var nativeAgentTask: Task<String, Never>?
+    static func nativeUserAgent() async -> String {
+        if let task = nativeAgentTask { return await task.value }
+        let task = Task { @MainActor in
+            let probe = WKWebView(frame: .zero)
+            return (try? await probe.evaluateJavaScript("navigator.userAgent") as? String) ?? userAgent
+        }
+        nativeAgentTask = task
+        return await task.value
+    }
+
     static func dataStore(for server: BooruServer) -> WKWebsiteDataStore {
         if let store = stores[server.id] { return store }
         let store: WKWebsiteDataStore
@@ -52,7 +63,7 @@ enum BooruBrowserSession {
     static func prepare(_ request: URLRequest, server: BooruServer) async -> URLRequest {
         var request = request
         request.httpShouldHandleCookies = false
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(await nativeUserAgent(), forHTTPHeaderField: "User-Agent")
         request.setValue(server.baseURL.absoluteString + "/", forHTTPHeaderField: "Referer")
         if let url = request.url {
             let matching = await cookies(for: server).filter { matches($0, url: url) }.sorted { $0.path.count > $1.path.count }

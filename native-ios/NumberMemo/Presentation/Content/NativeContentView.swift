@@ -329,7 +329,7 @@ private struct GalleryGridCard: View {
         .overlay(alignment: .topLeading) {
             if isBookmarked {
                 Image(systemName: "bookmark.fill").font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white).padding(8).background(.black.opacity(0.72), in: Circle())
+                    .foregroundStyle(.yellow).padding(8).background(.black.opacity(0.72), in: Circle())
                     .padding(7).accessibilityHidden(true).allowsHitTesting(false)
             }
         }

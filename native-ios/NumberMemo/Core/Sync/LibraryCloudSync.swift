@@ -10,6 +10,9 @@ final class LibraryCloudSync {
     private(set) var status = L10n.text("Waiting for iCloud")
     private(set) var syncing = false
     private(set) var lastSynced: Date?
+    private(set) var documentBytes: Int?
+    private(set) var cloudBytes: Int?
+    private(set) var cloudDocumentCount = 0
     var enabled: Bool {
         didSet {
             defaults.set(enabled, forKey: Self.enabledKey)
@@ -77,11 +80,14 @@ final class LibraryCloudSync {
                   Self.digest(try NSKeyedArchiver.archivedData(withRootObject: currentToken, requiringSecureCoding: false)) == accountID else { return }
             let adapter = LibrarySyncAdapter(hitomi: env.database, booru: env.booru, hitomiDefaults: defaults, booruDefaults: ReaderPreferences.booruDefaults)
             // Take a fresh snapshot AFTER file I/O so edits made while downloading win.
+            cloudBytes = incoming.storedBytes
+            cloudDocumentCount = incoming.documentCount
             let before = ledger.changes
             var next = ledger
             next.capture(try adapter.snapshot(), device: device)
             let captured = next.changes
             for document in incoming.documents { next.merge(document.changes) }
+            next.changes = try LibrarySyncAdapter.mediaFreeChanges(next.changes)
             if next.changes != captured {
                 try adapter.apply(next.changes)
                 try env.booru.refresh()
@@ -90,13 +96,14 @@ final class LibraryCloudSync {
                 env.startCoverQueue()
             }
             next.baseline = try adapter.snapshot()
-            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
             try encoder.encode(next).write(to: local, options: .atomic)
             AppStorage.excludeFromBackup(local)
             ledger = next
             needsUpload = needsUpload || before != ledger.changes
+            let data = try encoder.encode(LibrarySyncDocument(changes: ledger.changes))
+            documentBytes = data.count
             if needsUpload {
-                let data = try encoder.encode(LibrarySyncDocument(changes: ledger.changes))
                 let destination = root.appendingPathComponent("library-" + device + ".json")
                 guard enabled else { return }
                 try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(data, to: destination, ubiquitous: true) }.value
@@ -143,6 +150,8 @@ enum CloudLibraryFiles {
         var documents: [LibrarySyncDocument] = []
         var pendingDownloads = false
         var unreadableFiles = 0
+        var storedBytes = 0
+        var documentCount = 0
     }
     static func read(in root: URL) throws -> [LibrarySyncDocument] {
         let result = try readState(in: root)
@@ -156,6 +165,8 @@ enum CloudLibraryFiles {
         for url in urls where url.lastPathComponent.hasPrefix("library-") && url.pathExtension == "json" {
             do {
                 let resource = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey, .fileSizeKey])
+                state.storedBytes += resource.fileSize ?? 0
+                state.documentCount += 1
                 if let downloadStatus = resource.ubiquitousItemDownloadingStatus, downloadStatus != .current {
                     try FileManager.default.startDownloadingUbiquitousItem(at: url)
                     state.pendingDownloads = true

@@ -631,3 +631,10 @@
 "Arrow keys follow the reading direction. Shortcuts pause while a dialog or text field is open." = "矢印キーは読む方向に従います。ダイアログや入力欄が開いている間、ビューアのショートカットは無効です。";
 "Image viewer: click the center or right-click to open the menu. Double-click to zoom. Click the sides to turn when tap navigation is enabled." = "画像ビューアでは中央クリックまたは右クリックでメニューを開き、ダブルクリックで拡大します。タップ移動が有効なら左右クリックで移動します。";
 "Video playback keeps its standard mouse and keyboard controls." = "動画は標準の再生コントロールをマウスとキーボードで操作できます。";
+
+"Import from Other Apps" = "ほかのアプリから読み込む";
+"Verification is taking longer than expected. Reload, or reset this website’s cookies and try again." = "サイトの確認に時間がかかっています。再読み込みするか、このサイトのCookieをリセットして再試行してください。";
+"This Device’s Sync Data" = "このデバイスの同期データ";
+"iCloud Sync Documents" = "iCloud同期書類";
+
+"Site Folders" = "サイト別フォルダ";

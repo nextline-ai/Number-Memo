@@ -64,6 +64,7 @@ struct BooruServerEditor: View {
                     TextField("https://example.com", text: $address).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                         .disabled(server != nil).accessibilityIdentifier("booru.serverURL")
                         .accessibilityLabel(L10n.text("Website Address"))
+                    if server == nil { WebsiteAddressSuggestions(address: $address, includesComics: acceptsComics) }
                 } header: { Text(L10n.text("Website Address")) } footer: {
                     Text(L10n.text("Enter the website’s home address."))
                 }
@@ -238,5 +239,51 @@ struct BooruMoreView: View {
         .fullScreenCover(isPresented: $showOnboarding) { OnboardingView().environment(env) }
         .sheet(item: $validating) { BooruValidationView(server: $0) }
 
+    }
+}
+
+/// Suggestions only appear after typing; choosing one never connects automatically.
+struct WebsiteAddressSuggestion: Identifiable, Equatable {
+    let host: String
+    let name: String
+    let comics: Bool
+    var id: String { host }
+    static let sites: [Self] = [
+        .init(host: "safebooru.org", name: "Safebooru", comics: false),
+        .init(host: "danbooru.donmai.us", name: "Danbooru", comics: false),
+        .init(host: "gelbooru.com", name: "Gelbooru", comics: false),
+        .init(host: "safebooru.donmai.us", name: "Safebooru Danbooru", comics: false),
+        .init(host: "yande.re", name: "Yande.re", comics: false),
+        .init(host: "konachan.com", name: "Konachan", comics: false),
+        .init(host: "rule34.xxx", name: "Rule34", comics: false),
+        .init(host: "hitomi.la", name: "Hitomi", comics: true)
+    ]
+    static func matches(_ input: String, includesComics: Bool, comicsOnly: Bool = false) -> [Self] {
+        var prefix = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        for scheme in ["https://", "http://"] where prefix.hasPrefix(scheme) { prefix.removeFirst(scheme.count) }
+        if prefix.hasPrefix("www.") { prefix.removeFirst(4) }
+        guard !prefix.isEmpty else { return [] }
+        return sites.filter {
+            (!$0.comics || includesComics) && (!comicsOnly || $0.comics) &&
+            $0.host != prefix && ($0.host.hasPrefix(prefix) || $0.name.lowercased().hasPrefix(prefix))
+        }
+    }
+}
+
+struct WebsiteAddressSuggestions: View {
+    @Binding var address: String
+    var includesComics = false
+    var comicsOnly = false
+    var body: some View {
+        ForEach(WebsiteAddressSuggestion.matches(address, includesComics: includesComics, comicsOnly: comicsOnly)) { site in
+            Button { address = "https://" + site.host } label: {
+                HStack {
+                    Image(systemName: site.comics ? "book" : "globe")
+                    Text(site.host)
+                    Spacer()
+                    Image(systemName: "arrow.up.left").font(.caption)
+                }.font(.subheadline)
+            }.accessibilityIdentifier("website.suggestion." + site.host)
+        }
     }
 }

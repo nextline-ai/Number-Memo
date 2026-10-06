@@ -3,6 +3,27 @@ import WebKit
 @testable import NumberMemo
 
 @MainActor final class MediaInputTests: XCTestCase {
+    func testChallengePageCannotBeAdoptedAsValidatedSession() async throws {
+        let server = BooruServer.presets[0]
+        let model = BooruValidationModel(server: server)
+        XCTAssertTrue(model.webView.customUserAgent?.isEmpty ?? true)
+        model.webView.loadHTMLString("<html><title>Just a moment...</title><form id='challenge-form'>Checking...</form></html>", baseURL: server.baseURL)
+        for _ in 0..<100 {
+            if model.challengePresent { break }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        XCTAssertTrue(model.challengePresent)
+        XCTAssertFalse(model.canAdoptSession)
+        model.webView.loadHTMLString("<html><title>Posts</title><body>Website ready</body></html>", baseURL: server.baseURL)
+        for _ in 0..<100 {
+            if model.canAdoptSession { break }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        XCTAssertTrue(model.canAdoptSession)
+        XCTAssertFalse(model.challengePresent)
+        model.cancelRetries()
+    }
+
     func testMouseAndKeyboardInRealMediaDocument() async throws {
         let recorder = MediaRecorder()
         let config = WKWebViewConfiguration()

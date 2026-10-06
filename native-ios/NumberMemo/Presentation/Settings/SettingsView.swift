@@ -123,6 +123,7 @@ struct ComicsConnectionSettings: View {
                 TextField(L10n.text("Website Address"), text: $address)
                     .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                     .accessibilityIdentifier("comics.address")
+                WebsiteAddressSuggestions(address: $address, includesComics: true, comicsOnly: true)
                 Button(L10n.text("Connect")) {
                     if env.verifySite(input: address) { dismiss() } else { invalid = true }
                 }

@@ -174,7 +174,6 @@ enum BooruWebTransport {
                 let configuration = WKWebViewConfiguration()
                 configuration.websiteDataStore = BooruBrowserSession.dataStore(for: server)
                 webView = WKWebView(frame: .zero, configuration: configuration)
-                webView.customUserAgent = BooruBrowserSession.userAgent
             }
             super.init()
             committed = adopted != nil

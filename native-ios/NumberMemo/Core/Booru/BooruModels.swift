@@ -114,11 +114,13 @@ enum BooruRating: String, CaseIterable, Identifiable, Sendable {
         }
     }
     static func options(for servers: [BooruServer]) -> [Self] {
-        allCases.filter { $0 != .sensitive || servers.allSatisfy(\.usesModernRatings) }
+        let rated = servers.filter { !$0.isSafeOnly }
+        guard !rated.isEmpty else { return [.all] }
+        return allCases.filter { $0 != .sensitive || rated.allSatisfy(\.usesModernRatings) }
     }
     func query(_ input: String, server: BooruServer) -> String {
         // All means no generated rating tags and no client-side rejection of unrated legacy posts.
-        guard self != .all else { return input }
+        guard self != .all, !server.isSafeOnly else { return input }
         let value = self == .general && !server.usesModernRatings ? "safe" : rawValue
         let terms = input.split(whereSeparator: \.isWhitespace).filter { !$0.hasPrefix("rating:") && !$0.hasPrefix("-rating:") }
         return (terms.map(String.init) + ["rating:" + value]).joined(separator: " ")
@@ -277,5 +279,12 @@ struct BooruFolder: Identifiable, Hashable, Sendable {
 extension BooruPost {
     func onServer(_ id: String) -> Self {
         Self(serverID: id, postID: postID, previewURL: previewURL, sampleURL: sampleURL, fileURL: fileURL, width: width, height: height, tags: tags, artists: artists, rating: rating, score: score, fileExtension: fileExtension, poolIDs: poolIDs)
+    }
+}
+
+extension BooruServer {
+    var isSafeOnly: Bool {
+        let host = baseURL.host?.lowercased() ?? ""
+        return host == "safebooru.org" || host == "www.safebooru.org" || host == "safebooru.donmai.us"
     }
 }

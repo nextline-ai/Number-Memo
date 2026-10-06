@@ -45,7 +45,6 @@ struct BooruFavoritesView: View {
         }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
             HStack(spacing: 16) {
-                BooruServerMenu(compact: true)
                 Button { creating = true } label: { Image(systemName: "folder.badge.plus").font(.system(size: 17, weight: .medium)) }
                     .accessibilityLabel(L10n.text("Create Folder")).accessibilityIdentifier("booru.createFolder")
             }.padding(.horizontal, 8)
@@ -244,8 +243,8 @@ private extension View {
 
 extension BooruStore {
     func visibleFavorites(folderID: String? = nil, query: String = "") -> [BooruPost] {
-        let filters = Dictionary(uniqueKeysWithValues: selectedServers.map { ($0.id, BooruBlacklist(blacklist(serverID: $0.id))) })
-        return favorites(serverIDs: selectedServerIDs, folderID: folderID).filter {
+        let filters = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, BooruBlacklist(blacklist(serverID: $0.id))) })
+        return favorites(serverIDs: servers.map(\.id), folderID: folderID).filter {
             !(filters[$0.serverID]?.contains($0) ?? false) && (query.isEmpty || $0.tags.joined(separator: " ").localizedCaseInsensitiveContains(query) || String($0.postID).contains(query))
         }
     }

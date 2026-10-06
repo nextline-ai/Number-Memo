@@ -14,16 +14,22 @@ public struct OnboardingView: View {
     @State private var importCompleted = false
     @State private var importSummary = ""
     private var hasConnection: Bool { env.isSiteVerified || !env.booru.servers.isEmpty }
-    public init() {}
+    private let importsOnly: Bool
+    public init(importsOnly: Bool = false) {
+        self.importsOnly = importsOnly
+        _step = State(initialValue: importsOnly ? 1 : 0)
+    }
     public var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    HStack(spacing: 6) {
-                        ForEach(0..<3) { index in
-                            Capsule().fill(index <= step ? Color.accentColor : Color.secondary.opacity(0.18)).frame(height: 4)
-                        }
-                    }.padding(.top, 12)
+                    if !importsOnly {
+                        HStack(spacing: 6) {
+                            ForEach(0..<3) { index in
+                                Capsule().fill(index <= step ? Color.accentColor : Color.secondary.opacity(0.18)).frame(height: 4)
+                            }
+                        }.padding(.top, 12)
+                    }
                     if step == 0 { setup }
                     else if step == 1 { imports }
                     else { tutorial }
@@ -33,7 +39,7 @@ public struct OnboardingView: View {
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 10) {
                     Button(action: next) {
-                        Text(L10n.text(step == 2 ? "Get Started" : (step == 0 && !hasConnection ? "Set Up Later" : "Continue"))).font(.headline)
+                        Text(L10n.text(importsOnly ? "Done" : step == 2 ? "Get Started" : (step == 0 && !hasConnection ? "Set Up Later" : "Continue"))).font(.headline)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
                     }.buttonStyle(.borderedProminent).controlSize(.large).disabled(isImporting)
                         .tint(step == 0 && !hasConnection ? Color.secondary : Color.accentColor)
@@ -47,7 +53,7 @@ public struct OnboardingView: View {
             .navigationTitle("").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if step > 0 { Button { step -= 1 } label: { Image(systemName: "chevron.left") }.disabled(isImporting).accessibilityLabel(L10n.text("Back")) }
+                    if step > 0 && !importsOnly { Button { step -= 1 } label: { Image(systemName: "chevron.left") }.disabled(isImporting).accessibilityLabel(L10n.text("Back")) }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if env.isOnboardingCompleted { Button(L10n.text("Done")) { dismiss() }.disabled(isImporting) }
@@ -148,6 +154,7 @@ public struct OnboardingView: View {
     }
 
     private func next() {
+        if importsOnly { dismiss(); return }
         if step == 0 {
             env.mode = .booru
             step = 1

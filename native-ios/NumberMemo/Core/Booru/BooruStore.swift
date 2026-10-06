@@ -71,6 +71,16 @@ final class BooruStore: @unchecked Sendable {
                 }
             }
         }
+        migrations.registerMigration("booru_v5_site_folders") { db in
+            for row in try Row.fetchAll(db, sql: "SELECT payload FROM servers") {
+                let server = try JSONDecoder().decode(BooruServer.self, from: row["payload"] as Data)
+                let count = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM favorites WHERE server_id = ? AND folder_id = 'unsorted'", arguments: [server.id]) ?? 0
+                if count > 0 {
+                    let folder = try Self.defaultFolder(for: server.id, db: db)
+                    try db.execute(sql: "UPDATE favorites SET folder_id = ? WHERE server_id = ? AND folder_id = 'unsorted'", arguments: [folder, server.id])
+                }
+            }
+        }
         try migrations.migrate(database)
         try reload()
     }
@@ -175,7 +185,8 @@ final class BooruStore: @unchecked Sendable {
         try database.write { db in
             try db.execute(sql: "DELETE FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID])
             if db.changesCount == 0 {
-                try db.execute(sql: "INSERT INTO favorites (server_id, post_id, payload, saved_at) VALUES (?, ?, ?, ?)", arguments: [post.serverID, post.postID, try JSONEncoder().encode(post), Date().timeIntervalSince1970])
+                let folder = try Self.defaultFolder(for: post.serverID, db: db)
+                try db.execute(sql: "INSERT INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?)", arguments: [post.serverID, post.postID, try JSONEncoder().encode(post), Date().timeIntervalSince1970, folder])
             }
         }
         revision += 1
@@ -227,12 +238,26 @@ final class BooruStore: @unchecked Sendable {
         return try? database.read { try String.fetchOne($0, sql: "SELECT folder_id FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID]) }
     }
 
-    func saveFavorite(_ post: BooruPost, folderID: String = "unsorted") throws {
+    func saveFavorite(_ post: BooruPost, folderID: String? = nil) throws {
         try database.write { db in
+            let existing = try String.fetchOne(db, sql: "SELECT folder_id FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID])
+            let folderID = try folderID ?? existing ?? Self.defaultFolder(for: post.serverID, db: db)
             guard try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM folders WHERE id = ?)", arguments: [folderID]) == true else { throw BooruError.invalidResponse }
             try db.execute(sql: "INSERT INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT(server_id, post_id) DO UPDATE SET payload = excluded.payload, folder_id = excluded.folder_id", arguments: [post.serverID, post.postID, try JSONEncoder().encode(post), Date().timeIntervalSince1970, folderID])
         }
         revision += 1
+    }
+
+    static func defaultFolder(for serverID: String, db: Database) throws -> String {
+        guard let data = try Data.fetchOne(db, sql: "SELECT payload FROM servers WHERE id = ?", arguments: [serverID]) else { throw BooruError.invalidServer }
+        let server = try JSONDecoder().decode(BooruServer.self, from: data)
+        // Canonical address is stable across devices and server ID remapping.
+        let id = "site:" + server.canonicalAddress
+        if try String.fetchOne(db, sql: "SELECT id FROM folders WHERE id = ?", arguments: [id]) == nil {
+            let color = try AppDatabase.nextFolderColor(existingColors: Int64.fetchAll(db, sql: "SELECT color FROM folders"))
+            try db.execute(sql: "INSERT INTO folders VALUES (?, ?, ?, (SELECT COUNT(*) FROM folders))", arguments: [id, server.name, color])
+        }
+        return id
     }
 
     func history(serverID: String) -> [String] {

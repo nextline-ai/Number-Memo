@@ -70,7 +70,8 @@ private struct BooruWebsiteView: View {
             loadedURL = url
         }
         .onDisappear {
-            if model.error == nil { BooruWebTransport.adopt(model.webView, server: server) }
+            model.cancelRetries()
+            if model.canAdoptSession { BooruWebTransport.adopt(model.webView, server: server) }
         }
     }
 }

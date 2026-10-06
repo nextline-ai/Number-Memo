@@ -4,6 +4,37 @@ final class KeyboardUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
+    func testOnboardingSuggestionsImportBannerAndSafeRefresh() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--booru-ui-test", "--onboarding-test", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let addServer = element(app, "onboarding.addServer")
+        XCTAssertTrue(addServer.waitForExistence(timeout: 10)); addServer.tap()
+        let address = element(app, "booru.serverURL")
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        address.tap(); address.typeText("s")
+        let suggestion = element(app, "website.suggestion.safebooru.org")
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 5)); suggestion.tap()
+        element(app, "booru.serverSave").tap()
+        for _ in 0..<3 { element(app, "onboarding.continue").tap() }
+        let banner = element(app, "importReminder.open")
+        XCTAssertTrue(banner.waitForExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Post-onboarding import banner"; shot.lifetime = .keepAlways; add(shot)
+        banner.tap()
+        XCTAssertTrue(element(app, "onboarding.violetImport").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "onboarding.import").exists)
+        element(app, "onboarding.continue").tap()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
+        element(app, "globe").tap()
+        let post = element(app, "booru.post.101")
+        XCTAssertTrue(post.waitForExistence(timeout: 10))
+        XCTAssertFalse(element(app, "booru.rating").exists)
+        app.scrollViews.firstMatch.swipeDown()
+        XCTAssertTrue(post.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["No Posts"].exists)
+    }
+
     func testImageViewerKeyboardAndDialogIsolation() {
         continueAfterFailure = false
         let app = XCUIApplication()

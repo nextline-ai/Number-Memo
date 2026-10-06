@@ -631,3 +631,10 @@
 "Arrow keys follow the reading direction. Shortcuts pause while a dialog or text field is open." = "화살표는 읽기 방향을 따릅니다. 대화상자나 입력창이 열려 있는 동안 뷰어 단축키는 작동하지 않습니다.";
 "Image viewer: click the center or right-click to open the menu. Double-click to zoom. Click the sides to turn when tap navigation is enabled." = "이미지 뷰어에서 가운데 클릭 또는 우클릭으로 메뉴를 열고, 더블클릭으로 확대합니다. 탭으로 넘기기가 켜져 있으면 좌우 클릭으로 이동합니다.";
 "Video playback keeps its standard mouse and keyboard controls." = "동영상은 기본 재생 컨트롤을 마우스와 키보드로 조작할 수 있습니다.";
+
+"Import from Other Apps" = "다른 앱에서 데이터 가져오기";
+"Verification is taking longer than expected. Reload, or reset this website’s cookies and try again." = "사이트 확인이 지연되고 있습니다. 새로고침하거나 이 사이트의 쿠키를 초기화한 뒤 다시 시도하세요.";
+"This Device’s Sync Data" = "이 기기의 동기화 데이터";
+"iCloud Sync Documents" = "iCloud 동기화 문서";
+
+"Site Folders" = "사이트별 폴더";

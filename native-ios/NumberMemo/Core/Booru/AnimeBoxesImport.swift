@@ -121,7 +121,7 @@ struct AnimeBoxesImportOptions: Sendable {
     var history = true
     var blacklist = true
     var selection = true
-    var folderID = "anime-boxes"
+    var folderID = "by-site"
 }
 struct AnimeBoxesImportResult: Sendable {
     let added: Int
@@ -147,13 +147,16 @@ extension BooruStore {
             if options.folderID == "anime-boxes" {
                 try db.execute(sql: "INSERT OR IGNORE INTO folders VALUES ('anime-boxes', 'Anime Boxes', 4287784115, (SELECT COUNT(*) FROM folders))")
             }
-            guard try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM folders WHERE id = ?)", arguments: [options.folderID]) == true else { throw BooruError.invalidResponse }
+            if options.folderID != "by-site" {
+                guard try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM folders WHERE id = ?)", arguments: [options.folderID]) == true else { throw BooruError.invalidResponse }
+            }
             var added = 0, duplicates = 0
             for favorite in backup.favorites {
                 let old = favorite.post
                 guard let id = mapping[old.serverID] else { continue }
                 let post = BooruPost(serverID: id, postID: old.postID, previewURL: old.previewURL, sampleURL: old.sampleURL, fileURL: old.fileURL, width: old.width, height: old.height, tags: old.tags, artists: old.artists, rating: old.rating, score: old.score, fileExtension: old.fileExtension, poolIDs: old.poolIDs)
-                try db.execute(sql: "INSERT OR IGNORE INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?)", arguments: [id, post.postID, try JSONEncoder().encode(post), favorite.savedAt, options.folderID])
+                let folderID = try options.folderID == "by-site" ? Self.defaultFolder(for: id, db: db) : options.folderID
+                try db.execute(sql: "INSERT OR IGNORE INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?)", arguments: [id, post.postID, try JSONEncoder().encode(post), favorite.savedAt, folderID])
                 if db.changesCount > 0 { added += 1 } else { duplicates += 1 }
             }
             for id in Set(mapping.values) {

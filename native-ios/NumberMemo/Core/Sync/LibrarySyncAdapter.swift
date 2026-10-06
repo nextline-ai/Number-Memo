@@ -63,7 +63,7 @@ struct LibrarySyncAdapter {
                     if let id = values["server_id"]?.string, let address = addresses[id] {
                         values["server_id"] = .text(address)
                         if let raw = values["payload"]?.data {
-                            let post = try JSONDecoder().decode(BooruPost.self, from: raw).onServer(address)
+                            let post = try JSONDecoder().decode(BooruPost.self, from: raw).onServer(address).cloudMetadata
                             values["payload"] = .blob(try Self.encode(post))
                         }
                     }
@@ -85,6 +85,17 @@ struct LibrarySyncAdapter {
             }
         }
         return Dictionary(rows.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Normalize old peer records as well as new snapshots before re-uploading them.
+    static func mediaFreeChanges(_ changes: [String: LibrarySyncChange]) throws -> [String: LibrarySyncChange] {
+        try changes.mapValues { change in
+            guard !change.deleted, change.row.table == "booru.favorites",
+                  let data = change.row.values["payload"]?.data else { return change }
+            var row = change.row
+            row.values["payload"] = .blob(try encode(JSONDecoder().decode(BooruPost.self, from: data).cloudMetadata))
+            return .init(row: row, timestamp: change.timestamp, device: change.device, deleted: change.deleted)
+        }
     }
 
     func apply(_ changes: [String: LibrarySyncChange]) throws {
@@ -207,5 +218,20 @@ struct LibrarySyncAdapter {
         guard let keys = LibrarySyncRow.keys[row.table], columns[row.table] != nil else { throw BooruError.invalidResponse }
         try db.execute(sql: "DELETE FROM \(row.table.split(separator: ".")[1]) WHERE \(keys.map { $0 + " = ?" }.joined(separator: " AND "))", arguments: StatementArguments(keys.map { row.values[$0]?.databaseValue ?? .null }))
     }
-    private static func encode<T: Encodable>(_ value: T) throws -> Data { let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]; return try encoder.encode(value) }
+    private static func encode<T: Encodable>(_ value: T) throws -> Data { let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]; return try encoder.encode(value) }
+}
+
+extension BooruPost {
+    /// Imported embedded thumbnails or device-local paths must never become cloud media.
+    var cloudMetadata: Self {
+        var post = self
+        func remote(_ url: URL?) -> URL? {
+            guard let url, ["https", "http"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
+            return url
+        }
+        post.previewURL = remote(previewURL)
+        post.sampleURL = remote(sampleURL)
+        post.fileURL = remote(fileURL)
+        return post
+    }
 }

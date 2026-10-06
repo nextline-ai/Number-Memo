@@ -18,6 +18,37 @@ final class LibrarySyncTests: XCTestCase {
         try a.apply(la.changes); try b.apply(lb.changes)
         la.baseline = try a.snapshot(); lb.baseline = try b.snapshot()
     }
+    func testCloudSnapshotExcludesEmbeddedMediaAndPreservesSiteFolderAcrossDevices() throws {
+        let a = try adapter(), b = try adapter(), server = BooruServer.presets[0]
+        try a.booru.saveServer(server)
+        var post = BooruFixtureSource.post(42, server: server)
+        post.previewURL = URL(string: "data:image/png;base64," + String(repeating: "A", count: 100_000))
+        post.sampleURL = URL(fileURLWithPath: "/private/local-image.jpg")
+        post.fileURL = URL(string: "https://example.com/image.jpg")
+        try a.booru.saveFavorite(post)
+        let snapshot = try a.snapshot()
+        let row = try XCTUnwrap(snapshot.values.first { $0.table == "booru.favorites" })
+        let payload = try XCTUnwrap(row.values["payload"]?.data)
+        let saved = try JSONDecoder().decode(BooruPost.self, from: payload)
+        XCTAssertNil(saved.previewURL); XCTAssertNil(saved.sampleURL)
+        XCTAssertEqual(saved.fileURL, post.fileURL)
+        XCTAssertLessThan(payload.count, 5000)
+        var oldRow = row
+        oldRow.values["payload"] = .blob(try JSONEncoder().encode(post))
+        let oldChange = LibrarySyncChange(row: oldRow, timestamp: 123, device: "old", deleted: false)
+        let cleaned = try XCTUnwrap(LibrarySyncAdapter.mediaFreeChanges([oldRow.key: oldChange])[oldRow.key])
+        XCTAssertEqual(cleaned.timestamp, 123)
+        XCTAssertEqual(cleaned.row.key, oldRow.key)
+        XCTAssertNil(try JSONDecoder().decode(BooruPost.self, from: XCTUnwrap(cleaned.row.values["payload"]?.data)).previewURL)
+        var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
+        try exchange(a, b, &la, &lb)
+        try b.booru.refresh()
+        let restored = try XCTUnwrap(b.booru.favorites(serverIDs: b.booru.servers.map(\.id)).first)
+        XCTAssertEqual(b.booru.folderID(for: restored), "site:" + server.canonicalAddress)
+        XCTAssertEqual(b.booru.folders().first { $0.id == "site:" + server.canonicalAddress }?.color,
+                       a.booru.folders().first { $0.id == "site:" + server.canonicalAddress }?.color)
+    }
+
     @MainActor func testReloadDoesNotTurnAbsentDefaultsIntoLocalEdits() throws {
         let a = try adapter()
         let env = AppEnvironment(database: a.hitomi, browserPreferences: a.hitomiDefaults, booru: a.booru)

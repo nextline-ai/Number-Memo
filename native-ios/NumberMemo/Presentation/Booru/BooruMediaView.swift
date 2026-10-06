@@ -120,7 +120,6 @@ struct BooruMediaView: UIViewRepresentable {
         config.setURLSchemeHandler(context.coordinator.resources, forURLScheme: "numbermemo-image")
         config.userContentController.add(context.coordinator, name: "media")
         let view = WKWebView(frame: .zero, configuration: config)
-        view.customUserAgent = BooruBrowserSession.userAgent
         view.isOpaque = false; view.backgroundColor = .black; view.scrollView.backgroundColor = .black
         view.navigationDelegate = context.coordinator
         view.scrollView.bounces = false

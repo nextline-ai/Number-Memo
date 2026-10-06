@@ -80,7 +80,7 @@ final class BooruLibraryTests: XCTestCase {
         }
         let store = try BooruStore(path: path)
         XCTAssertEqual(store.selectedServerIDs, ["gelbooru"])
-        XCTAssertEqual(store.favorites(serverIDs: ["gelbooru"], folderID: "unsorted").count, 1)
+        XCTAssertEqual(store.favorites(serverIDs: ["gelbooru"], folderID: "site:" + BooruServer.presets[1].canonicalAddress).count, 1)
     }
 
     func testAnimeBoxesMergeIsIdempotentAndPreservesFoldersAndHitomi() throws {
@@ -92,7 +92,10 @@ final class BooruLibraryTests: XCTestCase {
         let first = try store.importAnimeBoxes(backup, options: .init())
         XCTAssertEqual(first.added, 2)
         XCTAssertEqual(store.selectedServerIDs, ["danbooru", "gelbooru"])
-        XCTAssertEqual(store.favorites(serverIDs: store.selectedServerIDs, folderID: "anime-boxes").count, 2)
+        XCTAssertEqual(store.favorites(serverIDs: store.selectedServerIDs).count, 2)
+        for server in store.selectedServers {
+            XCTAssertEqual(store.favorites(serverIDs: [server.id], folderID: "site:" + server.canonicalAddress).count, 1)
+        }
         let post = try XCTUnwrap(store.favorites(serverID: "danbooru").first)
         let custom = try store.saveFolder(name: "Keep this folder")
         try store.saveFavorite(post, folderID: custom)
@@ -154,14 +157,14 @@ final class BooruLibraryTests: XCTestCase {
         let db = try AppDatabase.inMemory()
         let env = AppEnvironment(database: db, browserPreferences: defaults)
         XCTAssertEqual(env.mode, .booru)
-        XCTAssertEqual(env.gridColumns, 3)
+        XCTAssertEqual(env.gridColumns, 0)
         XCTAssertFalse(env.isSiteVerified)
         env.mode = .hitomi
-        XCTAssertEqual(env.gridColumns, 2)
+        XCTAssertEqual(env.gridColumns, 0)
         env.gridColumns = 4; env.appTheme = .light
         env.defaultTags = "tag:scenery"; env.defaultExcludedTags = "tag:spoilers"
         env.mode = .booru
-        XCTAssertEqual(env.gridColumns, 3)
+        XCTAssertEqual(env.gridColumns, 0)
         XCTAssertEqual(env.appTheme, .dark)
         env.gridColumns = 5; env.appTheme = .system
         env.mode = .hitomi
@@ -186,6 +189,42 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(original.text, "tag:scenery character:sample")
     }
 
+    @MainActor func testCancelledRefreshPreservesPostsAndEmptyQueryCanReload() async throws {
+        let loader = BooruFeedLoader(), server = BooruServer.presets[0]
+        await loader.load(server: server, source: PartialBooruSource(), query: "", reset: true)
+        XCTAssertEqual(loader.posts.map(\.postID), [1])
+        let task = Task { await loader.load(server: server, source: PartialBooruSource(), query: "slow", reset: true) }
+        try await Task.sleep(for: .milliseconds(20))
+        XCTAssertEqual(loader.posts.map(\.postID), [1])
+        task.cancel()
+        await task.value
+        XCTAssertEqual(loader.posts.map(\.postID), [1])
+        XCTAssertTrue(loader.errors.isEmpty)
+        XCTAssertFalse(loader.loading)
+        await loader.load(server: server, source: PartialBooruSource(), query: "", reset: true)
+        XCTAssertEqual(loader.posts.map(\.postID), [1])
+        XCTAssertTrue(loader.didLoad)
+    }
+
+    func testSavedLibraryIgnoresExploreSelectionAndDefaultsToSiteFolders() throws {
+        let store = try BooruStore()
+        let a = BooruServer.presets[0], b = BooruServer.presets[1]
+        try store.saveServer(a); try store.saveServer(b)
+        let first = BooruFixtureSource.post(1, server: a), second = BooruFixtureSource.post(2, server: b)
+        try store.toggleFavorite(first); try store.saveFavorite(second)
+        try store.setSelectedServers([a.id])
+        XCTAssertEqual(Set(store.visibleFavorites().map(\.id)), Set([first.id, second.id]))
+        XCTAssertEqual(store.folderID(for: first), "site:" + a.canonicalAddress)
+        XCTAssertEqual(store.folderID(for: second), "site:" + b.canonicalAddress)
+        try store.setBlacklist("id:1", serverID: a.id)
+        try store.setSelectedServers([b.id])
+        XCTAssertEqual(store.visibleFavorites().map(\.id), [second.id])
+        let custom = try store.saveFolder(name: "Custom")
+        try store.saveFavorite(first, folderID: custom)
+        try store.saveFavorite(first)
+        XCTAssertEqual(store.folderID(for: first), custom)
+    }
+
     @MainActor func testMultiServerPaginationKeepsWorkingWhenOneServerFails() async {
         let loader = BooruFeedLoader()
         await loader.load(servers: Array(BooruServer.presets.prefix(2)), source: PartialBooruSource(), query: "", reset: true)
@@ -200,6 +239,7 @@ final class BooruLibraryTests: XCTestCase {
 
 private actor PartialBooruSource: BooruProviding {
     func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        if query == "slow" { try await Task.sleep(for: .seconds(1)) }
         if server.id == "gelbooru" { throw URLError(.secureConnectionFailed) }
         return .init(posts: [BooruFixtureSource.post(Int64(page + 1), server: server)], hasMore: page == 0)
     }

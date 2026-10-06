@@ -59,12 +59,47 @@ extension View {
     }
 
     func appRootHeader(_ title: String) -> some View {
-        navigationTitle("")
+        self.safeAreaInset(edge: .top, spacing: 0) { ImportReminderBanner() }
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { LiquidGlassTitleCapsule(L10n.text(title)) }
                 ToolbarItem(placement: .principal) { AppModeSwitch().id(title) }
             }
+    }
+}
+
+private struct ImportReminderBanner: View {
+    @Environment(AppEnvironment.self) private var env
+    @SwiftUI.AppStorage("onboarding.importReminderDismissed", store: ReaderPreferences.defaults) private var hidden = false
+    @State private var showingImport = false
+    var body: some View {
+        Group {
+            if env.isOnboardingCompleted && !hidden {
+                HStack(spacing: 12) {
+                    Button {
+                        hidden = true
+                        showingImport = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "square.and.arrow.down").font(.title3)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(L10n.text("Import from Other Apps")).font(.subheadline.weight(.semibold))
+                                Text("Anime Boxes · Violet").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption)
+                        }.contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityIdentifier("importReminder.open")
+                    Button { hidden = true } label: {
+                        Image(systemName: "xmark").font(.caption.weight(.semibold)).frame(width: 32, height: 36)
+                    }.buttonStyle(.plain).accessibilityLabel(L10n.text("Close")).accessibilityIdentifier("importReminder.close")
+                }
+                .padding(12).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal, 16).padding(.bottom, 8)
+            }
+        }
+        .sheet(isPresented: $showingImport) { OnboardingView(importsOnly: true).environment(env).environment(env.booru) }
     }
 }

@@ -12,7 +12,12 @@ final class PrivacyCoverManager {
     private init() {}
 
     func show() {
-        guard privacyWindow == nil else { return }
+        if let window = privacyWindow {
+            window.layer.removeAllAnimations()
+            window.transform = .identity
+            window.alpha = 1
+            return
+        }
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first(where: { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }) else {
@@ -33,11 +38,25 @@ final class PrivacyCoverManager {
         window.addSubview(imageView)
         window.isHidden = false
         self.privacyWindow = window
+        // The opaque background covers content immediately for the switcher snapshot.
+        // Only the artwork animates; privacy never depends on an animation finishing.
+        if !UIAccessibility.isReduceMotionEnabled {
+            imageView.transform = CGAffineTransform(translationX: 0, y: 24)
+            UIView.animate(withDuration: 0.25) { imageView.transform = .identity }
+        }
     }
 
     func hide() {
-        privacyWindow?.isHidden = true
-        privacyWindow = nil
+        guard let window = privacyWindow else { return }
+        let reduced = UIAccessibility.isReduceMotionEnabled
+        UIView.animate(withDuration: reduced ? 0.15 : 0.45, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
+            if reduced { window.alpha = 0 }
+            else { window.transform = CGAffineTransform(translationX: 0, y: -window.bounds.height) }
+        } completion: { [weak self] finished in
+            guard finished, self?.privacyWindow === window else { return }
+            window.isHidden = true
+            self?.privacyWindow = nil
+        }
     }
 }
 #else

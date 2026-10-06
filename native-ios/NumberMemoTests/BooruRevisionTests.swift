@@ -5,6 +5,25 @@ import WebKit
 final class BooruRevisionTests: XCTestCase {
     private let legacy = BooruServer(id: "legacy", name: "Legacy", baseURL: URL(string: "https://example.booru.org")!, engine: .oldGelbooru)
 
+    func testAddressSuggestionsStartAtOneLetterWithoutConnectingAnything() {
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("", includesComics: true).isEmpty)
+        XCTAssertEqual(WebsiteAddressSuggestion.matches("h", includesComics: true).map(\.host), ["hitomi.la"])
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("h", includesComics: false).isEmpty)
+        XCTAssertEqual(WebsiteAddressSuggestion.matches("https://d", includesComics: true).map(\.host), ["danbooru.donmai.us"])
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("https://hitomi.la", includesComics: true).isEmpty)
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("g", includesComics: true, comicsOnly: true).isEmpty)
+    }
+    func testSafeOnlySitesDoNotReceiveGeneratedRatingFilters() {
+        let safe = BooruServer.presets[2], dan = BooruServer.presets[0]
+        XCTAssertTrue(safe.isSafeOnly)
+        XCTAssertEqual(BooruRating.options(for: [safe]), [.all])
+        XCTAssertEqual(BooruRating.explicit.query("landscape", server: safe), "landscape")
+        XCTAssertTrue(BooruRating.options(for: [safe, dan]).contains(.sensitive))
+        XCTAssertEqual(BooruRating.general.query("landscape", server: dan), "landscape rating:general")
+        let lookalike = BooruServer(id: "other", name: "other", baseURL: URL(string: "https://safebooru.org.example.com")!, engine: .gelbooru)
+        XCTAssertFalse(lookalike.isSafeOnly)
+    }
+
     func testDanbooruPublicPoolListParsesNamesCountsAndIgnoresPagination() throws {
         let data = Data("""
         <html><div id="c-pools"><table><tr><th>Name</th><th>Count</th></tr>
@@ -254,10 +273,12 @@ final class BooruRevisionTests: XCTestCase {
             let server = BooruServer(id: UUID().uuidString, name: "Legacy verification", baseURL: try BooruServer.validatedURL(String(address)), engine: .oldGelbooru)
             let model = BooruValidationModel(server: server)
             model.webView.frame = window.bounds; window.addSubview(model.webView)
-            defer { model.webView.removeFromSuperview(); BooruWebTransport.reset(server) }
+            defer { model.cancelRetries(); model.webView.removeFromSuperview(); BooruWebTransport.reset(server) }
             model.load(server.browsingURL(query: ""))
             for _ in 0..<200 where model.loading { try await Task.sleep(for: .milliseconds(100)) }
             try await Task.sleep(for: .seconds(2))
+            if model.challengePresent { throw XCTSkip("Cloudflare still requires interactive verification in this browser; the page was not adopted as a verified session") }
+            XCTAssertTrue(model.canAdoptSession, model.error ?? "Website did not finish loading")
             BooruWebTransport.adopt(model.webView, server: server)
             let request = URLRequest(url: server.browsingURL(query: ""))
             let (data, response) = try await BooruWebTransport.document(for: request, server: server)

@@ -7,6 +7,7 @@ struct BooruValidationView: View {
     let server: BooruServer
     let initialURL: URL
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmReset = false
     @State private var model: BooruValidationModel
     init(server: BooruServer, initialURL: URL? = nil) {
         self.server = server
@@ -22,6 +23,17 @@ struct BooruValidationView: View {
                     Text(L10n.text("Complete any verification on the website, then tap Done to retry. Cookies are saved for this server."))
                         .font(.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
+                if model.challengeStalled {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text("Verification is taking longer than expected. Reload, or reset this website’s cookies and try again."))
+                            .font(.footnote)
+                        HStack {
+                            Button(L10n.text("Reload")) { model.load(model.address ?? initialURL) }
+                            Button(L10n.text("Reset Cookies"), role: .destructive) { confirmReset = true }
+                            Link(L10n.text("Open in Browser"), destination: server.baseURL)
+                        }.font(.footnote)
+                    }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                }
                 if model.loading { ProgressView().frame(maxWidth: .infinity).padding(4) }
                 BooruValidationWebView(model: model)
                     .overlay {
@@ -37,13 +49,18 @@ struct BooruValidationView: View {
                 ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { dismiss() }.accessibilityIdentifier("booru.validationDone") }
             }
             .task { model.load(initialURL) }
+            .confirmationDialog(L10n.text("Reset Cookies?"), isPresented: $confirmReset, titleVisibility: .visible) {
+                Button(L10n.text("Reset Cookies"), role: .destructive) {
+                    Task { await BooruBrowserSession.reset(server); model.load(initialURL) }
+                }
+            } message: { Text(L10n.text("Website cookies and cached website data for this server will be removed. Your favorites and API key are kept.")) }
             .onDisappear {
                 model.cancelRetries()
-                if model.error == nil {
+                if model.canAdoptSession {
                     BooruWebTransport.adopt(model.webView, server: server)
                     BooruBrowserSession.clearChallenge(for: server)
+                    NotificationCenter.default.post(name: .booruClientValidated, object: server.id)
                 }
-                NotificationCenter.default.post(name: .booruClientValidated, object: server.id)
             }
         }
     }
@@ -58,10 +75,15 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
     var error: String?
     var canGoBack = false
     var canGoForward = false
+    var challengeStalled = false
+    private(set) var challengePresent = false
+    private var inspectedPage = false
+    var canAdoptSession: Bool { inspectedPage && error == nil && !challengePresent && address.map { BooruWebTransport.sameOrigin($0, server.baseURL) } == true }
+    private var monitorTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
     private var retryCount = 0
     private var requestedURL: URL?
-    func cancelRetries() { retryTask?.cancel(); retryTask = nil }
+    func cancelRetries() { retryTask?.cancel(); retryTask = nil; monitorTask?.cancel(); monitorTask = nil }
     init(server: BooruServer) {
         self.server = server
         let config = WKWebViewConfiguration()
@@ -69,7 +91,6 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
         webView = WKWebView(frame: .zero, configuration: config)
         if #available(iOS 26.0, *) { webView.scrollView.topEdgeEffect.isHidden = true }
         super.init()
-        webView.customUserAgent = BooruBrowserSession.userAgent
         webView.navigationDelegate = self; webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
         webView.accessibilityIdentifier = "booru.validationWeb"
@@ -79,7 +100,19 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
         // Returning to the embedded browser reclaims its navigation delegate.
         BooruWebTransport.release(webView, server: server)
         webView.navigationDelegate = self; webView.uiDelegate = self
-        error = nil; loading = true
+        error = nil; loading = true; challengeStalled = false; challengePresent = false; inspectedPage = false
+        monitorTask = Task { [weak self] in
+            let start = Date()
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                guard let self else { return }
+                await self.inspectChallenge()
+                if Date().timeIntervalSince(start) >= 25 && (self.challengePresent || !self.inspectedPage || self.loading) {
+                    self.challengeStalled = true
+                    self.loading = false
+                } else if self.inspectedPage && !self.challengePresent && !self.loading { self.challengeStalled = false }
+            }
+        }
         #if DEBUG
         if BooruUITestSupport.enabled {
             webView.loadHTMLString("<html><meta name='viewport' content='width=device-width'><body><h2>Client verification</h2><p>Validation browser is ready.</p></body></html>", baseURL: server.baseURL)
@@ -88,10 +121,24 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
         #endif
         webView.load(URLRequest(url: url ?? server.baseURL))
     }
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { loading = true; error = nil }
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { loading = true; error = nil; inspectedPage = false }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         loading = false; address = webView.url
         canGoBack = webView.canGoBack; canGoForward = webView.canGoForward
+        Task { await inspectChallenge() }
+    }
+    private func inspectChallenge() async {
+        guard let url = webView.url, BooruWebTransport.sameOrigin(url, server.baseURL) else { return }
+        let result = try? await webView.evaluateJavaScript("""
+            (() => {
+                if (document.readyState === 'loading') return null;
+                return !!document.querySelector('#challenge-form, #challenge-running, #challenge-stage')
+                    || /^(just a moment|checking your browser|attention required)/i.test(document.title);
+            })()
+            """)
+        guard webView.url == url, let present = result as? Bool else { return }
+        inspectedPage = true; address = url; challengePresent = present
+        if !present { challengeStalled = false }
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { failed(error) }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { failed(error) }
