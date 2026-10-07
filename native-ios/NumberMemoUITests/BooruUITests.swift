@@ -125,6 +125,7 @@ final class BooruUITests: XCTestCase {
         first.tap()
         XCTAssertTrue(element(app, "booru.media").waitForExistence(timeout: 10))
         XCTAssertFalse(element(app, "booru.pointerClose").exists)
+        capture(app, "Image viewer with sheet-style dismiss handle")
         exitViewer(app)
         XCTAssertTrue(element(app, "booru.media").waitForNonExistence(timeout: 5))
         XCTAssertTrue(first.waitForExistence(timeout: 5))
@@ -168,7 +169,7 @@ final class BooruUITests: XCTestCase {
         element(app, "taste.settings.exclusions").tap()
         XCTAssertTrue(app.staticTexts["1girl"].exists)
         element(app, "taste.exclusions.mode").buttons["Comics"].tap()
-        XCTAssertTrue(app.staticTexts["female:solo_female"].exists)
+        XCTAssertTrue(app.staticTexts["female:sole_female"].exists)
         XCTAssertTrue(app.staticTexts["tag:digital"].exists)
         capture(app, "Analysis exclusions by mode")
         let field = element(app, "taste.exclusions.input")
@@ -182,6 +183,29 @@ final class BooruUITests: XCTestCase {
         XCTAssertFalse(element(again, "taste.recap.open").exists)
         again.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "More")).firstMatch.tap()
         XCTAssertFalse(element(again, "taste.recap.open").exists)
+    }
+
+    func testLegacySoloExclusionFiltersActualSoleTagInComicRecommendations() {
+        let app = launch(extra: ["--taste-ui-rich", "--taste-sole-exclusion-test"])
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        element(app, "app.mode.hitomi").tap()
+        let card = firstTasteCard(app), id = card.identifier
+        element(app, "taste.evidence").tap()
+        XCTAssertTrue(app.staticTexts["female:sample"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["female:sole female"].exists)
+        XCTAssertFalse(app.staticTexts["male:sole male"].exists)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        element(app, id).tap()
+        XCTAssertTrue(element(app, "content.read").waitForExistence(timeout: 5))
+        let bar = app.navigationBars.firstMatch
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)))
+        XCTAssertTrue(element(app, "content.read").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(element(app, id).isHittable)
+        app.navigationBars.buttons["Settings"].tap()
+        element(app, "taste.settings.exclusions").tap()
+        XCTAssertTrue(app.staticTexts["female:sole_female"].exists)
+        XCTAssertFalse(app.staticTexts["female:solo_female"].exists)
+        capture(app, "Legacy exclusion spelling corrected to actual sole tag")
     }
 
     func testExclusionUpdatesRetainedRecommendationEvidenceImmediately() {
@@ -235,6 +259,7 @@ final class BooruUITests: XCTestCase {
         element(app, "content.read").tap()
         XCTAssertTrue(element(app, "reader.exitHandle").waitForExistence(timeout: 10))
         XCTAssertFalse(element(app, "reader.pointerClose").exists)
+        capture(app, "Comic viewer with sheet-style dismiss handle")
         exitViewer(app)
         XCTAssertTrue(element(app, "reader.exitHandle").waitForNonExistence(timeout: 5))
         XCTAssertTrue(element(app, "content.read").waitForExistence(timeout: 5))

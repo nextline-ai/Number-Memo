@@ -373,3 +373,21 @@ extension View {
         modifier(WorkSaveFeedbackModifier(feedback: feedback, identifier: identifier))
     }
 }
+
+
+/// Matches the compact gray grabber used by work-details sheets.
+struct ReaderDismissHandle: View {
+    let identifier: String
+    let dismiss: () -> Void
+    var body: some View {
+        Capsule().fill(Color(uiColor: .systemGray2))
+            .frame(width: 60, height: 4)
+            .padding(.top, 6)
+            .frame(maxWidth: .infinity)
+            .environment(\.colorScheme, .dark)
+            .allowsHitTesting(false)
+            .accessibilityIdentifier(identifier)
+            .accessibilityLabel(L10n.text("Swipe down to exit the work"))
+            .accessibilityAddTraits(.isButton).accessibilityAction { dismiss() }
+    }
+}

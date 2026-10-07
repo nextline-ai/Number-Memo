@@ -839,3 +839,6 @@
 "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "プレビューをすばやく表示するため、このデバイスに最大256MBまでキャッシュします。iCloudには送信せず、ここで削除できます。";
 "Not favorited" = "お気に入り未登録";
 "Remove Bookmark" = "ブックマークを解除";
+"Thumbnail" = "サムネイル";
+"Thumbnail unavailable" = "サムネイルなし";
+"Thumbnail loaded" = "サムネイル読み込み完了";

@@ -108,22 +108,35 @@ struct TasteControl: Codable, Equatable, Sendable {
     // Optional for backward-compatible decoding of existing local and iCloud controls.
     var analysisExclusions: [String: [String]]?
     func analysisExcluded(_ mode: TasteMode) -> Set<String> {
-        if let saved = analysisExclusions?[mode.rawValue] { return Set(saved.map(Self.normalizeExclusion)) }
-        return mode == .comics ? ["female:solo_female", "male:solo_male", "tag:digital", "tag:group"] : ["1girl", "1boy", "solo"]
+        if let saved = analysisExclusions?[mode.rawValue] { return Set(saved.map { Self.normalizeAnalysisExclusion($0, mode: mode) }) }
+        return mode == .comics ? ["female:sole_female", "male:sole_male", "tag:digital", "tag:group"] : ["1girl", "1boy", "solo"]
     }
     mutating func setAnalysisExcluded(_ tags: Set<String>, mode: TasteMode) {
         if analysisExclusions == nil { analysisExclusions = [:] }
-        analysisExclusions?[mode.rawValue] = tags.map(Self.normalizeExclusion).filter { !$0.isEmpty }.sorted()
+        analysisExclusions?[mode.rawValue] = Set(tags.map { Self.normalizeAnalysisExclusion($0, mode: mode) }.filter { !$0.isEmpty }).sorted()
     }
     static func normalizeExclusion(_ value: String) -> String {
         value.components(separatedBy: ":").map { part in
             part.lowercased().split(whereSeparator: { $0.isWhitespace || $0 == "_" }).joined(separator: "_")
         }.joined(separator: ":")
     }
+    // Repair the original default spelling at the exclusion boundary only.
+    // Keep stored artwork tags, search queries and statistical identities unchanged.
+    static func normalizeAnalysisExclusion(_ value: String, mode: TasteMode) -> String {
+        let normalized = normalizeExclusion(value)
+        guard mode == .comics else { return normalized }
+        switch normalized {
+        case "female:solo_female": return "female:sole_female"
+        case "male:solo_male": return "male:sole_male"
+        case "solo_female": return "sole_female"
+        case "solo_male": return "sole_male"
+        default: return normalized
+        }
+    }
     func allows(_ tag: String, source: String, mode: TasteMode) -> Bool {
-        let normalized = Self.normalizeExclusion(tag)
+        let normalized = Self.normalizeAnalysisExclusion(tag, mode: mode)
         func matches(_ exclusion: String) -> Bool {
-            let blocked = Self.normalizeExclusion(exclusion)
+            let blocked = Self.normalizeAnalysisExclusion(exclusion, mode: mode)
             if normalized == blocked { return true }
             // Older Hitomi metadata/imports stored tag values without namespaces.
             // Match those exact legacy values, never a different explicit namespace.

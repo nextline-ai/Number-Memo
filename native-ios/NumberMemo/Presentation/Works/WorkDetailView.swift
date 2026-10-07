@@ -28,19 +28,8 @@ public struct WorkDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 if let work {
-                    // Header Thumbnail
-                    if let path = work.thumbPath,
-                       work.thumbStatus == "ready",
-                       let uiImage = UIImage(contentsOfFile: path) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: .infinity)
-                            .frame(maxHeight: 340)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-                            .id(imageReloadKey)
-                    }
+                    WorkDetailCover(image: savedCover, loading: isChangingThumb)
+                        .id(imageReloadKey)
 
                     // Title section
                     VStack(alignment: .leading, spacing: 6) {
@@ -309,10 +298,16 @@ public struct WorkDetailView: View {
         .fullScreenCover(isPresented: $showBrowser) {
             ContentEntryView(initialUrl: "https://hitomi.la/reader/\(galleryId).html#1")
         }
+        .presentationDetents([.large]).presentationDragIndicator(.visible)
         .task {
             loadData()
             loadGalleryFilesIfNeeded()
         }
+    }
+
+    private var savedCover: UIImage? {
+        guard let work, work.thumbStatus == "ready", let path = work.thumbPath else { return nil }
+        return UIImage(contentsOfFile: path)
     }
 
     private func loadData() {
@@ -493,5 +488,31 @@ public struct FlowLayout: Layout {
             currentX += size.width + spacing
             lineHeight = max(lineHeight, size.height)
         }
+    }
+}
+
+
+/// Reserves the thumbnail slot even during loading/failure, so actions never move under a finger.
+struct WorkDetailCover: View {
+    let image: UIImage?
+    var loading = false
+    var body: some View {
+        RoundedRectangle(cornerRadius: 16).fill(Color(uiColor: .secondarySystemBackground))
+            .frame(height: 300)
+            .overlay {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFit().padding(8)
+                } else {
+                    VStack(spacing: 12) {
+                        Image(systemName: "book.closed").font(.largeTitle).foregroundStyle(.tertiary)
+                        if loading { ProgressView() }
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(L10n.text("Thumbnail"))
+            .accessibilityValue(L10n.text(image == nil ? (loading ? "Loading" : "Thumbnail unavailable") : "Thumbnail loaded"))
+            .accessibilityIdentifier("content.detail.cover")
     }
 }

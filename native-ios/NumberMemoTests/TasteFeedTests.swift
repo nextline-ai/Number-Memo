@@ -8,12 +8,12 @@ final class TasteFeedTests: XCTestCase {
         json.removeValue(forKey: "analysisExclusions")
         var control = try JSONDecoder().decode(TasteControl.self, from: JSONSerialization.data(withJSONObject: json))
         XCTAssertEqual(control.analysisExcluded(.booru), ["1girl", "1boy", "solo"])
-        XCTAssertEqual(control.analysisExcluded(.comics), ["female:solo_female", "male:solo_male", "tag:digital", "tag:group"])
+        XCTAssertEqual(control.analysisExcluded(.comics), ["female:sole_female", "male:sole_male", "tag:digital", "tag:group"])
         control.setAnalysisExcluded([], mode: .booru)
         control.setAnalysisExcluded(["tag: digital", " FEMALE:solo female "], mode: .comics)
         let restored = try JSONDecoder().decode(TasteControl.self, from: JSONEncoder().encode(control))
         XCTAssertTrue(restored.analysisExcluded(.booru).isEmpty)
-        XCTAssertEqual(restored.analysisExcluded(.comics), ["tag:digital", "female:solo_female"])
+        XCTAssertEqual(restored.analysisExcluded(.comics), ["tag:digital", "female:sole_female"])
         control.timestamp = 100
         XCTAssertEqual(TasteControl().merged(with: control).analysisExcluded(.comics), restored.analysisExcluded(.comics))
     }
@@ -100,6 +100,28 @@ final class TasteFeedTests: XCTestCase {
         XCTAssertTrue(TasteControl().allows("digital", source: "https://example.test", mode: .booru))
         XCTAssertTrue(TasteControl().allows("male:solo_female", source: item.source, mode: .comics))
     }
+    func testCorrectSoleSpellingAndStoredSoloControlsFilterAllAnalysisPeriods() throws {
+        var control = TasteControl()
+        // Simulate controls saved by the previous release, bypassing the new setter.
+        control.analysisExclusions = ["comics": ["female:solo_female", "male:solo_male", "tag:digital", "tag:group"]]
+        control = try JSONDecoder().decode(TasteControl.self, from: JSONEncoder().encode(control))
+        let actual = NativeGallery.parseTags([["tag": "sole female", "female": "1"], ["tag": "sole male", "male": "1"], ["tag": "watercolor"]])
+        let item = TasteItem(source: "https://hitomi.la", id: 1, tags: actual + ["sole female", "sole_male", "artist:solo_female", "female:sole_female_artist"])
+        let event = TasteEvent(kind: .save, item: item, context: .init(origin: .search, query: "female:sole_female"))
+        let period = DateInterval(start: .distantPast, end: .distantFuture)
+        for range: DateInterval? in [nil, period] {
+            let result = TasteAnalyzer.analyze([event], control: control, period: range, previous: period, mode: .comics)
+            XCTAssertEqual(Set(result.tags.map(\.name)), ["tag:watercolor", "artist:solo_female", "female:sole_female_artist"])
+            XCTAssertFalse(result.previousTagCounts.keys.contains { $0.hasSuffix("\nfemale:sole_female") })
+        }
+        XCTAssertEqual(control.analysisExcluded(.comics), TasteControl().analysisExcluded(.comics))
+        control.setAnalysisExcluded(["female:solo_female", "female:sole female"], mode: .comics)
+        XCTAssertEqual(control.analysisExclusions?["comics"], ["female:sole_female"])
+        control.setAnalysisExcluded([], mode: .comics)
+        XCTAssertTrue(control.allows("female:sole female", source: item.source, mode: .comics))
+        XCTAssertTrue(TasteControl().allows("female:sole_female", source: "https://example.test", mode: .booru))
+    }
+
     func testMetadataParserPreservesComicNamespaces() {
         let tags = NativeGallery.parseTags([
             ["tag": "solo female", "female": "1"], ["tag": "solo male", "male": 1],

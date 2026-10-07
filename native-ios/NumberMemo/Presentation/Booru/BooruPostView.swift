@@ -94,10 +94,8 @@ struct BooruPostView: View {
             }
             .foregroundStyle(.white).tint(.white).preferredColorScheme(.dark)
             .overlay(alignment: .top) {
-                Capsule().fill(.white).frame(width: 96, height: 2).padding(.top, 2)
-                    .ignoresSafeArea(edges: .top).allowsHitTesting(false)
-                    .accessibilityLabel(L10n.text("Swipe down to exit the work"))
-                    .accessibilityAddTraits(.isButton).accessibilityAction { closeViewer() }
+                ReaderDismissHandle(identifier: "booru.exitHandle", dismiss: closeViewer)
+                    .ignoresSafeArea(edges: .top)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if bottomMenu && !menuVisible && translation == nil { menuActions(compact: true).padding(12).modifier(ReaderMenuGlass()).padding(.horizontal, 12).padding(.bottom, 6) }

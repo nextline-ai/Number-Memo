@@ -71,11 +71,7 @@ struct NativeReaderView: View {
         }
         .overlay(alignment: .top) {
             VStack {
-                Capsule().fill(.white).frame(width: 96, height: 2)
-                    .shadow(color: .black.opacity(0.7), radius: 1)
-                    .padding(.top, 2).accessibilityIdentifier("reader.exitHandle")
-                    .accessibilityLabel(L10n.text("Swipe down to exit the work"))
-                    .accessibilityAddTraits(.isButton).accessibilityAction { closeReader() }
+                ReaderDismissHandle(identifier: "reader.exitHandle", dismiss: closeReader)
                 Spacer()
             }.ignoresSafeArea(edges: .top).allowsHitTesting(false)
         }

@@ -839,3 +839,6 @@
 "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here.";
 "Not favorited" = "Not favorited";
 "Remove Bookmark" = "Remove Bookmark";
+"Thumbnail" = "Thumbnail";
+"Thumbnail unavailable" = "Thumbnail unavailable";
+"Thumbnail loaded" = "Thumbnail loaded";

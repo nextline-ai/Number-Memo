@@ -165,7 +165,7 @@ final class NativeContentUITests: XCTestCase {
         element(app, "reader.menu.close").tap()
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.8)
         XCTAssertTrue(element(app, "reader.toast").waitForExistence(timeout: 3))
-        XCTAssertEqual(element(app, "reader.toast").label, "북마크에 저장했습니다")
+        XCTAssertEqual(element(app, "reader.toast").label, "북마크를 표시했습니다")
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(element(app, "reader.image").waitForExistence(timeout: 5))
         XCUIDevice.shared.orientation = .portrait
@@ -434,6 +434,38 @@ final class NativeContentUITests: XCTestCase {
         capture(app, "Explore completed tag search")
     }
 
+    func testWorkDetailsSheetKeepsLayoutWhileCoverLoadsAndDismissesDownward() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--native-content-ui-test", "--slow-detail-cover-test", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let card = element(app, "content.gallery.900000001")
+        XCTAssertTrue(card.waitForExistence(timeout: 15))
+        let cardY = card.frame.minY
+        card.tap()
+        let read = element(app, "content.read"), cover = element(app, "content.detail.cover"), title = element(app, "content.detail.title")
+        XCTAssertTrue(read.waitForExistence(timeout: 10))
+        XCTAssertEqual(cover.value as? String, "Loading")
+        let coverFrame = cover.frame, titleY = title.frame.minY, readY = read.frame.minY
+        XCTAssertEqual(coverFrame.height, 300, accuracy: 1)
+        capture(app, "Work details with reserved thumbnail placeholder")
+        let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Thumbnail loaded"), object: cover)
+        XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 25), .completed)
+        XCTAssertEqual(cover.frame.height, coverFrame.height, accuracy: 1)
+        XCTAssertEqual(title.frame.minY, titleY, accuracy: 1)
+        XCTAssertEqual(read.frame.minY, readY, accuracy: 1)
+        capture(app, "Work details after thumbnail load without layout shift")
+        read.tap()
+        XCTAssertTrue(element(app, "reader.exitHandle").waitForExistence(timeout: 5))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)))
+        XCTAssertTrue(element(app, "reader.exitHandle").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(read.isHittable)
+        // Dismiss from the content, including after returning from the immersive reader.
+        cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)))
+        XCTAssertTrue(read.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(card.isHittable)
+        XCTAssertEqual(card.frame.minY, cardY, accuracy: 1)
+    }
+
     func testImageFailureStillAllowsExit() {
         let app = XCUIApplication()
         app.launchArguments = ["--native-content-ui-test", "-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR", "--native-content-image-error"]
@@ -463,7 +495,7 @@ final class NativeContentUITests: XCTestCase {
         XCTAssertEqual(card.value as? String, "북마크 안 됨")
         card.press(forDuration: 0.8)
         XCTAssertTrue(element(app, "content.toast").waitForExistence(timeout: 3))
-        XCTAssertEqual(element(app, "content.toast").label, "북마크에 저장했습니다")
+        XCTAssertEqual(element(app, "content.toast").label, "북마크를 표시했습니다")
         wait(card, "value == %@", "북마크됨")
         capture(app, "Explore bookmark badge")
         XCTAssertFalse(element(app, "content.read").exists, "Long press must not also open the gallery")

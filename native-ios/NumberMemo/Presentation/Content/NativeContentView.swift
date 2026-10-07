@@ -47,6 +47,11 @@ public struct NativeContentView: View {
     private let savesProgress: Bool
     @State private var images: PageImageStore
     @State private var path: [ContentRoute] = []
+    @State private var presentedGallery: GalleryDestination?
+    private struct GalleryDestination: Identifiable {
+        let id: Int64
+        let context: DiscoveryContext
+    }
     @State private var presentedReader: ReaderDestination?
     @State private var readerSearch: String?
     private struct ReaderDestination: Identifiable {
@@ -59,6 +64,8 @@ public struct NativeContentView: View {
     }
     private func navigate(_ route: ContentRoute) {
         switch route {
+        case .gallery(let id): presentedGallery = GalleryDestination(id: id, context: .unknown)
+        case .discoveredGallery(let id, let context): presentedGallery = GalleryDestination(id: id, context: context)
         case .reader(let id, let page): openReader(id, page, .unknown)
         case .discoveredReader(let id, let page, let context): openReader(id, page, context)
         default: path.append(route)
@@ -69,12 +76,12 @@ public struct NativeContentView: View {
         self.init(initialUrl: initialUrl, source: HitomiContentSource.shared, embedded: embedded)
     }
 
-    init(initialUrl: String = HitomiUrls.home, source: any ContentProviding, savesProgress: Bool = true, embedded: Bool = false, initialQuery: String? = nil) {
+    init(initialUrl: String = HitomiUrls.home, source: any ContentProviding, savesProgress: Bool = true, embedded: Bool = false, initialQuery: String? = nil, images: PageImageStore? = nil) {
         self.embedded = embedded
         initialRoute = initialQuery.map(ContentRoute.query) ?? ContentRoute.initial(initialUrl)
         self.source = source
         self.savesProgress = savesProgress
-        _images = State(initialValue: PageImageStore(source: source))
+        _images = State(initialValue: images ?? PageImageStore(source: source))
     }
 
     public var body: some View {
@@ -89,6 +96,12 @@ public struct NativeContentView: View {
                             .accessibilityIdentifier("content.close")
                     } }
                 }
+        }
+        .sheet(item: $presentedGallery) { gallery in
+            NativeContentView(initialUrl: HitomiUrls.galleryUrl(for: gallery.id), source: source,
+                              savesProgress: savesProgress, images: images)
+                .environment(\.discoveryContext, gallery.context)
+                .presentationDetents([.large]).presentationDragIndicator(.visible)
         }
         .fullScreenCover(item: $presentedReader, onDismiss: {
             if let readerSearch { self.readerSearch = nil; path.append(.query(readerSearch)) }
@@ -403,6 +416,7 @@ private struct RemoteGalleryView: View {
     let images: PageImageStore
     @State private var gallery: NativeGallery?
     @State private var cover: UIImage?
+    @State private var coverFinished = false
     @State private var error: String?
     @State private var retry = 0
     @State private var bookmark: ContentBookmark?
@@ -413,11 +427,8 @@ private struct RemoteGalleryView: View {
             if let gallery {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        if let cover {
-                            Image(uiImage: cover).resizable().scaledToFit()
-                                .frame(maxWidth: .infinity, maxHeight: 300).clipShape(RoundedRectangle(cornerRadius: 16))
-                        }
-                        Text(gallery.title).font(.title2.bold()).textSelection(.enabled)
+                        WorkDetailCover(image: cover, loading: !coverFinished)
+                        Text(gallery.title).font(.title2.bold()).textSelection(.enabled).accessibilityIdentifier("content.detail.title")
                         Text(L10n.text("%@ · %@ · %@ pages", String(describing: gallery.language), String(describing: gallery.type), String(describing: gallery.pages.count)))
                             .font(.subheadline).foregroundStyle(.secondary)
                         Button { read(galleryID, 1, discovery) } label: {
@@ -463,7 +474,12 @@ private struct RemoteGalleryView: View {
                 try Task.checkCancellation()
                 gallery = value
                 try? env.database.observeTaste(value, context: discovery)
-                if let page = value.pages.first { cover = try? await images.load(page, galleryID: galleryID, thumbnail: true) }
+                if let page = value.pages.first {
+                    let loaded = try? await images.load(page, galleryID: galleryID, thumbnail: true)
+                    try Task.checkCancellation()
+                    cover = loaded
+                }
+                coverFinished = true
             } catch { if !Task.isCancelled { self.error = ContentError.message(error) } }
         }
     }

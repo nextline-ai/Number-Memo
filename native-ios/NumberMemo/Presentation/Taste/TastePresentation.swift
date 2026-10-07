@@ -165,3 +165,33 @@ struct TasteOpenedWork: View {
         }
     }
 }
+
+
+private struct TasteWorkPresentation: ViewModifier {
+    @Binding var item: TasteRecommendation?
+    var context: (TasteRecommendation) -> DiscoveryContext
+    private func selection(comics: Bool) -> Binding<TasteRecommendation?> {
+        Binding(get: {
+            guard let item, (item.item.source == "https://hitomi.la") == comics else { return nil }
+            return item
+        }, set: { next in
+            if next != nil || item.map({ ($0.item.source == "https://hitomi.la") == comics }) == true { item = next }
+        })
+    }
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: selection(comics: true)) { item in
+                TasteOpenedWork(item: item, context: context(item))
+                    .presentationDetents([.large]).presentationDragIndicator(.visible)
+            }
+            .fullScreenCover(item: selection(comics: false)) { item in
+                TasteOpenedWork(item: item, context: context(item))
+            }
+    }
+}
+extension View {
+    func tasteWorkPresentation(_ item: Binding<TasteRecommendation?>,
+                               context: @escaping (TasteRecommendation) -> DiscoveryContext = { _ in .init(origin: .recommendation) }) -> some View {
+        modifier(TasteWorkPresentation(item: item, context: context))
+    }
+}

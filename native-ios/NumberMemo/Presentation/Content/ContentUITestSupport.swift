@@ -24,8 +24,16 @@ enum ContentUITestSupport {
                 if !ProcessInfo.processInfo.arguments.contains("--booru-restored-badge-test") { try! env.booru.select(BooruServer.presets[0]) }
             }
             if ProcessInfo.processInfo.arguments.contains("--taste-ui-rich") {
+                let spellingTest = ProcessInfo.processInfo.arguments.contains("--taste-sole-exclusion-test")
+                if spellingTest {
+                    env.taste.change { control in
+                        control.aiEnabled = false
+                        control.analysisExclusions = ["comics": ["female:solo_female", "male:solo_male", "tag:digital", "tag:group"]]
+                    }
+                }
+                let comicTags = "female:sample,tag:example" + (spellingTest ? ",female:sole female,male:sole male" : "")
                 for index in 1...8 {
-                    _ = try! env.database.upsertWork(galleryId: Int64(900000100 + index), title: "Saved sample", tags: "female:sample,tag:example", discoveryContext: .init(origin: .search, query: "tag:example", session: "comic-\(index)"))
+                    _ = try! env.database.upsertWork(galleryId: Int64(900000100 + index), title: "Saved sample", tags: comicTags, discoveryContext: .init(origin: .search, query: "tag:example", session: "comic-\(index)"))
                 }
                 let server = BooruServer.presets[0]
                 for index in 1...8 {
@@ -114,6 +122,7 @@ actor FixtureContentSource: ContentProviding {
 
     func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data {
         imageRequests += 1
+        if thumbnail && ProcessInfo.processInfo.arguments.contains("--slow-detail-cover-test") { try await Task.sleep(for: .seconds(20)) }
         if ProcessInfo.processInfo.arguments.contains("--native-content-image-error") { throw URLError(.timedOut) }
         return await MainActor.run {
             let short = ProcessInfo.processInfo.arguments.contains("--reader-short-page-test")

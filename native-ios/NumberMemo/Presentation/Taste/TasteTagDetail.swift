@@ -69,7 +69,7 @@ struct TasteTagDetail: View {
                     .environment(\.discoveryContext, DiscoveryContext(origin: .recommendation))
             }
         }
-        .fullScreenCover(item: $opened) { TasteOpenedWork(item: $0) }
+        .tasteWorkPresentation($opened)
     }
 }
 
