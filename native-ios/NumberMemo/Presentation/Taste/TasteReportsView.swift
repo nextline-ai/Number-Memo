@@ -12,7 +12,7 @@ struct TasteReportsView: View {
     private var card: Binding<Int> { Binding(get: { cards[displayedKey, default: 0] }, set: { cards[displayedKey] = $0 }) }
     @State private var loaded: [String: (TasteSnapshot, TasteReport?)] = [:]
     @State private var cards: [String: Int] = [:]
-    private var requestKey: String { "\(mode.rawValue):\(offset):\(env.taste.control.epoch)" }
+    private var requestKey: String { "\(mode.rawValue):\(offset):\(env.taste.control.analysisKey(mode))" }
     init(mode: TasteMode, period: TastePeriod) {
         _mode = State(initialValue: mode); self.period = period
         _offset = State(initialValue: period == .month ? -1 : 0)

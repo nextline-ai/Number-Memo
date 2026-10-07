@@ -3,7 +3,7 @@ import GRDB
 
 /// Pure, deterministic statistics. No language model sees tags or computes numbers.
 enum TasteAnalyzer {
-    static let version = 3
+    static let version = 4
     static func analyze(_ input: [TasteEvent], control: TasteControl, period: DateInterval? = nil, previous: DateInterval? = nil, savedKeys: Set<String>? = nil, mode: TasteMode = .booru) -> TasteSnapshot {
         let events = Dictionary(input.filter { $0.epoch == control.epoch }.map { ($0.id, $0) }, uniquingKeysWith: { a, b in TasteEvent.ordered(a, b) ? b : a }).values.sorted(by: TasteEvent.ordered)
         var metadataBySource: [String: Set<String>] = [:]

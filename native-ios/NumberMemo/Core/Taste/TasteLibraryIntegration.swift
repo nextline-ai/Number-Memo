@@ -38,11 +38,10 @@ extension AppDatabase {
 }
 
 @MainActor enum TasteRecommendationAction {
-    static func toggle(_ item: TasteRecommendation, env: AppEnvironment, session: String) throws -> String {
+    static func toggle(_ item: TasteRecommendation, env: AppEnvironment, session: String) throws -> WorkSaveResult {
         let context = DiscoveryContext.recommended(item.reason.name, session: session)
         if let post = item.post {
-            try env.booru.toggleFavorite(post, context: context)
-            return L10n.text(env.booru.isFavorite(post) ? "Saved" : "Bookmark removed")
+            return try BooruFavoriteAction.toggle(post, store: env.booru, context: context)
         }
         return try ContentBookmarkAction.toggle(id: item.item.id, gallery: item.gallery, env: env, images: TasteSources.images, context: context)
     }

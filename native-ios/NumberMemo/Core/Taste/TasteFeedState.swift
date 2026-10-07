@@ -39,6 +39,22 @@ final class TasteFeedState {
         snapshot = nil; report = nil; results = .init(); error = nil
         loading = false; loadingMore = false; initialized = false; shown = []; seedOffset = -1
     }
+    func applyExclusions(_ control: TasteControl, mode: TasteMode) {
+        work?.cancel(); work = nil; generation = UUID()
+        loading = false; loadingMore = false
+        if snapshot == nil { initialized = false }
+        if var filtered = snapshot {
+            filtered.tags.removeAll { !control.allows($0.name, source: $0.source, mode: mode) }
+            filtered.previousTagCounts = filtered.previousTagCounts.filter { key, _ in
+                let parts = key.components(separatedBy: "\n")
+                return parts.count == 2 && control.allows(parts[1], source: parts[0], mode: mode)
+            }
+            snapshot = filtered
+        }
+        let allowed = Set(snapshot?.tags.map(\.id) ?? [])
+        report?.insights.removeAll { !allowed.contains($0.tagKey) }
+    }
+
     func refresh(mode: TasteMode, env: AppEnvironment, language: String) {
         guard env.taste.control.enabled else { return }
         work?.cancel(); let token = UUID(); generation = token

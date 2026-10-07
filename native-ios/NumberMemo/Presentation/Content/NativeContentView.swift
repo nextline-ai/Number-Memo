@@ -47,6 +47,23 @@ public struct NativeContentView: View {
     private let savesProgress: Bool
     @State private var images: PageImageStore
     @State private var path: [ContentRoute] = []
+    @State private var presentedReader: ReaderDestination?
+    @State private var readerSearch: String?
+    private struct ReaderDestination: Identifiable {
+        let id: Int64
+        let page: Int
+        let context: DiscoveryContext
+    }
+    private func openReader(_ id: Int64, _ page: Int, _ context: DiscoveryContext) {
+        presentedReader = ReaderDestination(id: id, page: page, context: context)
+    }
+    private func navigate(_ route: ContentRoute) {
+        switch route {
+        case .reader(let id, let page): openReader(id, page, .unknown)
+        case .discoveredReader(let id, let page, let context): openReader(id, page, context)
+        default: path.append(route)
+        }
+    }
 
     public init(initialUrl: String = HitomiUrls.home, embedded: Bool = false) {
         self.init(initialUrl: initialUrl, source: HitomiContentSource.shared, embedded: embedded)
@@ -73,6 +90,14 @@ public struct NativeContentView: View {
                     } }
                 }
         }
+        .fullScreenCover(item: $presentedReader, onDismiss: {
+            if let readerSearch { self.readerSearch = nil; path.append(.query(readerSearch)) }
+        }) { reader in
+            NativeReaderView(galleryID: reader.id, initialPage: reader.page, source: source, images: images,
+                             savesProgress: savesProgress, search: { text in readerSearch = text; presentedReader = nil },
+                             exit: { presentedReader = nil })
+                .environment(\.discoveryContext, reader.context)
+        }
         .presentationDragIndicator(.visible)
     }
 
@@ -83,13 +108,13 @@ public struct NativeContentView: View {
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .toolbar { ToolbarItem(placement: .topBarLeading) { LiquidGlassTitleCapsule(L10n.text("Explore")) } }
         } else if let initialRoute { destination(initialRoute) }
-        else { GalleryFeedView(source: source, images: images, navigate: { path.append($0) }) }
+        else { GalleryFeedView(source: source, images: images, navigate: navigate) }
     }
 
     @ViewBuilder private func destination(_ route: ContentRoute) -> some View {
         switch route {
         case .discoveredGallery(let id, let context):
-            RemoteGalleryView(galleryID: id, source: source, images: images).environment(\.discoveryContext, context)
+            RemoteGalleryView(galleryID: id, source: source, images: images, read: openReader).environment(\.discoveryContext, context)
         case .discoveredReader(let id, let page, let context):
             NativeReaderView(galleryID: id, initialPage: page, source: source, images: images, savesProgress: savesProgress, search: { text in
                 if !path.isEmpty { path.removeLast() }; path.append(.query(text))
@@ -100,11 +125,11 @@ public struct NativeContentView: View {
                 path.append(.query(text))
             }, exit: { if path.isEmpty { dismiss() } else { path.removeLast() } })
         case .gallery(let id):
-            RemoteGalleryView(galleryID: id, source: source, images: images)
+            RemoteGalleryView(galleryID: id, source: source, images: images, read: openReader)
         case .artist(let name):
-            GalleryFeedView(artist: name, source: source, images: images, navigate: { path.append($0) })
+            GalleryFeedView(artist: name, source: source, images: images, navigate: navigate)
         case .query(let text):
-            GalleryFeedView(initialQuery: text, source: source, images: images, navigate: { path.append($0) })
+            GalleryFeedView(initialQuery: text, source: source, images: images, navigate: navigate)
         }
     }
 }
@@ -137,6 +162,7 @@ private struct GalleryFeedView: View {
     }
     @Environment(AppEnvironment.self) private var env
     @State private var toast: String?
+    @State private var saveFeedback: WorkSaveFeedback?
     let artist: String?
     let source: any ContentProviding
     let images: PageImageStore
@@ -187,8 +213,7 @@ private struct GalleryFeedView: View {
                 LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 16) {
                     ForEach(loader.ids, id: \.self) { id in
                         GalleryGridCard(id: id, isBookmarked: bookmarkedIDs.contains(id), source: source, images: images, open: { navigate(.discoveredGallery(id, discovery)) }) { gallery in
-                            do { toast = try ContentBookmarkAction.toggle(id: id, gallery: gallery, env: env, images: images, context: discovery) }
-                            catch { toast = L10n.text("Unable to save. Please try again.") }
+                            saveFeedback = .perform { try ContentBookmarkAction.toggle(id: id, gallery: gallery, env: env, images: images, context: discovery) }
                         }
                     }
                 }.accessibilityIdentifier("content.grid")
@@ -272,6 +297,7 @@ private struct GalleryFeedView: View {
         .overlay(alignment: .bottom) {
             if let toast { Text(toast).font(.subheadline.bold()).padding(14).background(.regularMaterial, in: Capsule()).padding().accessibilityIdentifier("content.toast") }
         }
+        .workSaveFeedback($saveFeedback, identifier: "content.toast")
         .task(id: toast) {
             guard toast != nil else { return }
             do { try await Task.sleep(for: .seconds(2)); toast = nil } catch {}
@@ -357,7 +383,7 @@ private struct GalleryGridCard: View {
         .accessibilityIdentifier("content.gallery.\(id)")
         .accessibilityValue(isBookmarked ? L10n.text("Bookmarked") : L10n.text("Not bookmarked"))
         .accessibilityAction { open() }
-        .accessibilityAction(named: L10n.text("Bookmark")) { bookmark(gallery) }
+        .accessibilityAction(named: WorkSaveResult.actionTitle(saved: isBookmarked, mode: .comics)) { bookmark(gallery) }
         .task(id: id) {
             do {
                 let value = try await source.gallery(id)
@@ -380,6 +406,7 @@ private struct RemoteGalleryView: View {
     @State private var error: String?
     @State private var retry = 0
     @State private var bookmark: ContentBookmark?
+    var read: (Int64, Int, DiscoveryContext) -> Void
 
     var body: some View {
         Group {
@@ -393,7 +420,7 @@ private struct RemoteGalleryView: View {
                         Text(gallery.title).font(.title2.bold()).textSelection(.enabled)
                         Text(L10n.text("%@ · %@ · %@ pages", String(describing: gallery.language), String(describing: gallery.type), String(describing: gallery.pages.count)))
                             .font(.subheadline).foregroundStyle(.secondary)
-                        NavigationLink(value: ContentRoute.discoveredReader(galleryID, 1, discovery)) {
+                        Button { read(galleryID, 1, discovery) } label: {
                             Label(L10n.text("Read"), systemImage: "book.pages").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 8)
                         }.buttonStyle(.borderedProminent).accessibilityIdentifier("content.read")
                         Button { bookmark = ContentBookmark(id: galleryID) } label: {

@@ -3,6 +3,26 @@ import SwiftUI
 @testable import NumberMemo
 
 final class ReaderUXTests: XCTestCase {
+    @MainActor func testSaveFeedbackUsesSameModeSpecificResultAndRecordsToggle() throws {
+        let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+        try env.booru.saveServer(server)
+        let post = BooruFixtureSource.post(201, server: server, tags: ["blue_hair", "green_eyes"])
+        let item = TasteRecommendation(item: .init(source: server.canonicalAddress, id: post.postID, tags: post.tags), post: post, gallery: nil,
+                                       reason: .init(source: server.canonicalAddress, name: "blue_hair"), score: 1)
+        let saved = try TasteRecommendationAction.toggle(item, env: env, session: "test")
+        XCTAssertEqual(saved, .added(.booru)); XCTAssertEqual(saved.message, L10n.text("Saved to Favorites"))
+        let removed = try BooruFavoriteAction.toggle(post, store: env.booru, context: .recommended("blue_hair", session: "test"))
+        XCTAssertEqual(removed, .removed(.booru)); XCTAssertEqual(removed.message, L10n.text("Favorite removed"))
+        XCTAssertFalse(env.booru.isFavorite(post))
+        let events = try env.booru.tasteStore.events()
+        XCTAssertEqual(events.filter { $0.kind == .save }.count, 1)
+        XCTAssertEqual(events.filter { $0.kind == .remove }.count, 1)
+        enum Failure: Error { case failed }
+        let feedback = WorkSaveFeedback.perform { throw Failure.failed }
+        XCTAssertEqual(feedback.result, .failed)
+        XCTAssertNotEqual(WorkSaveFeedback(saved).id, WorkSaveFeedback(saved).id)
+    }
+
     func testExitRecognizesShortFlickAndRejectsAccidentalDrags() {
         XCTAssertTrue(ReaderDismissal.shouldExit(delta: CGPoint(x: 8, y: 110), velocity: .zero))
         XCTAssertTrue(ReaderDismissal.shouldExit(delta: CGPoint(x: 2, y: 30), velocity: CGPoint(x: 0, y: 700)))
@@ -98,7 +118,7 @@ final class ReaderUXTests: XCTestCase {
         let id: Int64 = 900000001
         _ = try ContentBookmarkAction.toggle(id: id, gallery: nil, env: env)
         XCTAssertNotNil(try env.database.getWork(galleryId: id))
-        XCTAssertEqual(try ContentBookmarkAction.toggle(id: id, gallery: nil, env: env), L10n.text("Bookmark removed"))
+        XCTAssertEqual(try ContentBookmarkAction.toggle(id: id, gallery: nil, env: env).message, L10n.text("Bookmark removed"))
         XCTAssertNil(try env.database.getWork(galleryId: id))
         _ = try ContentBookmarkAction.toggle(id: id, gallery: nil, env: env)
         XCTAssertEqual(try env.database.listWorks().filter { $0.galleryId == id }.count, 1)
@@ -217,8 +237,8 @@ final class ReaderUXTests: XCTestCase {
 
     @MainActor func testBookmarkIsIdempotentAndPreservesFolders() throws {
         let env = AppEnvironment.preview()
-        XCTAssertEqual(try ContentBookmarkAction.save(id: 900000001, gallery: nil, env: env), L10n.text("Saved to bookmarks"))
-        XCTAssertEqual(try ContentBookmarkAction.save(id: 900000001, gallery: nil, env: env), L10n.text("Already bookmarked"))
+        XCTAssertEqual(try ContentBookmarkAction.save(id: 900000001, gallery: nil, env: env).message, L10n.text("Saved to bookmarks"))
+        XCTAssertEqual(try ContentBookmarkAction.save(id: 900000001, gallery: nil, env: env).message, L10n.text("Already bookmarked"))
         XCTAssertEqual(try env.database.listWorks().filter { $0.galleryId == 900000001 }.count, 1)
     }
 }

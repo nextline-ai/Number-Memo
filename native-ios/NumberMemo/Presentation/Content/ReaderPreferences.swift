@@ -247,17 +247,16 @@ enum ReaderLayout {
 
 @MainActor
 enum ContentBookmarkAction {
-    static func toggle(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil, context: DiscoveryContext = .unknown) throws -> String {
+    static func toggle(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil, context: DiscoveryContext = .unknown) throws -> WorkSaveResult {
         if try env.database.getWork(galleryId: id) != nil {
             try env.database.deleteWork(galleryId: id)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            return L10n.text("Bookmark removed")
+            return .removed(.comics)
         }
         return try save(id: id, gallery: gallery, env: env, images: images, context: context)
     }
 
-    static func save(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil, context: DiscoveryContext = .unknown) throws -> String {
-        if try env.database.getWork(galleryId: id) != nil { return L10n.text("Already bookmarked") }
+    static func save(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil, context: DiscoveryContext = .unknown) throws -> WorkSaveResult {
+        if try env.database.getWork(galleryId: id) != nil { return .unchanged(.comics) }
         let folders = try env.database.listFolders()
         let folder = folders.first(where: { $0.name == "미분류" }) ?? folders.first
         _ = try env.database.upsertWork(galleryId: id, folderId: folder?.id,
@@ -279,7 +278,98 @@ enum ContentBookmarkAction {
         #else
         env.startCoverQueue()
         #endif
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        return L10n.text("Saved to bookmarks")
+        return .added(.comics)
+    }
+}
+
+
+/// Shared result and presentation for saves from feeds, recommendations and readers.
+enum WorkSaveResult: Equatable {
+    case added(TasteMode), removed(TasteMode), unchanged(TasteMode), failed
+    static func accessibilityValue(saved: Bool, mode: TasteMode) -> String {
+        L10n.text(mode == .comics ? (saved ? "Bookmarked" : "Not bookmarked") : (saved ? "Saved" : "Not favorited"))
+    }
+    static func actionTitle(saved: Bool, mode: TasteMode) -> String {
+        L10n.text(mode == .comics ? (saved ? "Remove Bookmark" : "Bookmark") : (saved ? "Remove Favorite" : "Add Favorite"))
+    }
+    var message: String {
+        switch self {
+        case .added(.comics): L10n.text("Saved to bookmarks")
+        case .removed(.comics): L10n.text("Bookmark removed")
+        case .unchanged: L10n.text("Already bookmarked")
+        case .added(.booru): L10n.text("Saved to Favorites")
+        case .removed(.booru): L10n.text("Favorite removed")
+        case .failed: L10n.text("Unable to save. Please try again.")
+        }
+    }
+    var icon: String {
+        switch self {
+        case .added(.comics), .unchanged(.comics): "bookmark.fill"
+        case .removed(.comics): "bookmark.slash"
+        case .added(.booru), .unchanged(.booru): "heart.fill"
+        case .removed(.booru): "heart.slash"
+        case .failed: "exclamationmark.circle"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .added(.comics), .unchanged(.comics): .yellow
+        case .added(.booru), .unchanged(.booru): .pink
+        case .removed: .secondary
+        case .failed: .orange
+        }
+    }
+}
+struct WorkSaveFeedback: Identifiable {
+    let id = UUID()
+    let result: WorkSaveResult
+    @MainActor init(_ result: WorkSaveResult) {
+        self.result = result
+        switch result {
+        case .added: UINotificationFeedbackGenerator().notificationOccurred(.success)
+        case .removed, .unchanged: UISelectionFeedbackGenerator().selectionChanged()
+        case .failed: UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+        if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: result.message) }
+    }
+    @MainActor static func perform(_ action: () throws -> WorkSaveResult) -> Self {
+        do { return Self(try action()) } catch { return Self(.failed) }
+    }
+}
+@MainActor enum BooruFavoriteAction {
+    static func toggle(_ post: BooruPost, store: BooruStore, context: DiscoveryContext) throws -> WorkSaveResult {
+        try store.toggleFavorite(post, context: context)
+        return store.isFavorite(post) ? .added(.booru) : .removed(.booru)
+    }
+}
+private struct WorkSaveFeedbackModifier: ViewModifier {
+    @Binding var feedback: WorkSaveFeedback?
+    let identifier: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottom) {
+            if let feedback {
+                Label { Text(feedback.result.message).font(.subheadline.weight(.semibold)) } icon: {
+                    Image(systemName: feedback.result.icon).foregroundStyle(feedback.result.color)
+                }
+                .padding(.horizontal, 18).padding(.vertical, 12)
+                .background(.regularMaterial, in: Capsule())
+                .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+                .padding(16).allowsHitTesting(false)
+                .accessibilityElement(children: .ignore).accessibilityLabel(feedback.result.message)
+                .accessibilityIdentifier(identifier)
+                .transition(.opacity.combined(with: reduceMotion ? .identity : .scale(scale: 0.96)))
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: feedback?.id)
+        .task(id: feedback?.id) {
+            guard feedback != nil else { return }
+            do { try await Task.sleep(for: .seconds(3)); feedback = nil } catch { }
+        }
+    }
+}
+extension View {
+    func workSaveFeedback(_ feedback: Binding<WorkSaveFeedback?>, identifier: String) -> some View {
+        modifier(WorkSaveFeedbackModifier(feedback: feedback, identifier: identifier))
     }
 }

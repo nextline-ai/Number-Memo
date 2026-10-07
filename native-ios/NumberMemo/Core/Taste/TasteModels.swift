@@ -121,10 +121,25 @@ struct TasteControl: Codable, Equatable, Sendable {
         }.joined(separator: ":")
     }
     func allows(_ tag: String, source: String, mode: TasteMode) -> Bool {
-        !analysisExcluded(mode).contains(Self.normalizeExclusion(tag)) && !excluded.contains(where: { key in
+        let normalized = Self.normalizeExclusion(tag)
+        func matches(_ exclusion: String) -> Bool {
+            let blocked = Self.normalizeExclusion(exclusion)
+            if normalized == blocked { return true }
+            // Older Hitomi metadata/imports stored tag values without namespaces.
+            // Match those exact legacy values, never a different explicit namespace.
+            guard mode == .comics, !normalized.contains(":"),
+                  let colon = blocked.firstIndex(of: ":"),
+                  ["female", "male", "tag"].contains(String(blocked[..<colon])) else { return false }
+            return normalized == String(blocked[blocked.index(after: colon)...])
+        }
+        return !analysisExcluded(mode).contains(where: matches) && !excluded.contains(where: { key in
             let parts = key.components(separatedBy: "\n")
-            return parts.count == 2 && parts[0] == source && Self.normalizeExclusion(parts[1]) == Self.normalizeExclusion(tag)
+            return parts.count == 2 && parts[0] == source && matches(parts[1])
         })
+    }
+    func analysisKey(_ mode: TasteMode) -> String {
+        let values = [epoch, timeZone, String(aiEnabled), String(enabled)] + analysisExcluded(mode).sorted() + excluded.sorted()
+        return tasteDigest((try? JSONEncoder().encode(values)) ?? Data())
     }
     func newer(than other: Self) -> Bool { timestamp == other.timestamp ? author > other.author : timestamp > other.timestamp }
     func merged(with other: Self) -> Self {

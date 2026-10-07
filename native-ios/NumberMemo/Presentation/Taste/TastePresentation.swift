@@ -117,7 +117,7 @@ struct TasteRecommendationCard: View {
                     Color.secondary.opacity(0.12).aspectRatio(0.78, contentMode: .fit)
                         .overlay { Image(systemName: "photo").foregroundStyle(.secondary) }.clipShape(RoundedRectangle(cornerRadius: 16))
                 } else if let gallery = item.gallery {
-                    GalleryCardLayout(title: gallery.title, artists: gallery.artists.joined(separator: ", "), language: gallery.language, recommendationTag: TastePresentation.name(item.reason.name)) {
+                    GalleryCardLayout(title: gallery.title, artists: gallery.artists.joined(separator: ", "), language: gallery.language, recommendationTag: reasonAllowed ? TastePresentation.name(item.reason.name) : nil) {
                         TasteArtwork(gallery: gallery)
                     }.overlay(alignment: .topLeading) {
                         if isBookmarked {
@@ -126,15 +126,18 @@ struct TasteRecommendationCard: View {
                         }
                     }
                 }
-                if item.gallery == nil { Label(TastePresentation.name(item.reason.name), systemImage: "number")
+                if item.gallery == nil && reasonAllowed { Label(TastePresentation.name(item.reason.name), systemImage: "number")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(2).padding(.horizontal, 2) }
             }.contentShape(Rectangle())
         }.buttonStyle(.plain).hoverEffect(.highlight)
             .accessibilityIdentifier("taste.work.\(item.item.id)")
             .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in toggle() })
             .accessibilityElement(children: .combine)
-            .accessibilityValue(L10n.text(saved ? "Saved" : "Not bookmarked"))
-            .accessibilityAction(named: L10n.text(saved ? "Remove Favorite" : "Bookmark"), toggle)
+            .accessibilityValue(WorkSaveResult.accessibilityValue(saved: saved, mode: item.post == nil ? .comics : .booru))
+            .accessibilityAction(named: WorkSaveResult.actionTitle(saved: saved, mode: item.post == nil ? .comics : .booru), toggle)
+    }
+    private var reasonAllowed: Bool {
+        env.taste.control.allows(item.reason.name, source: item.reason.source, mode: item.post == nil ? .comics : .booru)
     }
     private var saved: Bool {
         if let post = item.post { return env.booru.favoriteIDs.contains(post.id) }

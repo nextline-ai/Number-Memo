@@ -210,7 +210,7 @@
 "Save to Folder" = "저장할 폴더";
 "Save to Library" = "보관함에 저장";
 "Saved Works" = "저장된 작품";
-"Saved to bookmarks" = "북마크에 저장했습니다";
+"Saved to bookmarks" = "북마크를 표시했습니다";
 "Search Results" = "검색 결과";
 "Search works" = "작품 검색";
 "Search, number, or link" = "검색어, 번호 또는 링크";
@@ -387,7 +387,7 @@
 "Image Cache Cleared" = "이미지 캐시 삭제됨";
 "Clear Image Cache" = "이미지 캐시 삭제";
 "Clear History?" = "검색 기록을 삭제할까요?";
-"Saved to Favorites" = "즐겨찾기에 저장됨";
+"Saved to Favorites" = "좋아요를 표시했습니다";
 "Share" = "공유";
 "Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close" = "중앙 탭: 빠른 메뉴\n중앙 길게 누르기: 즐겨찾기\n가장자리 탭 또는 스와이프: 이미지 이동\n두 번 탭 또는 핀치: 확대·축소\n기본 배율에서 아래로 스와이프: 닫기";
 "The network connection was interrupted. Retry or check another network if the website also fails to open." = "네트워크 연결이 끊겼습니다. 다시 시도하고, 웹사이트도 열리지 않으면 다른 네트워크에서 확인하세요.";
@@ -490,7 +490,7 @@
 "Website" = "웹사이트";
 "Community & Bug Reports" = "커뮤니티 / 버그 제보";
 
-"Favorite removed" = "즐겨찾기를 해제했습니다";
+"Favorite removed" = "좋아요를 해제했습니다";
 "Copy ID" = "ID 복사";
 "Search history will be deleted. Saved searches will be kept." = "검색 기록을 삭제합니다. 저장한 검색은 유지됩니다.";
 "Keep History" = "검색 기록 보관 기간";
@@ -823,7 +823,7 @@
 "Analysis excluded tags" = "분석 제외 태그";
 "Tag to exclude" = "제외할 태그";
 "Add tag" = "태그 추가";
-"These exact tags are excluded from analysis, recommendations and reports. Original tags and search filters stay available. Refresh AI recommendations to apply changes to the current list." = "입력한 태그와 정확히 일치하는 태그를 분석·추천·통계에서 제외합니다. 원본 태그와 검색 필터는 유지됩니다. 현재 추천 목록에는 새로고침 후 적용됩니다.";
+"Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available." = "제외 태그는 취향 근거에서 즉시 제거됩니다. 현재 작품 목록은 유지되며, 새 추천을 받으려면 새로고침하세요. 원본 태그와 검색 필터는 그대로 사용할 수 있습니다.";
 "You chose and saved %@ works associated with this tag." = "이 태그가 있는 작품 %@개를 선택해 저장했어요.";
 "Private by design, processed on your device" = "내 기기 안에서 안전하게 분석";
 "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AI는 내 기기 안에서 실행됩니다. 원문 태그·검색어·이미지·제목 대신 임시 식별자와 통계만 사용하며, 클라우드 AI로 요청을 보내지 않습니다.";
@@ -837,3 +837,5 @@
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "동영상은 두 손가락으로 탭하여 퀵메뉴를 엽니다. 재생 컨트롤도 그대로 사용할 수 있습니다.";
 "Tap with two fingers for the video menu" = "두 손가락으로 탭하면 동영상 메뉴가 열려요";
 "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "미리보기는 빠르게 표시할 수 있도록 이 기기에 최대 256MB까지 캐시됩니다. iCloud에 업로드하지 않으며 여기서 삭제할 수 있습니다.";
+"Not favorited" = "좋아요 안 함";
+"Remove Bookmark" = "북마크 해제";

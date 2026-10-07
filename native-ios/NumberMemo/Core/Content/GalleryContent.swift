@@ -69,11 +69,15 @@ struct NativeGallery: Identifiable, Sendable {
         return NativeGallery(id: id, title: decodeEntities(title),
                              artists: (json["artists"] as? [[String: Any]] ?? []).compactMap { $0["artist"] as? String },
                              language: json["language"] as? String ?? "", type: json["type"] as? String ?? "",
-                             tags: (json["tags"] as? [[String: Any]] ?? []).flatMap { item -> [String] in
-                                 guard let tag = item["tag"] as? String else { return [] }
-                                 let namespaces = ["female", "male"].filter { flag(item[$0]) }
-                                 return (namespaces.isEmpty ? ["tag"] : namespaces).map { $0 + ":" + tag }
-                             }, pages: pages)
+                             tags: Self.parseTags(json["tags"]), pages: pages)
+    }
+
+    static func parseTags(_ value: Any?) -> [String] {
+        (value as? [[String: Any]] ?? []).flatMap { item -> [String] in
+            guard let tag = item["tag"] as? String else { return [] }
+            let namespaces = ["female", "male"].filter { flag(item[$0]) }
+            return (namespaces.isEmpty ? ["tag"] : namespaces).map { $0 + ":" + tag }
+        }
     }
 
     private static func flag(_ value: Any?) -> Bool {

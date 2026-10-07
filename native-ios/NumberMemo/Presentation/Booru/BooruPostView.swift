@@ -20,6 +20,8 @@ struct BooruPostView: View {
     @State private var viewport = CGRect(x: 0, y: 0, width: 1, height: 1)
     @State private var zoomed = false
     @State private var toast: String?
+    @State private var saveFeedback: WorkSaveFeedback?
+    @State private var exiting = false
     @State private var showJump = false
     @State private var jumpText = ""
     @State private var previousIdleTimer = false
@@ -95,14 +97,14 @@ struct BooruPostView: View {
                 Capsule().fill(.white).frame(width: 96, height: 2).padding(.top, 2)
                     .ignoresSafeArea(edges: .top).allowsHitTesting(false)
                     .accessibilityLabel(L10n.text("Swipe down to exit the work"))
-                    .accessibilityAddTraits(.isButton).accessibilityAction { dismiss() }
+                    .accessibilityAddTraits(.isButton).accessibilityAction { closeViewer() }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if bottomMenu && !menuVisible && translation == nil { menuActions(compact: true).padding(12).modifier(ReaderMenuGlass()).padding(.horizontal, 12).padding(.bottom, 6) }
             }
             .background(VideoMenuGesture(enabled: post.isVideo && !info && !readerSettings && !filing && translation == nil && selectedNote == nil && !showJump) { menuVisible.toggle() })
             .accessibilityAction(named: L10n.text("Open Menu")) { menuVisible = true }
-            .background(ReaderExitGesture(enabled: !zoomed && !menuVisible && !info && !readerSettings && !filing && !showJump && translation == nil && selectedNote == nil, progress: { _ in }, exit: { dismiss() }))
+            .background(ReaderExitGesture(enabled: !exiting && !zoomed && !menuVisible && !info && !readerSettings && !filing && !showJump && translation == nil && selectedNote == nil, progress: { _ in }, exit: { closeViewer() }))
             .background(ReaderKeyboardCommands(enabled: !info && !readerSettings && !filing && !showJump && selectedNote == nil, action: shortcut))
             .statusBarHidden(true)
             .persistentSystemOverlays(.hidden)
@@ -124,6 +126,7 @@ struct BooruPostView: View {
             .onChange(of: post.isVideo, initial: true) { _, video in
                 if video && !videoMenuHintSeen { videoMenuHintSeen = true; toast = L10n.text("Tap with two fingers for the video menu") }
             }
+            .workSaveFeedback($saveFeedback, identifier: "booru.toast")
             .task(id: toast) {
                 guard toast != nil else { return }
                 do { try await Task.sleep(for: .seconds(2)); toast = nil } catch {}
@@ -180,7 +183,7 @@ struct BooruPostView: View {
     private func shortcut(_ command: ReaderShortcut) {
         guard !info, !readerSettings, !filing, !showJump, selectedNote == nil else { return }
         if command == .exit {
-            if translation != nil { translation = nil } else { dismiss() }
+            if translation != nil { translation = nil } else { closeViewer() }
             return
         }
         guard translation == nil else { return }
@@ -211,12 +214,12 @@ struct BooruPostView: View {
     }
     private func menuActions(compact: Bool) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: compact ? 4 : 3), spacing: 18) {
-            menuButton(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), icon: store.isFavorite(post) ? "heart.fill" : "heart", id: "favorite", compact: compact) { store.perform { try store.toggleFavorite(post, context: discovery) } }
+            menuButton(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), icon: store.isFavorite(post) ? "heart.fill" : "heart", id: "favorite", compact: compact) { toggleFavorite() }
             menuButton(L10n.text("Save to Folder"), icon: "folder", id: "folder", compact: compact) { filing = true }
             menuButton(L10n.text("Translate"), icon: "translate", id: "translate", compact: compact) {
                 menuVisible = false; translation = .init(index: index, rect: viewport)
             }.disabled(post.isVideo || mediaStatus != "ready")
-            menuButton(L10n.text("Exit"), icon: "rectangle.portrait.and.arrow.right", id: "close", compact: compact) { dismiss() }
+            menuButton(L10n.text("Exit"), icon: "rectangle.portrait.and.arrow.right", id: "close", compact: compact) { closeViewer() }
             menuButton(L10n.text("Notes"), icon: showNotes ? "text.bubble.fill" : "text.bubble", id: "notes", compact: compact) { showNotes.toggle() }
             menuButton(L10n.text("Details"), icon: "info.circle", id: "info", compact: compact) { info = true }
             ShareLink(item: server.pageURL(postID: post.postID)) { menuLabel(L10n.text("Share"), icon: "square.and.arrow.up", compact: compact) }
@@ -232,6 +235,14 @@ struct BooruPostView: View {
     private func menuButton(_ title: String, icon: String, id: String, compact: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) { menuLabel(title, icon: icon, compact: compact) }.accessibilityLabel(title).accessibilityIdentifier("booru." + id)
     }
+    private func toggleFavorite() {
+        saveFeedback = .perform { try BooruFavoriteAction.toggle(post, store: store, context: discovery) }
+    }
+    private func closeViewer() {
+        guard !exiting else { return }
+        exiting = true
+        dismiss()
+    }
     private func gesture(_ gesture: BooruMediaGesture) {
         guard !info, !readerSettings, !filing, translation == nil, selectedNote == nil, !showJump else { return }
         switch gesture {
@@ -241,10 +252,8 @@ struct BooruPostView: View {
             else if tapNavigation { move((x < 0.3 ? -1 : 1) * (rtl ? -1 : 1)) }
         case .swipe(let delta): if !zoomed { move(delta * (rtl ? -1 : 1)) }
         case .hold:
-            store.perform { try store.toggleFavorite(post, context: discovery) }
-            toast = L10n.text(store.isFavorite(post) ? "Saved to Favorites" : "Favorite removed")
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        case .dismiss: if !zoomed { dismiss() }
+            toggleFavorite()
+        case .dismiss: if !zoomed { closeViewer() }
         case .zoom(let value): zoomed = value
         case .viewport(let rect): viewport = rect
         }
@@ -312,7 +321,7 @@ struct BooruPostView: View {
             let old = store.blacklist(serverID: server.id)
             try store.setBlacklist(old.isEmpty ? rule : old + "\n" + rule, serverID: server.id)
             info = false
-            dismiss()
+            closeViewer()
         }
     }
 
@@ -327,7 +336,7 @@ struct BooruPostView: View {
                         let old = store.blacklist(serverID: server.id)
                         try store.setBlacklist(old.isEmpty ? tag : old + "\n" + tag, serverID: server.id)
                         info = false
-                        dismiss()
+                        closeViewer()
                     }
                 }
             } label: {

@@ -823,7 +823,7 @@
 "Analysis excluded tags" = "Analysis excluded tags";
 "Tag to exclude" = "Tag to exclude";
 "Add tag" = "Add tag";
-"These exact tags are excluded from analysis, recommendations and reports. Original tags and search filters stay available. Refresh AI recommendations to apply changes to the current list." = "These exact tags are excluded from analysis, recommendations and reports. Original tags and search filters stay available. Refresh AI recommendations to apply changes to the current list.";
+"Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available." = "Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available.";
 "You chose and saved %@ works associated with this tag." = "You chose and saved %@ works associated with this tag.";
 "Private by design, processed on your device" = "Private by design, processed on your device";
 "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model.";
@@ -837,3 +837,5 @@
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "For videos, tap with two fingers to open the quick menu. Playback controls remain available.";
 "Tap with two fingers for the video menu" = "Tap with two fingers for the video menu";
 "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here.";
+"Not favorited" = "Not favorited";
+"Remove Bookmark" = "Remove Bookmark";

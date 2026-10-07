@@ -164,6 +164,7 @@ struct BooruFeedView: View {
     @SwiftUI.AppStorage("booru.rating", store: ReaderPreferences.booruDefaults) private var rating: BooruRating = .all
     @SwiftUI.AppStorage("booru.useEmbeddedBrowser", store: ReaderPreferences.booruDefaults) private var useEmbeddedBrowser = false
     @State private var selectedPost: BooruPost?
+    @State private var saveFeedback: WorkSaveFeedback?
     @FocusState private var searchFocused: Bool
     @SwiftUI.AppStorage("booru.rememberHistory", store: ReaderPreferences.booruDefaults) private var rememberHistory = true
     @SwiftUI.AppStorage("booru.autoLoad", store: ReaderPreferences.booruDefaults) private var autoLoad = false
@@ -185,6 +186,7 @@ struct BooruFeedView: View {
                 BooruEmbeddedBrowserView(servers: servers, query: query, poolID: pool?.id, sort: sort, rating: rating, preferredServerID: browserServerID)
             } else { nativeFeed }
         }
+        .workSaveFeedback($saveFeedback, identifier: "booru.saveStatus")
         .navigationTitle(pool?.name.replacingOccurrences(of: "_", with: " ") ?? L10n.text("Explore"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $validating) { server in
@@ -200,7 +202,7 @@ struct BooruFeedView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     if pool == nil { filters }
-                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: pool == nil) { selectedPost = $0 }.environment(\.discoveryContext, discovery)
+                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: true, feedback: { saveFeedback = $0 }) { selectedPost = $0 }.environment(\.discoveryContext, discovery)
                     if loader.loading { ProgressView(L10n.text("Loading")).padding(24) }
                     ForEach(servers.filter { loader.errors[$0.id] != nil }) { server in
                         VStack(alignment: .leading, spacing: 12) {
@@ -371,6 +373,7 @@ struct BooruPostGrid: View {
     var server: BooruServer? = nil
     var showsFavoriteIndicator = false
     var selection: Binding<Set<String>>? = nil
+    var feedback: (WorkSaveFeedback) -> Void = { _ in }
     let open: (BooruPost) -> Void
     @Environment(BooruStore.self) private var store
     @Environment(AppEnvironment.self) private var env
@@ -398,12 +401,13 @@ struct BooruPostGrid: View {
                                 .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in save(post) })
                                 .accessibilityAddTraits(.isButton)
                                 .accessibilityAction { open(post) }
-                                .accessibilityAction(named: L10n.text("Add Favorite")) { save(post) }
+                                .accessibilityAction(named: L10n.text(favorites.contains(post.id) ? "Remove Favorite" : "Add Favorite")) { save(post) }
+                                .accessibilityAction(named: L10n.text("Save to Folder")) { filing = post }
                         } else {
                             Button { open(post) } label: { thumbnail(post, server: server, isFavorite: favorites.contains(post.id)) }
                                 .buttonStyle(.plain)
                                 .contextMenu {
-                                    Button(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), systemImage: "heart") { store.perform { try store.toggleFavorite(post, context: discovery) } }
+                                    Button(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), systemImage: "heart") { save(post) }
                                     Button(L10n.text("Save to Folder"), systemImage: "folder") { filing = post }
                                     ShareLink(item: server.pageURL(postID: post.postID))
                                 }
@@ -413,7 +417,7 @@ struct BooruPostGrid: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(server.displayName + " · " + String(post.postID))
                     .accessibilityIdentifier("booru.post.\(post.postID)")
-                    .accessibilityValue(selection.map { $0.wrappedValue.contains(post.id) ? L10n.text("Selected") : "" } ?? (showsFavoriteIndicator && favorites.contains(post.id) ? L10n.text("Saved") : ""))
+                    .accessibilityValue(selection.map { $0.wrappedValue.contains(post.id) ? L10n.text("Selected") : "" } ?? (showsFavoriteIndicator ? WorkSaveResult.accessibilityValue(saved: favorites.contains(post.id), mode: .booru) : ""))
                 }
             }
         }.sheet(item: $filing) { BooruFolderPicker(post: $0).environment(\.discoveryContext, discovery) }
@@ -424,10 +428,7 @@ struct BooruPostGrid: View {
     }
 
     private func save(_ post: BooruPost) {
-        store.perform {
-            try store.toggleFavorite(post, context: discovery)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        }
+        feedback(.perform { try BooruFavoriteAction.toggle(post, store: store, context: discovery) })
     }
 }
 

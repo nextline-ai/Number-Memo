@@ -133,14 +133,7 @@ public enum HitomiAPIClient {
             }
         }
 
-        var tagsList: [String] = []
-        if let rawTags = json["tags"] as? [[String: Any]] {
-            for item in rawTags {
-                if let tag = item["tag"] as? String {
-                    tagsList.append(tag)
-                }
-            }
-        }
+        let tagsList = NativeGallery.parseTags(json["tags"])
 
         let rawTitle = (json["japanese_title"] as? String) ?? (json["title"] as? String)
         let unescapedTitle = rawTitle?

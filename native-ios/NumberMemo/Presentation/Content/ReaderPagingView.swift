@@ -369,7 +369,9 @@ final class ExitGestureView: UIView, UIGestureRecognizerDelegate {
         let velocity = pan.velocity(in: window)
         return velocity.y > 0 && velocity.y > abs(velocity.x) * 1.25
     }
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        !(other is UIScreenEdgePanGestureRecognizer)
+    }
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         guard let window, window.bounds.inset(by: window.safeAreaInsets).contains(touch.location(in: window)) else { return false }
         var view = touch.view

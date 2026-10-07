@@ -48,6 +48,11 @@ final class TasteController {
             if next.epoch != control.epoch || !next.enabled {
                 imageFeed.clear(); comicFeed.clear(); monthlyRecaps = [:]
             }
+            for mode in [TasteMode.booru, .comics] {
+                if next.analysisExcluded(mode) != control.analysisExcluded(mode) || next.excluded != control.excluded {
+                    feed(mode).applyExclusions(next, mode: mode)
+                }
+            }
             control = next; revision += 1
             Task { await cache.invalidate() }
         } catch { self.error = L10n.text("Unable to update taste analysis.") }

@@ -106,6 +106,7 @@ struct BooruFolderContentsView: View {
     @Environment(BooruStore.self) private var store
     @State private var query = ""
     @State private var selectedPost: BooruPost?
+    @State private var saveFeedback: WorkSaveFeedback?
     @State private var selecting = false
     @State private var selection = Set<String>()
     @State private var confirmingDelete = false
@@ -122,7 +123,7 @@ struct BooruFolderContentsView: View {
                 Group {
                     if posts.isEmpty {
                         ContentUnavailableView(L10n.text("No Favorites"), systemImage: "heart", description: Text(L10n.text("Hold an image to save it, or choose Save to Folder from its menu."))).padding(.top, 48)
-                    } else { BooruPostGrid(posts: posts, selection: selecting ? $selection : nil) { selectedPost = $0 }.padding(16) }
+                    } else { BooruPostGrid(posts: posts, selection: selecting ? $selection : nil, feedback: { saveFeedback = $0 }) { selectedPost = $0 }.padding(16) }
                 }.padding(.top, 56)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -135,6 +136,7 @@ struct BooruFolderContentsView: View {
         }
         .animation(isSearchBarVisible ? .spring(response: 0.35, dampingFraction: 0.86) : .easeInOut(duration: 0.32), value: isSearchBarVisible)
         .onChange(of: searchFocused) { _, focused in if focused { isSearchBarVisible = true } }
+        .workSaveFeedback($saveFeedback, identifier: "booru.saveStatus")
         .navigationTitle(store.folders().first(where: { $0.id == folderID })?.displayName ?? L10n.text("All Favorites"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarTrailing) {

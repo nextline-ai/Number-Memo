@@ -9,7 +9,7 @@ struct TasteDashboard: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var bookmarks = Set<Int64>()
-    @State private var toast: String?
+    @State private var saveFeedback: WorkSaveFeedback?
     @State private var opened: TasteRecommendation?
     @State private var detail: TasteTag?
     private var feed: TasteFeedState { env.taste.feed(mode) }
@@ -23,7 +23,7 @@ struct TasteDashboard: View {
                 else {
                     if let failure = feed.error { message(failure, icon: "wifi.exclamationmark", action: "Try Again", perform: refresh) }
                     if let snapshot = feed.snapshot {
-                        if snapshot.tags.isEmpty { gettingStarted }
+                        if snapshot.tags.isEmpty && feed.results.items.isEmpty { gettingStarted }
                         else {
                             if let report = feed.report, let insight = report.insights.first, let tag = snapshot.tags.first(where: { $0.id == insight.tagKey }) {
                                 highlight(insight, tag: tag, report: report, snapshot: snapshot)
@@ -62,13 +62,7 @@ struct TasteDashboard: View {
             let observation = ValueObservation.tracking { db in Set(try Int64.fetchAll(db, sql: "SELECT gallery_id FROM works")) }
             do { for try await ids in observation.values(in: env.database.dbWriter) { bookmarks = ids } } catch { }
         }
-        .overlay(alignment: .bottom) {
-            if let toast { Text(toast).font(.subheadline.bold()).padding(12).background(.regularMaterial, in: Capsule()).padding().accessibilityIdentifier("taste.saveStatus") }
-        }
-        .task(id: toast) {
-            guard toast != nil else { return }
-            do { try await Task.sleep(for: .seconds(2)); toast = nil } catch { }
-        }
+        .workSaveFeedback($saveFeedback, identifier: "taste.saveStatus")
         .onAppear { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) }
         .onChange(of: env.taste.control.enabled) { _, enabled in if enabled { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) } }
         .refreshable { refresh(); await feed.waitForRefresh() }
@@ -189,8 +183,7 @@ struct TasteDashboard: View {
     }
 
     private func toggle(_ item: TasteRecommendation) {
-        do { toast = try TasteRecommendationAction.toggle(item, env: env, session: feed.discoverySession) }
-        catch { toast = L10n.text("Unable to save. Please try again.") }
+        saveFeedback = .perform { try TasteRecommendationAction.toggle(item, env: env, session: feed.discoverySession) }
     }
     private func refresh() { feed.refresh(mode: mode, env: env, language: comicLanguage) }
 }

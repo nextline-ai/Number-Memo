@@ -19,7 +19,7 @@ struct NativeReaderView: View {
     @State private var translationRequest: ReaderTranslationRequest?
     @State private var zoomed = false
     @State private var zoomedPages: Set<Int> = []
-    @State private var exitDrag: CGFloat = 0
+    @State private var exiting = false
     @State private var pendingSearch: String?
     @SwiftUI.AppStorage("reader.pagesPerSpread", store: ReaderPreferences.defaults) private var pagesPerSpread = 1
     @SwiftUI.AppStorage("reader.autoAdvance", store: ReaderPreferences.defaults) private var autoAdvance = false
@@ -33,6 +33,7 @@ struct NativeReaderView: View {
     @State private var sheet: ReaderSheet?
     @State private var viewports: [Int: CGRect] = [:]
     @State private var toast: String?
+    @State private var saveFeedback: WorkSaveFeedback?
     @State private var showJump = false
     @State private var jumpText = ""
     @State private var previousIdleTimer = false
@@ -49,7 +50,7 @@ struct NativeReaderView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             if let gallery {
-                reader(gallery).ignoresSafeArea().offset(y: exitDrag)
+                reader(gallery).ignoresSafeArea()
                     .overlay(Color.black.opacity(min(0.65, max(0, dimming))).allowsHitTesting(false))
             } else if let error {
                 ContentFailureView(message: error) { retry += 1 }.preferredColorScheme(.dark)
@@ -74,14 +75,12 @@ struct NativeReaderView: View {
                     .shadow(color: .black.opacity(0.7), radius: 1)
                     .padding(.top, 2).accessibilityIdentifier("reader.exitHandle")
                     .accessibilityLabel(L10n.text("Swipe down to exit the work"))
-                    .accessibilityAddTraits(.isButton).accessibilityAction { exit() }
+                    .accessibilityAddTraits(.isButton).accessibilityAction { closeReader() }
                 Spacer()
             }.ignoresSafeArea(edges: .top).allowsHitTesting(false)
         }
-        .background(ReaderExitGesture(enabled: sheet == nil && !showJump && !zoomed && translationRequest == nil, progress: { distance in
-            if distance == 0 { withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { exitDrag = 0 } }
-            else { exitDrag = distance }
-        }, exit: exit))
+        .background(ReaderExitGesture(enabled: !exiting && sheet == nil && !showJump && !zoomed && translationRequest == nil,
+                                      progress: { _ in }, exit: closeReader))
         .overlay(alignment: .topTrailing) {
             if let request = translationRequest, let gallery, gallery.pages.indices.contains(request.index) {
                 ReaderTranslationView(page: gallery.pages[request.index], galleryID: galleryID, images: images, rect: request.rect, finished: {
@@ -128,13 +127,14 @@ struct NativeReaderView: View {
         .task(id: "\(currentPage):\(pagesPerSpread):\(prefetch):\(gallery?.id ?? 0)") {
             if let gallery { await images.prefetch(gallery, current: currentPage, count: prefetch, visibleCount: pagesPerSpread) }
         }
+        .workSaveFeedback($saveFeedback, identifier: "reader.toast")
         .task(id: toast) {
             guard toast != nil else { return }
             do { try await Task.sleep(for: .seconds(2)); toast = nil } catch {}
         }
         .task(id: autoTaskID) {
             guard autoAdvance, scenePhase == .active, sheet == nil, !menuVisible, !showJump,
-                  !zoomed, exitDrag == 0, translationRequest == nil, let gallery else { return }
+                  !zoomed, !exiting, translationRequest == nil, let gallery else { return }
             do {
                 try await Task.sleep(for: .seconds(min(120, max(2, autoSeconds))))
                 try Task.checkCancellation()
@@ -193,7 +193,7 @@ struct NativeReaderView: View {
         let columns = Array(repeating: GridItem(.flexible()), count: compact ? 6 : 3)
         return LazyVGrid(columns: columns, spacing: 18) {
             menuButton(L10n.text("Bookmark"), icon: "bookmark", id: "bookmark", compact: compact, action: bookmark)
-            menuButton(L10n.text("Exit"), icon: "rectangle.portrait.and.arrow.right", id: "exit", compact: compact, action: exit)
+            menuButton(L10n.text("Exit"), icon: "rectangle.portrait.and.arrow.right", id: "exit", compact: compact, action: closeReader)
             menuButton(L10n.text("Translate"), icon: "translate", id: "translate", compact: compact) { translationRequest = ReaderTranslationRequest(index: currentPage, rect: viewports[currentPage] ?? CGRect(x: 0, y: 0, width: 1, height: 1)); menuVisible = false }
             menuButton(L10n.text("Details"), icon: "info.circle", id: "details", compact: compact) { sheet = .details }
             menuButton(L10n.text("Preview"), icon: "square.grid.3x3", id: "preview", compact: compact) { sheet = .preview }
@@ -214,7 +214,7 @@ struct NativeReaderView: View {
     }
 
     private var autoTaskID: String {
-        "\(autoAdvance):\(autoSeconds):\(currentPage):\(pagesPerSpread):\(menuVisible):\(sheet?.rawValue ?? ""):\(showJump):\(zoomed):\(exitDrag > 0):\(translationRequest?.id.uuidString ?? ""):\(scenePhase):\(gallery?.id ?? 0)"
+        "\(autoAdvance):\(autoSeconds):\(currentPage):\(pagesPerSpread):\(menuVisible):\(sheet?.rawValue ?? ""):\(showJump):\(zoomed):\(exiting):\(translationRequest?.id.uuidString ?? ""):\(scenePhase):\(gallery?.id ?? 0)"
     }
     private func viewportChanged(_ index: Int, rect: CGRect, scale: CGFloat) {
         if scale > 1.01 { zoomedPages.insert(index) } else { zoomedPages.remove(index) }
@@ -226,7 +226,7 @@ struct NativeReaderView: View {
     private func shortcut(_ command: ReaderShortcut) {
         guard sheet == nil, !showJump else { return }
         if command == .exit {
-            if translationRequest != nil { translationRequest = nil } else { exit() }
+            if translationRequest != nil { translationRequest = nil } else { closeReader() }
             return
         }
         guard translationRequest == nil else { return }
@@ -247,9 +247,13 @@ struct NativeReaderView: View {
         guard let gallery else { return }
         currentPage = ReaderLayout.next(currentPage, delta: delta, count: pagesPerSpread, total: gallery.pages.count)
     }
+    private func closeReader() {
+        guard !exiting else { return }
+        exiting = true
+        exit()
+    }
     private func bookmark() {
-        do { toast = try ContentBookmarkAction.toggle(id: galleryID, gallery: gallery, env: env, images: images, context: discovery) }
-        catch { toast = L10n.text("Unable to save. Please try again.") }
+        saveFeedback = .perform { try ContentBookmarkAction.toggle(id: galleryID, gallery: gallery, env: env, images: images, context: discovery) }
     }
     private func loadGallery() async {
         error = nil

@@ -31,7 +31,7 @@ struct TasteAnalysisExclusionsView: View {
                     }
                 }.onDelete { offsets in let removed = offsets.map { tags[$0] }; env.taste.change { $0.setAnalysisExcluded(Set(tags).subtracting(removed), mode: mode) } }
             } footer: {
-                Text(L10n.text("These exact tags are excluded from analysis, recommendations and reports. Original tags and search filters stay available. Refresh AI recommendations to apply changes to the current list."))
+                Text(L10n.text("Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available."))
             }
         }.navigationTitle(L10n.text("Analysis excluded tags"))
             .navigationBarTitleDisplayMode(.inline)

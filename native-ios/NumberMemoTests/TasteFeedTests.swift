@@ -84,6 +84,54 @@ final class TasteFeedTests: XCTestCase {
             XCTAssertTrue(control.allows(tag, source: "https://hitomi.la", mode: .comics), tag)
         }
     }
+    func testLegacyUnqualifiedComicTagsAndUnicodeSpacingAreExcludedEverywhere() {
+        let item = TasteItem.comic(1, tags: "solo female, solo_male, digital, group, female : solo\u{00a0}female, artist:group, tag:watercolor")
+        var event = TasteEvent(kind: .save, item: item, context: .init(origin: .search, query: "digital"))
+        event.at = 100
+        let period = DateInterval(start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 200))
+        for range: DateInterval? in [nil, period] {
+            let result = TasteAnalyzer.analyze([event], control: .init(), period: range, previous: period, mode: .comics)
+            XCTAssertEqual(Set(result.tags.map(\.name)), ["artist:group", "tag:watercolor"])
+            XCTAssertFalse(result.previousTagCounts.keys.contains { $0.hasSuffix("\nsolo_female") })
+        }
+        var control = TasteControl()
+        control.setAnalysisExcluded([], mode: .comics)
+        XCTAssertTrue(control.allows("solo female", source: item.source, mode: .comics))
+        XCTAssertTrue(TasteControl().allows("digital", source: "https://example.test", mode: .booru))
+        XCTAssertTrue(TasteControl().allows("male:solo_female", source: item.source, mode: .comics))
+    }
+    func testMetadataParserPreservesComicNamespaces() {
+        let tags = NativeGallery.parseTags([
+            ["tag": "solo female", "female": "1"], ["tag": "solo male", "male": 1],
+            ["tag": "digital"], ["tag": "sample", "female": true, "male": true]
+        ])
+        XCTAssertEqual(tags, ["female:solo female", "male:solo male", "tag:digital", "female:sample", "male:sample"])
+    }
+    @MainActor func testExclusionImmediatelyRemovesCachedEvidenceWithoutReplacingWorks() async throws {
+        let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+        try env.booru.saveServer(server); try env.booru.select(server)
+        env.taste.change { $0.aiEnabled = false }
+        try env.booru.toggleFavorite(BooruFixtureSource.post(101, server: server, tags: ["scenery"]), context: .init(origin: .search, query: "scenery"))
+        let source = PagedTasteSource(), feed = TasteFeedState(booruSource: PagedTasteSource())
+        feed.ensureLoaded(mode: .booru, env: env, language: "all"); await feed.waitForRefresh()
+        let ids = feed.results.items.map(\.id), session = feed.discoverySession, version = feed.pageVersion
+        XCTAssertFalse(ids.isEmpty); XCTAssertFalse(try XCTUnwrap(feed.snapshot).tags.isEmpty)
+        var control = env.taste.control
+        control.setAnalysisExcluded(["scenery"], mode: .booru)
+        feed.applyExclusions(control, mode: .booru)
+        XCTAssertTrue(try XCTUnwrap(feed.snapshot).tags.isEmpty)
+        XCTAssertTrue(feed.report?.insights.isEmpty ?? true)
+        XCTAssertEqual(feed.results.items.map(\.id), ids)
+        XCTAssertEqual(feed.discoverySession, session); XCTAssertEqual(feed.pageVersion, version)
+        env.taste.change { $0 = control }
+        await feed.loadMore(mode: .booru, env: env, language: "all")
+        XCTAssertEqual(feed.results.items.map(\.id), ids)
+        let refreshed = try await env.taste.snapshot(.booru, period: .recommendations, offset: 0)
+        XCTAssertTrue(refreshed.tags.isEmpty)
+        let result = try await RecommendationService.load(mode: .booru, snapshot: refreshed, report: nil, env: env, language: "all", booruSource: source)
+        XCTAssertTrue(result.items.isEmpty)
+        let requests = await source.pages; XCTAssertTrue(requests.isEmpty)
+    }
     func testDeliberateRecommendationSaveAndUndoPreserveEvidenceWithoutFakeSearch() {
         let item = TasteItem(source: "https://example.test", id: 1, tags: ["blue_hair", "green_eyes"])
         var save = TasteEvent(kind: .save, item: item, context: .recommended("blue_hair", session: "one")); save.at = 1

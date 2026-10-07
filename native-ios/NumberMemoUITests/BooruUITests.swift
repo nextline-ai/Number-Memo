@@ -184,6 +184,28 @@ final class BooruUITests: XCTestCase {
         XCTAssertFalse(element(again, "taste.recap.open").exists)
     }
 
+    func testExclusionUpdatesRetainedRecommendationEvidenceImmediately() {
+        let app = launch(extra: ["--taste-ui-rich"])
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        let card = firstTasteCard(app), id = card.identifier
+        let reason = card.staticTexts.matching(NSPredicate(format: "label IN %@", ["scenery", "mountain", "cloud", "river"])).firstMatch
+        XCTAssertTrue(reason.exists)
+        let tag = reason.label
+        app.navigationBars.buttons["Settings"].tap()
+        element(app, "taste.settings.exclusions").tap()
+        let field = element(app, "taste.exclusions.input")
+        field.tap(); field.typeText(tag)
+        element(app, "taste.exclusions.add").tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let retained = element(app, id)
+        XCTAssertTrue(retained.waitForExistence(timeout: 5))
+        XCTAssertFalse(retained.staticTexts[tag].exists)
+        element(app, "taste.evidence").tap()
+        XCTAssertFalse(app.staticTexts[tag].exists)
+        capture(app, "Excluded evidence removed without refreshing works")
+    }
+
     func testTasteComicCardsAndModeRetention() {
         let app = launch(extra: ["--taste-ui-rich"])
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
@@ -191,8 +213,10 @@ final class BooruUITests: XCTestCase {
         let imageID = image.identifier
         image.press(forDuration: 0.7)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Saved"), object: image)], timeout: 5), .completed)
+        XCTAssertEqual(element(app, "taste.saveStatus").label, "Saved to Favorites")
         image.press(forDuration: 0.7)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Not bookmarked"), object: image)], timeout: 5), .completed)
+        XCTAssertEqual(element(app, "taste.saveStatus").label, "Favorite removed")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Not favorited"), object: image)], timeout: 5), .completed)
         app.swipeUp()
         let imageAnchor = firstTasteCard(app)
         let imageAnchorID = imageAnchor.identifier, imageY = imageAnchor.frame.minY
@@ -200,8 +224,10 @@ final class BooruUITests: XCTestCase {
         let comic = firstTasteCard(app)
         XCTAssertTrue(comic.identifier.contains("900000"))
         comic.press(forDuration: 0.7)
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Saved"), object: comic)], timeout: 5), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Bookmarked"), object: comic)], timeout: 5), .completed)
+        XCTAssertEqual(element(app, "taste.saveStatus").label, "Saved to bookmarks")
         comic.press(forDuration: 0.7)
+        XCTAssertEqual(element(app, "taste.saveStatus").label, "Bookmark removed")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Not bookmarked"), object: comic)], timeout: 5), .completed)
         capture(app, "AI compact comic cards")
         comic.tap()
@@ -210,7 +236,15 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "reader.exitHandle").waitForExistence(timeout: 10))
         XCTAssertFalse(element(app, "reader.pointerClose").exists)
         exitViewer(app)
+        XCTAssertTrue(element(app, "reader.exitHandle").waitForNonExistence(timeout: 5))
         XCTAssertTrue(element(app, "content.read").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "content.read").isHittable)
+        // A second open/close catches stale window gestures and double-dismissals.
+        element(app, "content.read").tap()
+        XCTAssertTrue(element(app, "reader.exitHandle").waitForExistence(timeout: 5))
+        exitViewer(app)
+        XCTAssertTrue(element(app, "reader.exitHandle").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(element(app, "content.read").isHittable)
         capture(app, "Comic details after reader return")
         element(app, "content.close").tap()
         app.swipeUp()
@@ -370,7 +404,10 @@ final class BooruUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Save to Folder"].exists)
         XCTAssertFalse(element(app, "booru.media").exists)
         card.press(forDuration: 0.7)
-        XCTAssertEqual(card.value as? String, "Saved", "Holding a saved image must keep it saved")
+        XCTAssertEqual(card.value as? String, "Not favorited")
+        XCTAssertEqual(element(app, "booru.saveStatus").label, "Favorite removed")
+        card.press(forDuration: 0.7)
+        XCTAssertEqual(element(app, "booru.saveStatus").label, "Saved to Favorites")
         card.tap()
         XCTAssertTrue(element(app, "booru.media").waitForExistence(timeout: 10))
         let note = app.webViews.buttons["Note 1"].firstMatch
@@ -395,12 +432,14 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         XCTAssertEqual(card.value as? String ?? "", "")
         app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.tabBars.buttons["Explore"].tap()
         element(app, "booru.server").tap()
         app.buttons["Gelbooru"].tap()
         app.buttons["Danbooru"].tap()
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)).tap()
+        app.tabBars.buttons["Saved"].tap()
         element(app, "booru.allFavorites").tap()
-        XCTAssertTrue(app.staticTexts["No Favorites"].waitForExistence(timeout: 5))
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "Saved works remain visible regardless of the selected exploration server")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         element(app, "app.mode.hitomi").tap()
         XCTAssertTrue(app.tabBars.buttons["Saved"].waitForExistence(timeout: 5))
@@ -408,9 +447,6 @@ final class BooruUITests: XCTestCase {
         capture(app, "Hitomi mode remains separate")
         element(app, "app.mode.booru").tap()
         app.tabBars.buttons["Saved"].tap()
-        element(app, "booru.server").tap()
-        app.buttons["Danbooru"].tap()
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)).tap()
         element(app, "booru.allFavorites").tap()
         XCTAssertTrue(card.waitForExistence(timeout: 5))
     }
@@ -703,7 +739,7 @@ final class BooruUITests: XCTestCase {
         }
         let card = element(app, "booru.post.5194309")
         card.press(forDuration: 0.8)
-        XCTAssertEqual(card.value as? String, "")
+        XCTAssertEqual(card.value as? String, "Not favorited")
         card.press(forDuration: 0.8)
         XCTAssertEqual(card.value as? String, "Saved")
     }

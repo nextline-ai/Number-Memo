@@ -823,7 +823,7 @@
 "Analysis excluded tags" = "分析から除外するタグ";
 "Tag to exclude" = "除外するタグ";
 "Add tag" = "タグを追加";
-"These exact tags are excluded from analysis, recommendations and reports. Original tags and search filters stay available. Refresh AI recommendations to apply changes to the current list." = "完全に一致するタグを分析・おすすめ・統計から除外します。元のタグと検索フィルターは維持されます。現在のおすすめ一覧には更新後に適用されます。";
+"Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available." = "除外タグは好みの根拠からすぐに削除されます。現在の作品一覧は維持され、新しいおすすめは更新時に取得します。元のタグや検索フィルタは引き続き利用できます。";
 "You chose and saved %@ works associated with this tag." = "このタグに関連する作品を%@件選んで保存しました。";
 "Private by design, processed on your device" = "プライバシーを守り、デバイス内で処理";
 "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AIはこのデバイス内で動作します。一時的なIDと統計のみを使い、元のタグ・検索語・画像・タイトルは渡しません。クラウドAIにリクエストを送信しません。";
@@ -837,3 +837,5 @@
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "動画では2本指でタップするとクイックメニューが開きます。再生コントロールも引き続き使えます。";
 "Tap with two fingers for the video menu" = "2本指でタップして動画メニューを開く";
 "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "プレビューをすばやく表示するため、このデバイスに最大256MBまでキャッシュします。iCloudには送信せず、ここで削除できます。";
+"Not favorited" = "お気に入り未登録";
+"Remove Bookmark" = "ブックマークを解除";
