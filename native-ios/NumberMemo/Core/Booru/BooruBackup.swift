@@ -101,7 +101,9 @@ extension BooruStore {
             try db.execute(sql: "INSERT OR REPLACE INTO settings VALUES ('folder_order', ?)", arguments: [String(decoding: JSONEncoder().encode(incomingOrder + remaining), as: UTF8.self)])
             for value in backup.favorites {
                 let post = value.post.onServer(mapping[value.post.serverID]!)
+                let existed = try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM favorites WHERE server_id = ? AND post_id = ?)", arguments: [post.serverID, post.postID]) ?? false
                 try db.execute(sql: "INSERT INTO favorites VALUES (?, ?, ?, ?, ?) ON CONFLICT(server_id, post_id) DO UPDATE SET payload = excluded.payload, saved_at = excluded.saved_at, folder_id = excluded.folder_id", arguments: [post.serverID, post.postID, try JSONEncoder().encode(post), value.savedAt, value.folderID])
+                try TasteStore.record(existed ? .metadata : .imported, item: Self.tasteItem(post, db: db), db: db)
             }
             for value in backup.history {
                 try db.execute(sql: "INSERT INTO history VALUES (?, ?, ?) ON CONFLICT(server_id, query) DO UPDATE SET used_at = MAX(used_at, excluded.used_at)", arguments: [mapping[value.serverID]!, value.query, value.usedAt])

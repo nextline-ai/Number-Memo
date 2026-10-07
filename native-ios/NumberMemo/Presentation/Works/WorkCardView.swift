@@ -16,6 +16,7 @@ struct GalleryCardLayout<Cover: View>: View {
     let title: String
     let artists: String
     let language: String
+    var recommendationTag: String? = nil
     @ViewBuilder let cover: () -> Cover
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -28,10 +29,12 @@ struct GalleryCardLayout<Cover: View>: View {
             }.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.medium)).lineLimit(2).multilineTextAlignment(.leading).foregroundStyle(.primary)
+                if let recommendationTag {
+                    Label(recommendationTag, systemImage: "number").font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
                 if !artists.isEmpty { Text(artists).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
             }.padding(.horizontal, 2)
-            Spacer(minLength: 0)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }.frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 

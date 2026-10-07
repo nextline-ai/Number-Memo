@@ -218,7 +218,7 @@ actor BooruClient: BooruProviding {
         }
         return try BooruDecoder.rows(raw, key: "tag").compactMap { row in
             guard let name = row["name"] as? String else { return nil }
-            return BooruTag(name: name, count: BooruDecoder.integer(row["post_count"] ?? row["count"]), category: BooruDecoder.integer(row["category"] ?? row["type"]))
+            return BooruTag(name: name, count: BooruDecoder.integer(row["post_count"] ?? row["count"]), category: BooruDecoder.integer(row["category"] ?? row["type"]), isMetadata: server.engine == .danbooru && BooruDecoder.integer(row["category"]) == 5)
         }
     }
 
@@ -425,7 +425,8 @@ enum BooruDecoder {
                      width: integer(row["image_width"] ?? row["width"]), height: integer(row["image_height"] ?? row["height"]),
                      tags: tags, artists: artists, rating: rating, score: integer(row["score"]),
                      fileExtension: row["file_ext"] as? String ?? file?.pathExtension ?? "",
-                     poolIDs: (row["pool_ids"] as? [Any] ?? []).map { Int64(integer($0)) }.filter { $0 > 0 })
+                     poolIDs: (row["pool_ids"] as? [Any] ?? []).map { Int64(integer($0)) }.filter { $0 > 0 },
+                     metadataTags: (row["tag_string_meta"] as? String).map { $0.split(whereSeparator: \.isWhitespace).map(String.init) })
     }
     static func note(_ row: [String: Any]) -> BooruNote? {
         if let active = row["is_active"], ["false", "0"].contains(String(describing: active).lowercased()) { return nil }

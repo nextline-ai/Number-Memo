@@ -145,6 +145,8 @@ protocol ContentProviding: Sendable {
 }
 
 enum ContentRoute: Hashable {
+    case discoveredGallery(Int64, DiscoveryContext)
+    case discoveredReader(Int64, Int, DiscoveryContext)
     case gallery(Int64)
     case reader(Int64, Int)
     case artist(String)

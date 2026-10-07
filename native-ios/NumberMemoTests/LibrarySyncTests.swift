@@ -102,7 +102,7 @@ final class LibrarySyncTests: XCTestCase {
         for key in LibrarySyncAdapter.commonPreferences { XCTAssertNil(a.hitomiDefaults.object(forKey: key), key) }
     }
 
-    func testPreferencesConnectionAndResetSyncWithoutDeviceSettings() throws {
+    @MainActor func testPreferencesConnectionAndResetSyncWithoutDeviceSettings() throws {
         let a = try adapter(), b = try adapter()
         a.hitomiDefaults.set(true, forKey: "site_verified")
         a.hitomiDefaults.set("ja", forKey: "app.language")
@@ -298,6 +298,10 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertEqual(try CloudLibraryFiles.read(in: root).first?.changes, ledger.changes)
     }
     func testHistoryExpiresButSavedMultiTagSearchDoesNot() throws {
+        let defaults = ReaderPreferences.defaults
+        let previous = defaults.object(forKey: "search.retentionDays")
+        defaults.set(3, forKey: "search.retentionDays")
+        defer { if let previous { defaults.set(previous, forKey: "search.retentionDays") } else { defaults.removeObject(forKey: "search.retentionDays") } }
         let a = try adapter()
         try a.hitomi.recordSearch("tag:landscape tag:sky")
         try a.hitomi.toggleSavedSearch("tag:landscape tag:sky")

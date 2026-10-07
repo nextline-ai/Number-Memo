@@ -7,6 +7,7 @@ import Security
 @Observable
 final class BooruStore: @unchecked Sendable {
     let database: DatabaseQueue
+    private let prefetchSavedPreviews: Bool
     private(set) var servers: [BooruServer] = []
     private(set) var selectedServerID = ""
     private(set) var selectedServerIDs: [String] = []
@@ -15,7 +16,8 @@ final class BooruStore: @unchecked Sendable {
     var error: String?
     var selectedServer: BooruServer? { servers.first { $0.id == selectedServerID } ?? servers.first }
 
-    init(path: String? = nil) throws {
+    init(path: String? = nil, prefetchSavedPreviews: Bool = false) throws {
+        self.prefetchSavedPreviews = prefetchSavedPreviews
         database = try path.map { try DatabaseQueue(path: $0) } ?? DatabaseQueue()
         var migrations = DatabaseMigrator()
         migrations.registerMigration("booru_v1") { db in
@@ -84,12 +86,13 @@ final class BooruStore: @unchecked Sendable {
         migrations.registerMigration("booru_v6_import_site_folders") { db in
             try Self.organizeLegacyImports(db: db)
         }
+        migrations.registerMigration("booru_v7_taste") { try TasteStore.migrate($0) }
         try migrations.migrate(database)
         try reload()
     }
 
     static func open() throws -> BooruStore {
-        try BooruStore(path: AppStorage.sharedContainerURL.appendingPathComponent("booru.sqlite").path)
+        try BooruStore(path: AppStorage.sharedContainerURL.appendingPathComponent("booru.sqlite").path, prefetchSavedPreviews: true)
     }
 
     func reload() throws {
@@ -143,6 +146,9 @@ final class BooruStore: @unchecked Sendable {
     func deleteServer(_ server: BooruServer) throws {
         try BooruKeychain.save(.init(), serverID: server.id)
         try database.write { db in
+            for data in try Data.fetchAll(db, sql: "SELECT payload FROM favorites WHERE server_id = ?", arguments: [server.id]) {
+                try TasteStore.record(.remove, item: Self.tasteItem(JSONDecoder().decode(BooruPost.self, from: data), db: db), db: db)
+            }
             try db.execute(sql: "DELETE FROM servers WHERE id = ?", arguments: [server.id])
             for table in ["favorites", "history", "saved_tags"] {
                 try db.execute(sql: "DELETE FROM \(table) WHERE server_id = ?", arguments: [server.id])
@@ -184,15 +190,19 @@ final class BooruStore: @unchecked Sendable {
         }) ?? false
     }
 
-    func toggleFavorite(_ post: BooruPost) throws {
-        try database.write { db in
+    func toggleFavorite(_ post: BooruPost, context: DiscoveryContext = .unknown) throws {
+        let adding = try database.write { db in
             try db.execute(sql: "DELETE FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID])
-            if db.changesCount == 0 {
+            let adding = db.changesCount == 0
+            if adding {
                 let folder = try Self.defaultFolder(for: post.serverID, db: db)
                 try db.execute(sql: "INSERT INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?)", arguments: [post.serverID, post.postID, try JSONEncoder().encode(post), Date().timeIntervalSince1970, folder])
             }
+            try TasteStore.record(adding ? .save : .remove, item: Self.tasteItem(post, db: db), context: context, db: db)
+            return adding
         }
         revision += 1
+        if adding { warmSavedPreview(post) }
     }
 
     func favorites(serverIDs: [String], folderID: String? = nil) -> [BooruPost] {
@@ -241,14 +251,23 @@ final class BooruStore: @unchecked Sendable {
         return try? database.read { try String.fetchOne($0, sql: "SELECT folder_id FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID]) }
     }
 
-    func saveFavorite(_ post: BooruPost, folderID: String? = nil) throws {
+    func saveFavorite(_ post: BooruPost, folderID: String? = nil, context: DiscoveryContext? = nil) throws {
         try database.write { db in
             let existing = try String.fetchOne(db, sql: "SELECT folder_id FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID])
             let folderID = try folderID ?? existing ?? Self.defaultFolder(for: post.serverID, db: db)
             guard try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM folders WHERE id = ?)", arguments: [folderID]) == true else { throw BooruError.invalidResponse }
             try db.execute(sql: "INSERT INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT(server_id, post_id) DO UPDATE SET payload = excluded.payload, folder_id = excluded.folder_id", arguments: [post.serverID, post.postID, try JSONEncoder().encode(post), Date().timeIntervalSince1970, folderID])
+            if existing == nil, let context { try TasteStore.record(.save, item: Self.tasteItem(post, db: db), context: context, db: db) }
+            else if existing == nil { try TasteStore.record(.imported, item: Self.tasteItem(post, db: db), db: db) }
+            else if existing != nil { try TasteStore.record(.metadata, item: Self.tasteItem(post, db: db), db: db) }
         }
         revision += 1
+        warmSavedPreview(post)
+    }
+
+    private func warmSavedPreview(_ post: BooruPost) {
+        guard prefetchSavedPreviews, let server = servers.first(where: { $0.id == post.serverID }), let url = post.previewURL ?? post.sampleURL else { return }
+        Task(priority: .utility) { _ = try? await BooruThumbnailCache.shared.image(url: url, server: server) }
     }
 
     func organizeLegacyImports() throws {

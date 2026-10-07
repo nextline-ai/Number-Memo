@@ -32,6 +32,9 @@ actor BooruFixtureSource: BooruProviding {
         if ProcessInfo.processInfo.arguments.contains("--booru-initial-error") && !failed { failed = true; throw URLError(.notConnectedToInternet) }
         if ProcessInfo.processInfo.arguments.contains("--booru-tag-limit-test") && query.contains("mountain") { throw BooruError.unavailable(422) }
         if query == "empty" { return .init(posts: [], hasMore: false) }
+        if ProcessInfo.processInfo.arguments.contains("--taste-ui-rich"), !query.isEmpty {
+            return .init(posts: ((201 + page * 10)...(212 + page * 10)).map { Self.post(Int64($0), server: server) }, hasMore: page < 2)
+        }
         if ProcessInfo.processInfo.arguments.contains("--booru-restored-badge-test") {
             return .init(posts: [Self.post(5194309, server: server)], hasMore: false)
         }

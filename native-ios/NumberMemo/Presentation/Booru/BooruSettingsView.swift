@@ -219,6 +219,7 @@ struct BooruMoreView: View {
             }
             ReaderSettingsSection(booru: true, isPresented: $showReader)
             SearchHistorySettings(booru: true)
+            TasteSettingsSection(mode: .booru)
             CloudSyncSection()
             Section {
                 NavigationLink { BooruBackupView() } label: { Label(L10n.text("Library Management"), systemImage: "externaldrive") }
@@ -226,7 +227,12 @@ struct BooruMoreView: View {
                 Button(L10n.text(cacheCleared ? "Image Cache Cleared" : "Clear Image Cache")) {
                     confirmClearCache = true
                 }.accessibilityIdentifier("settings.clearCache")
-            } header: { Text(L10n.text("Data & Storage")) } footer: { Text(L10n.text("Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server.")) }
+            } header: { Text(L10n.text("Data & Storage")) } footer: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text("Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server."))
+                    Text(L10n.text("Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here."))
+                }
+            }
             SettingsSupportSection(showOnboarding: $showOnboarding)
             DeveloperInfoSection()
         }

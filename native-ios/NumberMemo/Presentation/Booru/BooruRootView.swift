@@ -11,14 +11,14 @@ struct BooruRootView: View {
         return BooruClient.shared
     }
     var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
+        AppTabLayout(selection: $selectedTab, mode: .booru,
+            saved: NavigationStack {
                 Group {
                     if store.servers.isEmpty { BooruSetupView() }
                     else { BooruFavoritesView(source: source) }
                 }.appRootHeader("Saved")
-            }.tabItem { Label(L10n.text("Saved"), systemImage: "folder.fill") }.tag(AppTab.folders)
-            NavigationStack {
+            },
+            explore: NavigationStack {
                 Group {
                     if store.servers.isEmpty { BooruSetupView() }
                     else {
@@ -26,17 +26,14 @@ struct BooruRootView: View {
                             .toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }
                     }
                 }.appRootHeader("Explore")
-            }.tabItem { Label(L10n.text("Explore"), systemImage: "globe") }.tag(AppTab.works)
-            NavigationStack {
+            },
+            collections: NavigationStack {
                 Group {
                     if store.servers.isEmpty { BooruSetupView() }
                     else { BooruSavedServersView(source: source) }
                 }.appRootHeader("Tags")
-            }.tabItem { Label(L10n.text("Tags"), systemImage: "tag") }.tag(AppTab.artists)
-            NavigationStack { BooruMoreView(source: source).appRootHeader("More") }
-                .tabItem { Label(L10n.text("More"), systemImage: "ellipsis") }.tag(AppTab.settings)
-        }
-        .adaptableTabStyleIfAvailable()
+            },
+            settings: NavigationStack { BooruMoreView(source: source).appRootHeader("More") })
         .onChange(of: store.servers.count) { old, new in
             if env.mode == .booru && old == 0 && new > 0 && (selectedTab == .folders || selectedTab == .works) { selectedTab = .works }
         }
@@ -147,6 +144,10 @@ struct BooruFeedView: View {
     let source: any BooruProviding
     var pool: BooruPool?
     @Environment(BooruStore.self) private var store
+    @Environment(\.discoveryContext) private var inheritedContext
+    @State private var tasteSession = UUID().uuidString
+    @State private var submitted = false
+    private var discovery: DiscoveryContext { DiscoveryContext(origin: !submitted && inheritedContext.origin == .recommendation ? .recommendation : query.isEmpty ? .feed : .search, query: query, session: tasteSession) }
     @State private var loader = BooruFeedLoader()
     @State private var searchText: String
     @State private var query: String
@@ -191,7 +192,7 @@ struct BooruFeedView: View {
         }
         .sheet(item: $accountServer) { BooruServerEditor(server: $0) }
         .fullScreenCover(item: $selectedPost) { post in
-            if let server = store.servers.first(where: { $0.id == post.serverID }) { BooruPostView(post: post, posts: visiblePosts, server: server, source: source) }
+            if let server = store.servers.first(where: { $0.id == post.serverID }) { BooruPostView(post: post, posts: visiblePosts, server: server, source: source).environment(\.discoveryContext, discovery) }
         }
     }
     private var nativeFeed: some View {
@@ -199,7 +200,7 @@ struct BooruFeedView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     if pool == nil { filters }
-                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: pool == nil) { selectedPost = $0 }
+                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: pool == nil) { selectedPost = $0 }.environment(\.discoveryContext, discovery)
                     if loader.loading { ProgressView(L10n.text("Loading")).padding(24) }
                     ForEach(servers.filter { loader.errors[$0.id] != nil }) { server in
                         VStack(alignment: .leading, spacing: 12) {
@@ -331,8 +332,12 @@ struct BooruFeedView: View {
     private func submit(_ text: String) {
         searchFocused = false
         suggestions = []
+        submitted = true; tasteSession = UUID().uuidString
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if rememberHistory { store.perform { for server in servers { try store.recordSearch(value, serverID: server.id) } } }
+        if rememberHistory { store.perform {
+            for server in servers { try store.recordSearch(value, serverID: server.id) }
+            try store.recordTasteSearch(DiscoveryContext(origin: .search, query: value, session: tasteSession), servers: servers)
+        } }
         if query == value { retry += 1 } else { query = value }
     }
     private func load(reset: Bool) async { await loader.load(servers: servers, source: source, query: query, poolID: pool?.id, sort: sort, rating: rating, reset: reset) }
@@ -341,8 +346,14 @@ struct BooruFeedView: View {
         guard searchFocused, let completion = BooruCompletion(searchText) else { return }
         do {
             try await Task.sleep(for: .milliseconds(300))
+            let tasteStore = store.tasteStore
             let found = await withTaskGroup(of: [BooruTag].self, returning: [BooruTag].self) { group in
-                for server in servers { group.addTask { (try? await source.suggestions(server: server, token: completion.token)) ?? [] } }
+                for server in servers { group.addTask {
+                    let suggestions = (try? await source.suggestions(server: server, token: completion.token)) ?? []
+                    let metadata = suggestions.filter(\.isMetadata).map(\.name)
+                    if !metadata.isEmpty { try? tasteStore.record(.taxonomy, item: .init(source: server.canonicalAddress, id: 0, tags: [], metadata: metadata), context: .unknown) }
+                    return suggestions
+                } }
                 var values: [BooruTag] = []
                 for await tags in group { values += tags }
                 return values
@@ -355,6 +366,7 @@ struct BooruFeedView: View {
 }
 
 struct BooruPostGrid: View {
+    @Environment(\.discoveryContext) private var discovery
     let posts: [BooruPost]
     var server: BooruServer? = nil
     var showsFavoriteIndicator = false
@@ -391,7 +403,7 @@ struct BooruPostGrid: View {
                             Button { open(post) } label: { thumbnail(post, server: server, isFavorite: favorites.contains(post.id)) }
                                 .buttonStyle(.plain)
                                 .contextMenu {
-                                    Button(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), systemImage: "heart") { store.perform { try store.toggleFavorite(post) } }
+                                    Button(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), systemImage: "heart") { store.perform { try store.toggleFavorite(post, context: discovery) } }
                                     Button(L10n.text("Save to Folder"), systemImage: "folder") { filing = post }
                                     ShareLink(item: server.pageURL(postID: post.postID))
                                 }
@@ -404,10 +416,27 @@ struct BooruPostGrid: View {
                     .accessibilityValue(selection.map { $0.wrappedValue.contains(post.id) ? L10n.text("Selected") : "" } ?? (showsFavoriteIndicator && favorites.contains(post.id) ? L10n.text("Saved") : ""))
                 }
             }
-        }.sheet(item: $filing) { BooruFolderPicker(post: $0) }
+        }.sheet(item: $filing) { BooruFolderPicker(post: $0).environment(\.discoveryContext, discovery) }
     }
 
     private func thumbnail(_ post: BooruPost, server: BooruServer, isFavorite: Bool) -> some View {
+        BooruPostThumbnailCard(post: post, server: server, showsFavoriteIndicator: showsFavoriteIndicator, isFavorite: isFavorite)
+    }
+
+    private func save(_ post: BooruPost) {
+        store.perform {
+            try store.toggleFavorite(post, context: discovery)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+    }
+}
+
+struct BooruPostThumbnailCard: View {
+    let post: BooruPost
+    let server: BooruServer
+    var showsFavoriteIndicator = false
+    var isFavorite = false
+    var body: some View {
         BooruThumbnail(post: post, server: server)
             .frame(maxWidth: .infinity).aspectRatio(0.78, contentMode: .fit).clipped()
             .overlay(alignment: .topTrailing) {
@@ -427,12 +456,5 @@ struct BooruPostGrid: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             // Cropping pixels does not crop SwiftUI hit testing.
             .contentShape(Rectangle())
-    }
-
-    private func save(_ post: BooruPost) {
-        store.perform {
-            try store.toggleFavorite(post)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        }
     }
 }

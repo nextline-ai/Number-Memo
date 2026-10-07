@@ -52,9 +52,9 @@ public struct NativeContentView: View {
         self.init(initialUrl: initialUrl, source: HitomiContentSource.shared, embedded: embedded)
     }
 
-    init(initialUrl: String = HitomiUrls.home, source: any ContentProviding, savesProgress: Bool = true, embedded: Bool = false) {
+    init(initialUrl: String = HitomiUrls.home, source: any ContentProviding, savesProgress: Bool = true, embedded: Bool = false, initialQuery: String? = nil) {
         self.embedded = embedded
-        initialRoute = ContentRoute.initial(initialUrl)
+        initialRoute = initialQuery.map(ContentRoute.query) ?? ContentRoute.initial(initialUrl)
         self.source = source
         self.savesProgress = savesProgress
         _images = State(initialValue: PageImageStore(source: source))
@@ -88,6 +88,12 @@ public struct NativeContentView: View {
 
     @ViewBuilder private func destination(_ route: ContentRoute) -> some View {
         switch route {
+        case .discoveredGallery(let id, let context):
+            RemoteGalleryView(galleryID: id, source: source, images: images).environment(\.discoveryContext, context)
+        case .discoveredReader(let id, let page, let context):
+            NativeReaderView(galleryID: id, initialPage: page, source: source, images: images, savesProgress: savesProgress, search: { text in
+                if !path.isEmpty { path.removeLast() }; path.append(.query(text))
+            }, exit: { if path.isEmpty { dismiss() } else { path.removeLast() } }).environment(\.discoveryContext, context)
         case .reader(let id, let page):
             NativeReaderView(galleryID: id, initialPage: page, source: source, images: images, savesProgress: savesProgress, search: { text in
                 if !path.isEmpty { path.removeLast() }
@@ -123,6 +129,12 @@ private struct ContentBookmark: Identifiable {
 }
 
 private struct GalleryFeedView: View {
+    @Environment(\.discoveryContext) private var inheritedContext
+    @State private var tasteSession = UUID().uuidString
+    @State private var submitted = false
+    private var discovery: DiscoveryContext {
+        DiscoveryContext(origin: !submitted && inheritedContext.origin == .recommendation ? .recommendation : query.text.isEmpty ? .feed : .search, query: query.text, defaults: env.defaultTags + " " + env.defaultExcludedTags, session: tasteSession)
+    }
     @Environment(AppEnvironment.self) private var env
     @State private var toast: String?
     let artist: String?
@@ -174,8 +186,8 @@ private struct GalleryFeedView: View {
                 }
                 LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 16) {
                     ForEach(loader.ids, id: \.self) { id in
-                        GalleryGridCard(id: id, isBookmarked: bookmarkedIDs.contains(id), source: source, images: images, open: { navigate(.gallery(id)) }) { gallery in
-                            do { toast = try ContentBookmarkAction.toggle(id: id, gallery: gallery, env: env, images: images) }
+                        GalleryGridCard(id: id, isBookmarked: bookmarkedIDs.contains(id), source: source, images: images, open: { navigate(.discoveredGallery(id, discovery)) }) { gallery in
+                            do { toast = try ContentBookmarkAction.toggle(id: id, gallery: gallery, env: env, images: images, context: discovery) }
                             catch { toast = L10n.text("Unable to save. Please try again.") }
                         }
                     }
@@ -294,8 +306,12 @@ private struct GalleryFeedView: View {
     private func submitSearch() {
         isSearchFocused = false
         suggestions = []
+        submitted = true; tasteSession = UUID().uuidString
         let text = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if ReaderPreferences.defaults.object(forKey: "search.rememberHistory") as? Bool ?? true { try? env.database.recordSearch(text) }
+        if ReaderPreferences.defaults.object(forKey: "search.rememberHistory") as? Bool ?? true {
+            try? env.database.recordSearch(text)
+            try? env.database.recordTasteSearch(DiscoveryContext(origin: .search, query: text, defaults: env.defaultTags + " " + env.defaultExcludedTags, session: tasteSession))
+        }
         reloadSearches()
         if let route = ContentRoute.initial(text) { navigate(route) }
         else if !text.isEmpty, text.allSatisfy({ $0.isASCII && $0.isNumber }), let id = Int64(text), id > 0 { navigate(.gallery(id)) }
@@ -354,6 +370,8 @@ private struct GalleryGridCard: View {
 }
 
 private struct RemoteGalleryView: View {
+    @Environment(AppEnvironment.self) private var env
+    @Environment(\.discoveryContext) private var discovery
     let galleryID: Int64
     let source: any ContentProviding
     let images: PageImageStore
@@ -375,7 +393,7 @@ private struct RemoteGalleryView: View {
                         Text(gallery.title).font(.title2.bold()).textSelection(.enabled)
                         Text(L10n.text("%@ · %@ · %@ pages", String(describing: gallery.language), String(describing: gallery.type), String(describing: gallery.pages.count)))
                             .font(.subheadline).foregroundStyle(.secondary)
-                        NavigationLink(value: ContentRoute.reader(galleryID, 1)) {
+                        NavigationLink(value: ContentRoute.discoveredReader(galleryID, 1, discovery)) {
                             Label(L10n.text("Read"), systemImage: "book.pages").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 8)
                         }.buttonStyle(.borderedProminent).accessibilityIdentifier("content.read")
                         Button { bookmark = ContentBookmark(id: galleryID) } label: {
@@ -405,15 +423,19 @@ private struct RemoteGalleryView: View {
             } else if let error { ContentFailureView(message: error) { retry += 1 } }
             else { ProgressView(L10n.text("Loading work details")) }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .toolbar(.visible, for: .navigationBar)
         .navigationTitle(L10n.text("Work Details"))
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $bookmark) { target in AddWorkSheet(initialText: String(target.id)) }
+        .sheet(item: $bookmark) { target in AddWorkSheet(initialText: String(target.id)).environment(\.discoveryContext, discovery) }
         .task(id: retry) {
             error = nil
             do {
                 let value = try await source.gallery(galleryID)
                 try Task.checkCancellation()
                 gallery = value
+                try? env.database.observeTaste(value, context: discovery)
                 if let page = value.pages.first { cover = try? await images.load(page, galleryID: galleryID, thumbnail: true) }
             } catch { if !Task.isCancelled { self.error = ContentError.message(error) } }
         }

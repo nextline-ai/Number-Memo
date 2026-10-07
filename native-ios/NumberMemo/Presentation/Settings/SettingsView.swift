@@ -23,6 +23,7 @@ public struct SettingsView: View {
             HitomiDefaultTagsSettings()
             ReaderSettingsSection(booru: false, isPresented: $showReader)
             SearchHistorySettings()
+            TasteSettingsSection(mode: .comics)
             CloudSyncSection()
             Section {
                 NavigationLink { HitomiLibraryToolsView() } label: {
@@ -664,9 +665,10 @@ struct HitomiLibraryToolsView: View {
                     }
                 }
 
+                let restoredMessage = L10n.text("Backup restored: %@ works, %@ folders", String(restoredWorks), String(restoredFolders))
                 await MainActor.run {
                     self.isImporting = false
-                    self.statusMessage = L10n.text("Backup restored: %@ works, %@ folders", String(describing: restoredWorks), String(describing: restoredFolders))
+                    self.statusMessage = restoredMessage
                     self.loadStats()
                     envRef.startCoverQueue()
                 }

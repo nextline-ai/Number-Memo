@@ -4,6 +4,11 @@ final class KeyboardUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
+    private func closeViewer(_ app: XCUIApplication) {
+        if !element(app, "booru.close").exists { app.typeKey("m", modifierFlags: []) }
+        XCTAssertTrue(element(app, "booru.close").waitForExistence(timeout: 5))
+        element(app, "booru.close").tap()
+    }
     func testWideThumbnailTapAndSelectionStayInsideTheirOwnCard() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -18,7 +23,7 @@ final class KeyboardUITests: XCTestCase {
             for x in [0.1, 0.5, 0.9] {
                 post.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.5)).tap()
                 XCTAssertTrue(state.wait(for: \.label, toEqual: "\(id):fit", timeout: 5))
-                element(app, "booru.pointerClose").tap()
+                closeViewer(app)
                 XCTAssertTrue(state.waitForNonExistence(timeout: 5))
             }
             post.press(forDuration: 0.7)
@@ -97,7 +102,7 @@ final class KeyboardUITests: XCTestCase {
         XCTAssertTrue(element(app, "booru.favorite").wait(for: \.label, toEqual: "Remove Favorite", timeout: 5))
         app.typeKey("f", modifierFlags: [])
         XCTAssertTrue(element(app, "booru.favorite").wait(for: \.label, toEqual: "Add Favorite", timeout: 5))
-        element(app, "booru.pointerClose").tap()
+        closeViewer(app)
         XCTAssertTrue(state.waitForNonExistence(timeout: 5))
         post.tap()
         XCTAssertTrue(state.waitForExistence(timeout: 5))
@@ -111,8 +116,8 @@ final class KeyboardUITests: XCTestCase {
         // A sheet dismissal must restore navigation without dismissing the work.
         app.typeKey(XCUIKeyboardKey.rightArrow, modifierFlags: [])
         XCTAssertTrue(state.wait(for: \.label, toEqual: "102:fit", timeout: 5))
-        XCTAssertTrue(element(app, "booru.pointerClose").waitForExistence(timeout: 5))
-        element(app, "booru.pointerClose").tap()
+        XCTAssertFalse(element(app, "booru.pointerClose").exists)
+        closeViewer(app)
         XCTAssertTrue(state.waitForNonExistence(timeout: 5))
     }
 }

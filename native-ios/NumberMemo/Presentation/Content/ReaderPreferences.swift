@@ -123,6 +123,7 @@ struct ReaderSettingsView: View {
                     Text(L10n.text("Prefetching reduces the wait for the next page and uses data. Images are kept only in app memory."))
                 } }
                 Section(L10n.text("Gesture Guide")) {
+                    if booru { Text(L10n.text("For videos, tap with two fingers to open the quick menu. Playback controls remain available.")).font(.subheadline).foregroundStyle(.secondary) }
                     if !booru { Button(L10n.text("Reader Guide")) { showHelp = true }.accessibilityIdentifier("reader.settings.help") }
                     Text(L10n.text(booru ? "Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" : "Tap the center: quick menu\nHold the center: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page"))
                         .font(.subheadline).foregroundStyle(.secondary)
@@ -246,22 +247,22 @@ enum ReaderLayout {
 
 @MainActor
 enum ContentBookmarkAction {
-    static func toggle(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil) throws -> String {
+    static func toggle(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil, context: DiscoveryContext = .unknown) throws -> String {
         if try env.database.getWork(galleryId: id) != nil {
             try env.database.deleteWork(galleryId: id)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             return L10n.text("Bookmark removed")
         }
-        return try save(id: id, gallery: gallery, env: env, images: images)
+        return try save(id: id, gallery: gallery, env: env, images: images, context: context)
     }
 
-    static func save(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil) throws -> String {
+    static func save(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil, context: DiscoveryContext = .unknown) throws -> String {
         if try env.database.getWork(galleryId: id) != nil { return L10n.text("Already bookmarked") }
         let folders = try env.database.listFolders()
         let folder = folders.first(where: { $0.name == "미분류" }) ?? folders.first
         _ = try env.database.upsertWork(galleryId: id, folderId: folder?.id,
             title: gallery?.title, artists: gallery?.artists.joined(separator: ", "),
-            language: gallery?.language, type: gallery?.type, tags: gallery?.tags.joined(separator: ", "), metadataSource: "remote")
+            language: gallery?.language, type: gallery?.type, tags: gallery?.tags.joined(separator: ", "), metadataSource: "remote", discoveryContext: context)
         if let gallery, let page = gallery.pages.first, let images {
             Task {
                 do {

@@ -640,3 +640,200 @@
 "Site Folders" = "サイト別フォルダ";
 
 "Selected" = "選択済み";
+
+/* Local taste analysis */
+"AI Recommendations" = "AIおすすめ";
+"Taste Analysis" = "好みの分析";
+"Recommendations" = "おすすめ";
+"Weekly" = "週間";
+"Monthly" = "月間";
+"Previous Period" = "前の期間";
+"Next Period" = "次の期間";
+"In progress" = "集計中";
+"Taste analysis is paused on your devices." = "各デバイスで好みの分析を停止しています。";
+"Enable Taste Analysis" = "好みの分析を有効にする";
+"Preparing your insights…" = "好みを分析しています…";
+"Discover your taste" = "自分の好みを発見";
+"Search and save works to build your taste profile. Technical and management tags are excluded." = "作品を検索・保存すると好みが見えてきます。技術・管理用タグは分析から除外します。";
+"Patterns describe your activity in this app. They are suggestions, not conclusions about you." = "このアプリでの選択から見つかった傾向です。好みについての仮説としてご覧ください。";
+"Evidence comes from distinct saved works. Opening a work alone does not add preference points." = "異なる保存作品を根拠にしています。閲覧だけでは好みのスコアは上がりません。";
+"Activity" = "アクティビティ";
+"Newly saved works" = "新しく保存した作品";
+"Searches" = "検索";
+"Comparison sample" = "比較サンプル";
+"Previous period" = "前の期間";
+"Saved works over time" = "日別の保存作品";
+"On-device AI insights" = "オンデバイスAIの解説";
+"Statistical insights" = "統計による解説";
+"You searched for this tag and saved %@ works with it." = "このタグを検索し、該当する作品を%@件保存しました。";
+"You saved %@ works with this tag without searching for it, across %@ sessions." = "このタグを直接検索せずに、%@件の作品を%@回の探索で保存しました。";
+"This tag appears in %@ of your saved works." = "保存作品%@件にこのタグが含まれています。";
+"Saved works with this tag increased from %@ to %@." = "このタグの保存作品が%@件から%@件に増えました。";
+"This tag often appears together with %@ in your saved works." = "保存作品では%@タグと一緒によく現れます。";
+"Taste tags" = "好みのタグ";
+"%@ confirmed · %@ co-occurrences · %@ searches" = "確認%@ · 共起%@ · 検索%@";
+"Hidden taste candidate" = "隠れた好みの候補";
+"Confirmed preference" = "確認された好み";
+"Collecting evidence" = "根拠を収集中";
+"%@× as frequent in saved works" = "保存作品で%@倍多く出現";
+"Explore this tag" = "このタグで探す";
+"Evidence" = "根拠";
+"Exclude from recommendations" = "おすすめから除外";
+"Discover something new" = "新しい好みを発見";
+"Based on your saved works" = "保存作品に基づくおすすめ";
+"No new recommendations yet. Save more works or try refreshing." = "新しいおすすめはまだありません。作品を保存するか、再読み込みしてください。";
+"Some sources could not be loaded: %@" = "一部のサイトを読み込めませんでした：%@";
+"New works for you" = "あなたへの新しい作品";
+"Recommendation searches send the selected tags to your connected websites. Your taste profile is not sent." = "おすすめの検索では選択したタグが接続先サイトに送信されます。好みのプロフィール全体は送信しません。";
+"Unable to update taste analysis." = "好みの分析を更新できませんでした。";
+"On-device AI available" = "オンデバイスAIを利用できます";
+"Enable Apple Intelligence for AI insights." = "AIの解説を使うにはApple Intelligenceを有効にしてください。";
+"The on-device model is not ready yet." = "オンデバイスモデルの準備中です。";
+"Statistical insights are available on this device." = "このデバイスでは統計による解説を利用できます。";
+"iCloud deletion pending" = "iCloudでの削除待ち";
+"Downloading analysis history…" = "分析履歴を同期しています…";
+"Analysis sync is off" = "分析の同期はオフです";
+"Some analysis files could not be read." = "一部の分析履歴を読み込めませんでした。";
+"Analysis synced" = "分析履歴を同期しました";
+"On-device AI explanations" = "オンデバイスAIの解説";
+"Search context and saved works build your profile. Opened works only provide a comparison sample. Technical and management tags are excluded." = "検索の文脈と保存作品から好みを分析します。閲覧作品は比較サンプルにのみ使い、技術・管理用タグは除外します。";
+"Sync analysis with iCloud" = "分析データをiCloudで同期";
+"Analysis time zone" = "分析のタイムゾーン";
+"Retention" = "保存期間";
+"Until you delete it" = "削除するまで";
+"Analysis uses your existing iCloud Drive protection. It is separate from search history retention. Other devices apply changes when they next sync." = "分析履歴には既存のiCloud Drive保護が適用されます。検索履歴とは別に保存され、他のデバイスには次の同期時に設定変更が反映されます。";
+"iCloud sync is off. Changes cannot reach your other devices until it is enabled." = "iCloudの同期はオフです。有効にするまで変更は他のデバイスに届きません。";
+"Excluded taste tags" = "除外した好みのタグ";
+"Delete all analysis data" = "分析データをすべて削除";
+"Deletes activity, preference evidence, and reports. Your saved works remain. Existing works will not be automatically analyzed again." = "アクティビティ・好みの根拠・レポートを削除します。保存作品は残り、既存作品を自動で再分析しません。";
+"Taste Analysis Settings" = "好みの分析設定";
+"Delete all analysis data?" = "分析データをすべて削除しますか？";
+"Taste analysis is on. Search context and saved works reveal patterns, and analysis records stay in your iCloud until you delete them. AI runs on your device without receiving tag names. You can turn this off in Settings at any time." = "好みの分析はオンです。検索の文脈と保存作品から傾向を見つけ、分析履歴は削除するまでiCloudに保存します。AIはタグ名を受け取らず、デバイス上で動作します。設定でいつでもオフにできます。";
+"Date" = "日付";
+
+"Recommendations and insights shaped by what you save." = "保存した作品から、新しいおすすめと好みの発見を。";
+
+"How recommendations work" = "おすすめの仕組み";
+
+"AI analyzes anonymous statistics on this device. Analysis records are kept until you delete them and sync through iCloud when enabled. You can change these options in Settings." = "AIはこの端末で匿名の統計だけを分析します。分析記録は削除するまで保存され、同期を有効にするとiCloudで共有されます。設定でいつでも変更できます。";
+
+"Your taste" = "あなたの好み";
+
+"Your taste in review" = "好みを振り返る";
+
+"Find your next favorite." = "次のお気に入りを見つけよう。";
+
+"A closer look at what caught your eye." = "気になった作品を振り返ろう。";
+
+"Start with something you love" = "好きな作品から始めよう";
+
+"Save a few works as you explore. Your recommendations and taste discoveries will grow from there." = "気に入った作品を保存してみましょう。選んだ作品が増えると、おすすめや新たな好みが見えてきます。";
+
+"Browse, save, discover" = "探して、保存して、発見する";
+
+"Explore works" = "作品を探す";
+
+"No saved works in this period. Try the previous period to see earlier activity." = "この期間に保存した作品はありません。前の期間の記録を確認してみましょう。";
+
+"A new side of your taste" = "新しい好みの手がかり";
+
+"A thread in your favorites" = "お気に入りに共通するもの";
+
+"What stands out" = "注目の発見";
+
+"See all" = "すべて見る";
+
+"Picked for you" = "あなたへのおすすめ";
+
+"Refresh recommendations" = "おすすめを更新";
+
+"Finding works for you…" = "おすすめの作品を探しています…";
+
+"You're all caught up. Explore more works or refresh for new recommendations." = "今のところ新しいおすすめはありません。作品を探すか、おすすめを更新してみましょう。";
+
+"Refining your insights…" = "好みの発見をまとめています…";
+
+"About your recommendations" = "おすすめについて";
+
+"Often saved together" = "一緒に保存されたタグ";
+
+"New discovery" = "新しい発見";
+
+"Why this work?" = "おすすめの理由";
+
+"Your evidence" = "選んできた記録";
+
+"Saved works" = "保存した作品";
+
+"Found through your searches" = "検索して保存";
+
+"Saved without searching" = "検索せずに保存";
+
+"A pattern is taking shape" = "好みの手がかりを集めています";
+
+"We look for at least 5 saved works across 3 browsing sessions before suggesting a hidden preference." = "異なる作品5件、閲覧セッション3回以上で繰り返し現れると、隠れた好みの候補として紹介します。";
+
+"Supporting works" = "根拠となった作品";
+
+"Include in recommendations" = "おすすめに再び含める";
+
+"Taste details" = "好みの詳細";
+
+"No longer in your library" = "ライブラリから削除された作品";
+
+"Back to this week" = "今週に戻る";
+
+"Back to this month" = "今月に戻る";
+
+"Change from previous period: %@" = "前の期間との差：%@";
+
+"%@ saved in the previous period" = "前の期間に%@件保存";
+
+"Active days" = "活動した日";
+
+"Your activity" = "保存の記録";
+
+"Searched tags" = "検索したタグ";
+
+"Storage details" = "保存の詳細";
+
+"Other saved works" = "その他の保存作品";
+
+"Connect this source in Settings to explore this tag." = "このタグを探すには、設定でサイトを接続してください。";
+
+"Inspired by what you love. Made for your next discovery." = "お気に入りの作品から、次の発見へ。";
+"Recommendation evidence" = "おすすめの根拠";
+"Continue browsing" = "続きを見る";
+"You've reached the end of these recommendations." = "おすすめの作品をすべて表示しました。";
+"Weekly statistics" = "週間の統計";
+"Monthly Recap" = "月間リキャップ";
+"Latest recap" = "最新のリキャップへ";
+"A month of discoveries" = "発見に満ちた1か月";
+"The tags that defined your month" = "今月を彩ったタグ";
+"More discoveries are waiting" = "次の発見が待っています";
+"A possible new favorite" = "新しい好みの手がかり";
+"Your next hidden favorite is still taking shape. Keep saving what catches your eye." = "隠れた好みの手がかりを集めています。気になる作品を保存してみましょう。";
+"Your month in motion" = "1か月の足あと";
+"Your most active day" = "最もアクティブだった日";
+"%@ saved works" = "保存した作品 %@件";
+"Previous card" = "前のカード";
+"Next card" = "次のカード";
+"Your monthly recap is ready" = "新しい月間リキャップが届きました";
+"Dismiss recap banner" = "リキャップのバナーを閉じる";
+"Analysis excluded tags" = "分析から除外するタグ";
+"Tag to exclude" = "除外するタグ";
+"Add tag" = "タグを追加";
+"These exact tags are excluded from analysis, recommendations and reports. Original tags and search filters stay available. Refresh AI recommendations to apply changes to the current list." = "完全に一致するタグを分析・おすすめ・統計から除外します。元のタグと検索フィルターは維持されます。現在のおすすめ一覧には更新後に適用されます。";
+"You chose and saved %@ works associated with this tag." = "このタグに関連する作品を%@件選んで保存しました。";
+"Private by design, processed on your device" = "プライバシーを守り、デバイス内で処理";
+"AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AIはこのデバイス内で動作します。一時的なIDと統計のみを使い、元のタグ・検索語・画像・タイトルは渡しません。クラウドAIにリクエストを送信しません。";
+"When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website." = "iCloud同期にはiCloud Driveの暗号化が適用されます。おすすめ作品の検索時は、選んだタグを接続先のコンテンツサイトに送信します。";
+"To reduce heat, AI results are reused and new generations are spaced at least five minutes apart. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AIの結果を再利用し、新しい生成は5分以上の間隔を空けて処理を抑えます。低電力モードやバックグラウンドではAI生成を休止します。統計によるおすすめは引き続き利用できます。";
+"Turn off taste analysis?" = "好みの分析をオフにしますか？";
+"Turn off on-device AI explanations?" = "オンデバイスAIの解説をオフにしますか？";
+"Keep Enabled" = "有効のままにする";
+"New taste evidence, recommendations and reports will pause. Existing analysis and saved works are kept. Your other devices apply this choice after syncing." = "新しい好みの記録・おすすめ・レポートの生成を停止します。既存の分析と保存作品は保持され、他のデバイスには次回同期時に反映されます。";
+"New AI explanations will pause. Your statistics and recommendations will continue to work without AI." = "新しいAIの解説の生成を停止します。統計とおすすめはAIなしで引き続き利用できます。";
+"For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "動画では2本指でタップするとクイックメニューが開きます。再生コントロールも引き続き使えます。";
+"Tap with two fingers for the video menu" = "2本指でタップして動画メニューを開く";
+"Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "プレビューをすばやく表示するため、このデバイスに最大256MBまでキャッシュします。iCloudには送信せず、ここで削除できます。";

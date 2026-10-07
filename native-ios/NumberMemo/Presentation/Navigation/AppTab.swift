@@ -5,6 +5,7 @@ public enum AppTab: String, CaseIterable, Identifiable, Hashable, Sendable {
     case works = "works"
     case artists = "artists"
     case settings = "settings"
+    case insights = "insights"
 
     public var id: String { rawValue }
 
@@ -14,6 +15,7 @@ public enum AppTab: String, CaseIterable, Identifiable, Hashable, Sendable {
         case .works: return L10n.text("Explore")
         case .artists: return L10n.text("Artists")
         case .settings: return L10n.text("Settings")
+        case .insights: return "AI"
         }
     }
 
@@ -27,6 +29,7 @@ public enum AppTab: String, CaseIterable, Identifiable, Hashable, Sendable {
         case .works: return "globe"
         case .artists: return "person.2.fill"
         case .settings: return "gearshape.fill"
+        case .insights: return "apple.intelligence"
         }
     }
 
@@ -36,6 +39,7 @@ public enum AppTab: String, CaseIterable, Identifiable, Hashable, Sendable {
         case .works: return "globe"
         case .artists: return "person.2"
         case .settings: return "gearshape"
+        case .insights: return "apple.intelligence"
         }
     }
 }

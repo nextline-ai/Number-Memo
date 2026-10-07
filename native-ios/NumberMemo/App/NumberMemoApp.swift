@@ -196,9 +196,15 @@ struct NumberMemoApp: App {
                 }
             }
             .task(id: "\(scenePhase):\(env.sync.enabled)") {
-                guard !isContentUITest, env.sync.enabled, scenePhase == .active else { return }
+                guard !isContentUITest, scenePhase == .active else { return }
+                var prepareReports = true
                 while !Task.isCancelled {
-                    await env.sync.synchronize(env: env)
+                    if env.sync.enabled {
+                        await env.sync.synchronize(env: env)
+                        await env.taste.synchronize(env: env)
+                    }
+                    if prepareReports { await env.taste.prepareCompletedReports(); prepareReports = false }
+                    guard env.sync.enabled else { return }
                     do { try await Task.sleep(for: .seconds(15)) } catch { return }
                 }
             }

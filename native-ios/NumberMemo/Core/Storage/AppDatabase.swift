@@ -126,6 +126,7 @@ public final class AppDatabase: Sendable {
         migrator.registerMigration("v4_folder_order") { db in
             try db.execute(sql: "CREATE TABLE library_order (key TEXT PRIMARY KEY, value BLOB NOT NULL)")
         }
+        migrator.registerMigration("v5_taste") { try TasteStore.migrate($0) }
         return migrator
     }
 
@@ -479,11 +480,13 @@ public final class AppDatabase: Sendable {
         bookmarkedAt: String? = nil,
         metadataSource: String? = nil,
         catalogMatched: Bool = false,
-        overwriteMetadata: Bool = false
+        overwriteMetadata: Bool = false,
+        discoveryContext: DiscoveryContext? = nil
     ) throws -> Work {
         try dbWriter.write { db in
             let now = ISO8601DateFormatter().string(from: Date())
             var work = try Work.filter(Work.Columns.galleryId == galleryId).fetchOne(db)
+            let wasNew = work == nil
 
             if var existing = work {
                 if overwriteMetadata || existing.metadataSource != "manual" {
@@ -542,6 +545,9 @@ public final class AppDatabase: Sendable {
                 }
             }
 
+            if wasNew, let discoveryContext { try TasteStore.record(.save, item: .comic(galleryId, tags: work?.tags), context: discoveryContext, db: db) }
+            else if wasNew { try TasteStore.record(.imported, item: .comic(galleryId, tags: work?.tags), db: db) }
+            else if !wasNew { try TasteStore.record(.metadata, item: .comic(galleryId, tags: work?.tags), db: db) }
             return work!
         }
     }
@@ -613,6 +619,7 @@ public final class AppDatabase: Sendable {
 
     public func deleteWork(galleryId: Int64) throws {
         try dbWriter.write { db in
+            try TasteStore.record(.remove, item: .comic(galleryId), db: db)
             if let work = try Work.filter(Work.Columns.galleryId == galleryId).fetchOne(db), let workId = work.id {
                 try db.execute(sql: "DELETE FROM folder_works WHERE work_id = ?", arguments: [workId])
                 try db.execute(sql: "DELETE FROM works WHERE id = ?", arguments: [workId])

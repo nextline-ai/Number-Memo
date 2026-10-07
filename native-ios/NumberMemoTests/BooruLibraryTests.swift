@@ -127,6 +127,10 @@ final class BooruLibraryTests: XCTestCase {
     }
 
     func testAnimeBoxesMergeIsIdempotentAndPreservesFoldersAndHitomi() throws {
+        let defaults = ReaderPreferences.booruDefaults
+        let previous = defaults.object(forKey: "search.retentionDays")
+        defaults.removeObject(forKey: "search.retentionDays")
+        defer { if let previous { defaults.set(previous, forKey: "search.retentionDays") } }
         let store = try BooruStore()
         for server in BooruServer.presets { try store.saveServer(server) }
         let backup = try AnimeBoxesBackup.parse(BooruUITestSupport.importFixture)
@@ -148,7 +152,7 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(store.folderID(for: post), custom)
         XCTAssertEqual(store.servers.count, 3)
         XCTAssertEqual(store.blacklist(serverID: "danbooru"), "spoilers")
-        XCTAssertTrue(store.history(serverID: "gelbooru").isEmpty, "Imported history outside the default three-day window expires; starred queries remain saved")
+        XCTAssertEqual(store.history(serverID: "gelbooru"), ["scenery"], "Imported history is retained indefinitely by default")
         XCTAssertEqual(store.savedTags(serverID: "danbooru", kind: "search"), ["scenery"])
         XCTAssertEqual(try hitomi.listWorks().map(\.galleryId), [201])
     }

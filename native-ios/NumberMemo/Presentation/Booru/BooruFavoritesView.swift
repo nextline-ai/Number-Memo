@@ -191,6 +191,7 @@ private struct BooruFolderEdit: Identifiable {
 }
 
 struct BooruFolderPicker: View {
+    @Environment(\.discoveryContext) private var discovery
     let post: BooruPost
     @Environment(BooruStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -202,7 +203,7 @@ struct BooruFolderPicker: View {
             List {
                 ForEach(store.folders()) { folder in
                     Button {
-                        do { try store.saveFavorite(post, folderID: folder.id); dismiss() }
+                        do { try store.saveFavorite(post, folderID: folder.id, context: discovery); dismiss() }
                         catch { self.error = error.localizedDescription }
                     } label: {
                         HStack {

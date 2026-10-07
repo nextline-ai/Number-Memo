@@ -23,6 +23,29 @@ enum ContentUITestSupport {
                 for server in BooruServer.presets { try! env.booru.saveServer(server) }
                 if !ProcessInfo.processInfo.arguments.contains("--booru-restored-badge-test") { try! env.booru.select(BooruServer.presets[0]) }
             }
+            if ProcessInfo.processInfo.arguments.contains("--taste-ui-rich") {
+                for index in 1...8 {
+                    _ = try! env.database.upsertWork(galleryId: Int64(900000100 + index), title: "Saved sample", tags: "female:sample,tag:example", discoveryContext: .init(origin: .search, query: "tag:example", session: "comic-\(index)"))
+                }
+                let server = BooruServer.presets[0]
+                for index in 1...8 {
+                    let post = BooruFixtureSource.post(Int64(100 + index), server: server, tags: ["scenery", "mountain", index.isMultiple(of: 2) ? "cloud" : "river"])
+                    try! env.booru.toggleFavorite(post, context: DiscoveryContext(origin: .search, query: "scenery", session: "fixture-\(index)"))
+                }
+                for var event in try! env.booru.tasteStore.events() {
+                    if ProcessInfo.processInfo.arguments.contains("--taste-recap-test") {
+                        event.at = TastePeriod.month.interval(offset: -1, now: Date(), timeZone: env.taste.control.timeZone)!.start.addingTimeInterval(Double(event.item.id % 7 + 1) * 86400).timeIntervalSince1970
+                    } else { event.at = Date().addingTimeInterval(-Double(event.item.id % 7) * 86400).timeIntervalSince1970 }
+                    let changed = event
+                    try! env.booru.database.write { db in
+                        try db.execute(sql: "UPDATE taste_events SET at = ?, payload = ? WHERE id = ?", arguments: [changed.at, try JSONEncoder().encode(changed), changed.id])
+                    }
+                }
+            }
+        }
+        if ProcessInfo.processInfo.arguments.contains("--taste-recap-test") {
+            env.taste.change { $0.aiEnabled = false }
+            Task { await env.taste.prepareCompletedReports() }
         }
         if BooruUITestSupport.liveEnabled {
             env.mode = .booru
@@ -76,6 +99,9 @@ actor FixtureContentSource: ContentProviding {
 
     func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch {
         if shouldFail { shouldFail = false; throw URLError(.notConnectedToInternet) }
+        if ProcessInfo.processInfo.arguments.contains("--taste-ui-rich") {
+            return GalleryBatch(ids: offset < 48 ? (0..<24).map { Int64(900000001 + offset + $0) } : [], hasMore: offset < 24)
+        }
         let ids: [Int64] = ProcessInfo.processInfo.arguments.contains("--native-content-long-feed")
             ? (900000001...900000024).map { Int64($0) } : [900000001]
         return GalleryBatch(ids: offset == 0 ? ids : [], hasMore: false)

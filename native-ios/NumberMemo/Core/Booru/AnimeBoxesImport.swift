@@ -154,10 +154,13 @@ extension BooruStore {
             for favorite in backup.favorites {
                 let old = favorite.post
                 guard let id = mapping[old.serverID] else { continue }
-                let post = BooruPost(serverID: id, postID: old.postID, previewURL: old.previewURL, sampleURL: old.sampleURL, fileURL: old.fileURL, width: old.width, height: old.height, tags: old.tags, artists: old.artists, rating: old.rating, score: old.score, fileExtension: old.fileExtension, poolIDs: old.poolIDs)
+                let post = BooruPost(serverID: id, postID: old.postID, previewURL: old.previewURL, sampleURL: old.sampleURL, fileURL: old.fileURL, width: old.width, height: old.height, tags: old.tags, artists: old.artists, rating: old.rating, score: old.score, fileExtension: old.fileExtension, poolIDs: old.poolIDs, metadataTags: old.metadataTags)
                 let folderID = try options.folderID == "by-site" ? Self.defaultFolder(for: id, db: db) : options.folderID
                 try db.execute(sql: "INSERT OR IGNORE INTO favorites (server_id, post_id, payload, saved_at, folder_id) VALUES (?, ?, ?, ?, ?)", arguments: [id, post.postID, try JSONEncoder().encode(post), favorite.savedAt, folderID])
-                if db.changesCount > 0 { added += 1 } else { duplicates += 1 }
+                if db.changesCount > 0 {
+                    added += 1
+                    try TasteStore.record(.imported, item: Self.tasteItem(post, db: db), db: db)
+                } else { duplicates += 1 }
             }
             if options.folderID == "by-site" { try Self.organizeLegacyImports(db: db) }
             for id in Set(mapping.values) {

@@ -1,7 +1,12 @@
 {
   "fill-specializations" : [
     {
-      "value" : "system-dark"
+      "value" : {
+        "linear-gradient" : [
+          "extended-gray:0.25000,1.00000",
+          "display-p3:0.14710,0.14710,0.14529,1.00000"
+        ]
+      }
     },
     {
       "appearance" : "dark",

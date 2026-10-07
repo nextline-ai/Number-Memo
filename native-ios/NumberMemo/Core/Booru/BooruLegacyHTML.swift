@@ -68,7 +68,7 @@ enum BooruLegacyHTML {
                          width: Int(dimensions?[1] ?? image?["width"] ?? "") ?? 0,
                          height: Int(dimensions?[2] ?? image?["height"] ?? "") ?? 0,
                          tags: tagNames, artists: sidebar.filter(\.isArtist).map(\.name),
-                         rating: normalizedRating(rating, server: server), score: score, fileExtension: file.pathExtension)
+                         rating: normalizedRating(rating, server: server), score: score, fileExtension: file.pathExtension, metadataTags: sidebar.filter(\.isMetadata).map(\.name))
     }
 
     private static func normalizedRating(_ raw: String, server: BooruServer) -> String {
@@ -88,7 +88,8 @@ enum BooruLegacyHTML {
                       !["+", "-", "?"].contains(BooruHTML.plainText(match[2])),
                       !name.contains(" "), !name.isEmpty, seen.insert(name).inserted else { continue }
                 let count = BooruHTML.matches("(?:</a>\\s*|<small[^>]*>)([0-9]+)", item[2]).last.flatMap { Int($0[1]) } ?? 0
-                return BooruTag(name: name, count: count, category: item[1].contains("artist") ? 1 : 0)
+                let classes = Set((BooruHTML.attributes(item[1])["class"] ?? "").split(whereSeparator: \.isWhitespace).map(String.init))
+                return BooruTag(name: name, count: count, category: item[1].contains("artist") ? 1 : 0, isMetadata: !classes.isDisjoint(with: ["tag-type-metadata", "tag-type-meta", "tag-list-meta"]))
             }
             return nil
         }

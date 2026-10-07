@@ -41,7 +41,7 @@ struct SearchHistorySettings: View {
     init(booru: Bool = false) {
         self.booru = booru
         _remember = .init(wrappedValue: true, booru ? "booru.rememberHistory" : "search.rememberHistory", store: booru ? ReaderPreferences.booruDefaults : ReaderPreferences.defaults)
-        _days = .init(wrappedValue: 3, "search.retentionDays", store: booru ? ReaderPreferences.booruDefaults : ReaderPreferences.defaults)
+        _days = .init(wrappedValue: 0, "search.retentionDays", store: booru ? ReaderPreferences.booruDefaults : ReaderPreferences.defaults)
     }
     var body: some View {
         Section(L10n.text("Search History")) {

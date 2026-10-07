@@ -640,3 +640,200 @@
 "Site Folders" = "사이트별 폴더";
 
 "Selected" = "선택됨";
+
+/* Local taste analysis */
+"AI Recommendations" = "AI 추천";
+"Taste Analysis" = "취향 분석";
+"Recommendations" = "추천";
+"Weekly" = "주간";
+"Monthly" = "월간";
+"Previous Period" = "이전 기간";
+"Next Period" = "다음 기간";
+"In progress" = "집계 중";
+"Taste analysis is paused on your devices." = "기기들의 취향 분석이 중지되어 있습니다.";
+"Enable Taste Analysis" = "취향 분석 켜기";
+"Preparing your insights…" = "취향을 분석하고 있습니다…";
+"Discover your taste" = "나의 취향 발견";
+"Search and save works to build your taste profile. Technical and management tags are excluded." = "작품을 검색하고 저장하면 취향을 발견할 수 있습니다. 기술·관리용 태그는 분석에서 제외합니다.";
+"Patterns describe your activity in this app. They are suggestions, not conclusions about you." = "앱에서의 선택을 바탕으로 발견한 패턴입니다. 취향에 대한 가설로 참고해 주세요.";
+"Evidence comes from distinct saved works. Opening a work alone does not add preference points." = "서로 다른 저장 작품을 근거로 합니다. 열람만으로 취향 점수가 오르지는 않습니다.";
+"Activity" = "활동";
+"Newly saved works" = "새로 저장한 작품";
+"Searches" = "검색";
+"Comparison sample" = "비교 표본";
+"Previous period" = "이전 기간";
+"Saved works over time" = "날짜별 저장 작품";
+"On-device AI insights" = "온디바이스 AI 해설";
+"Statistical insights" = "통계 해설";
+"You searched for this tag and saved %@ works with it." = "이 태그를 검색해 작품 %@개를 저장했습니다.";
+"You saved %@ works with this tag without searching for it, across %@ sessions." = "이 태그를 직접 검색하지 않았지만, %@개 작품을 %@번의 탐색에 걸쳐 저장했습니다.";
+"This tag appears in %@ of your saved works." = "저장한 작품 %@개에 이 태그가 있습니다.";
+"Saved works with this tag increased from %@ to %@." = "이 태그가 있는 저장 작품이 %@개에서 %@개로 늘었습니다.";
+"This tag often appears together with %@ in your saved works." = "저장한 작품에서 %@ 태그와 자주 함께 나타납니다.";
+"Taste tags" = "취향 태그";
+"%@ confirmed · %@ co-occurrences · %@ searches" = "확인 %@ · 동반 %@ · 검색 %@";
+"Hidden taste candidate" = "숨겨진 취향 후보";
+"Confirmed preference" = "확고한 취향";
+"Collecting evidence" = "근거 수집 중";
+"%@× as frequent in saved works" = "저장한 작품에서 %@배 자주 나타남";
+"Explore this tag" = "이 태그로 탐색";
+"Evidence" = "근거";
+"Exclude from recommendations" = "추천에서 제외";
+"Discover something new" = "새로운 취향 발견";
+"Based on your saved works" = "저장한 작품 기반";
+"No new recommendations yet. Save more works or try refreshing." = "아직 새로운 추천이 없습니다. 작품을 더 저장하거나 새로고침해 보세요.";
+"Some sources could not be loaded: %@" = "일부 사이트를 불러오지 못했습니다: %@";
+"New works for you" = "나를 위한 새 작품";
+"Recommendation searches send the selected tags to your connected websites. Your taste profile is not sent." = "추천 검색 시 선택한 태그가 연결된 사이트에 전달됩니다. 취향 프로필 전체는 전달하지 않습니다.";
+"Unable to update taste analysis." = "취향 분석을 갱신하지 못했습니다.";
+"On-device AI available" = "온디바이스 AI 사용 가능";
+"Enable Apple Intelligence for AI insights." = "AI 해설을 사용하려면 Apple Intelligence를 켜세요.";
+"The on-device model is not ready yet." = "온디바이스 모델을 준비 중입니다.";
+"Statistical insights are available on this device." = "이 기기에서는 통계 기반 해설을 제공합니다.";
+"iCloud deletion pending" = "iCloud 삭제 대기 중";
+"Downloading analysis history…" = "분석 기록을 동기화하고 있습니다…";
+"Analysis sync is off" = "분석 동기화 꺼짐";
+"Some analysis files could not be read." = "일부 분석 기록을 읽지 못했습니다.";
+"Analysis synced" = "분석 기록 동기화됨";
+"On-device AI explanations" = "온디바이스 AI 해설";
+"Search context and saved works build your profile. Opened works only provide a comparison sample. Technical and management tags are excluded." = "검색 맥락과 저장 작품으로 취향을 분석합니다. 열람 작품은 비교 표본으로만 사용하며 기술·관리용 태그는 제외합니다.";
+"Sync analysis with iCloud" = "분석 데이터 iCloud 동기화";
+"Analysis time zone" = "분석 시간대";
+"Retention" = "보관 기간";
+"Until you delete it" = "직접 삭제할 때까지";
+"Analysis uses your existing iCloud Drive protection. It is separate from search history retention. Other devices apply changes when they next sync." = "분석 기록에는 기존 iCloud Drive 보호가 적용됩니다. 검색 기록 보관 기간과 별도로 보관하며, 다른 기기는 다음 동기화 때 설정 변경을 적용합니다.";
+"iCloud sync is off. Changes cannot reach your other devices until it is enabled." = "iCloud 동기화가 꺼져 있습니다. 동기화를 켜야 다른 기기에 변경 사항을 전달할 수 있습니다.";
+"Excluded taste tags" = "제외한 취향 태그";
+"Delete all analysis data" = "분석 기록 전체 삭제";
+"Deletes activity, preference evidence, and reports. Your saved works remain. Existing works will not be automatically analyzed again." = "활동·취향 근거·보고서를 삭제합니다. 보관함의 작품은 유지되며, 기존 작품을 자동으로 다시 분석하지 않습니다.";
+"Taste Analysis Settings" = "취향 분석 설정";
+"Delete all analysis data?" = "분석 기록을 모두 삭제할까요?";
+"Taste analysis is on. Search context and saved works reveal patterns, and analysis records stay in your iCloud until you delete them. AI runs on your device without receiving tag names. You can turn this off in Settings at any time." = "취향 분석이 켜져 있습니다. 검색 맥락과 저장 작품에서 패턴을 찾고, 분석 기록은 삭제할 때까지 iCloud에 보관합니다. AI는 태그 이름을 받지 않고 기기에서 실행됩니다. 설정에서 언제든 끌 수 있습니다.";
+"Date" = "날짜";
+
+"Recommendations and insights shaped by what you save." = "저장한 작품에서 찾는 새로운 추천과 취향 이야기.";
+
+"How recommendations work" = "추천이 만들어지는 방식";
+
+"AI analyzes anonymous statistics on this device. Analysis records are kept until you delete them and sync through iCloud when enabled. You can change these options in Settings." = "AI는 이 기기에서 익명 통계만 분석합니다. 분석 기록은 직접 삭제할 때까지 보관하며, 동기화를 켜면 iCloud로 공유합니다. 설정에서 언제든 변경할 수 있습니다.";
+
+"Your taste" = "나의 취향";
+
+"Your taste in review" = "취향 돌아보기";
+
+"Find your next favorite." = "다음에 좋아할 작품을 찾아보세요.";
+
+"A closer look at what caught your eye." = "눈길이 머물렀던 작품들을 돌아보세요.";
+
+"Start with something you love" = "좋아하는 작품부터 시작해요";
+
+"Save a few works as you explore. Your recommendations and taste discoveries will grow from there." = "탐색하며 마음에 드는 작품을 저장해 보세요. 선택이 쌓이면 추천과 새로운 취향을 발견할 수 있어요.";
+
+"Browse, save, discover" = "둘러보고, 저장하고, 발견해요";
+
+"Explore works" = "작품 둘러보기";
+
+"No saved works in this period. Try the previous period to see earlier activity." = "이 기간에 저장한 작품이 없어요. 이전 기간의 기록을 확인해 보세요.";
+
+"A new side of your taste" = "새로운 취향의 단서";
+
+"A thread in your favorites" = "좋아하는 작품의 공통점";
+
+"What stands out" = "눈에 띄는 발견";
+
+"See all" = "모두 보기";
+
+"Picked for you" = "당신을 위한 작품";
+
+"Refresh recommendations" = "추천 새로고침";
+
+"Finding works for you…" = "추천 작품을 찾고 있어요…";
+
+"You're all caught up. Explore more works or refresh for new recommendations." = "지금 보여드릴 새 작품이 없어요. 다른 작품을 둘러보거나 추천을 새로고침해 보세요.";
+
+"Refining your insights…" = "취향 이야기를 정리하고 있어요…";
+
+"About your recommendations" = "추천에 관하여";
+
+"Often saved together" = "함께 저장한 태그";
+
+"New discovery" = "새로운 발견";
+
+"Why this work?" = "추천 이유";
+
+"Your evidence" = "선택이 쌓인 기록";
+
+"Saved works" = "저장한 작품";
+
+"Found through your searches" = "직접 검색하고 저장";
+
+"Saved without searching" = "검색 없이 함께 저장";
+
+"A pattern is taking shape" = "취향의 단서를 모으고 있어요";
+
+"We look for at least 5 saved works across 3 browsing sessions before suggesting a hidden preference." = "서로 다른 작품 5개, 탐색 3회 이상에서 반복되면 숨겨진 취향 후보로 소개해요.";
+
+"Supporting works" = "근거가 된 작품";
+
+"Include in recommendations" = "다시 추천에 포함";
+
+"Taste details" = "취향 자세히 보기";
+
+"No longer in your library" = "보관함에서 삭제된 작품";
+
+"Back to this week" = "이번 주로";
+
+"Back to this month" = "이번 달로";
+
+"Change from previous period: %@" = "이전 기간 대비 %@";
+
+"%@ saved in the previous period" = "이전 기간에는 %@개 저장";
+
+"Active days" = "활동한 날";
+
+"Your activity" = "저장 활동";
+
+"Searched tags" = "직접 찾은 태그";
+
+"Storage details" = "보관 정보";
+
+"Other saved works" = "그 밖에 저장한 작품";
+
+"Connect this source in Settings to explore this tag." = "이 태그를 탐색하려면 설정에서 해당 사이트를 연결하세요.";
+
+"Inspired by what you love. Made for your next discovery." = "좋아하는 작품에서 시작하는 새로운 발견.";
+"Recommendation evidence" = "추천 근거";
+"Continue browsing" = "계속 둘러보기";
+"You've reached the end of these recommendations." = "추천 작품을 모두 확인했어요.";
+"Weekly statistics" = "주간 통계";
+"Monthly Recap" = "월간 리캡";
+"Latest recap" = "최근 리캡으로";
+"A month of discoveries" = "발견으로 채운 한 달";
+"The tags that defined your month" = "이번 달을 채운 태그";
+"More discoveries are waiting" = "다음 발견을 기다리고 있어요";
+"A possible new favorite" = "새로운 취향의 단서";
+"Your next hidden favorite is still taking shape. Keep saving what catches your eye." = "숨겨진 취향의 단서를 모으고 있어요. 눈길이 가는 작품을 저장해 보세요.";
+"Your month in motion" = "한 달의 발자취";
+"Your most active day" = "가장 활발했던 날";
+"%@ saved works" = "저장한 작품 %@개";
+"Previous card" = "이전 카드";
+"Next card" = "다음 카드";
+"Your monthly recap is ready" = "새로운 월간 리캡이 도착했어요";
+"Dismiss recap banner" = "리캡 배너 닫기";
+"Analysis excluded tags" = "분석 제외 태그";
+"Tag to exclude" = "제외할 태그";
+"Add tag" = "태그 추가";
+"These exact tags are excluded from analysis, recommendations and reports. Original tags and search filters stay available. Refresh AI recommendations to apply changes to the current list." = "입력한 태그와 정확히 일치하는 태그를 분석·추천·통계에서 제외합니다. 원본 태그와 검색 필터는 유지됩니다. 현재 추천 목록에는 새로고침 후 적용됩니다.";
+"You chose and saved %@ works associated with this tag." = "이 태그가 있는 작품 %@개를 선택해 저장했어요.";
+"Private by design, processed on your device" = "내 기기 안에서 안전하게 분석";
+"AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AI는 내 기기 안에서 실행됩니다. 원문 태그·검색어·이미지·제목 대신 임시 식별자와 통계만 사용하며, 클라우드 AI로 요청을 보내지 않습니다.";
+"When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website." = "iCloud 동기화에는 iCloud Drive의 암호화가 적용됩니다. 추천 작품을 검색할 때는 선택한 태그가 연결된 콘텐츠 사이트에 전달됩니다.";
+"To reduce heat, AI results are reused and new generations are spaced at least five minutes apart. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AI 결과를 재사용하고 새 생성은 최소 5분 간격으로 실행해 불필요한 연산을 줄입니다. 저전력 모드나 백그라운드에서는 AI 생성을 쉬며, 통계 기반 추천은 계속 사용할 수 있습니다.";
+"Turn off taste analysis?" = "취향 분석을 끌까요?";
+"Turn off on-device AI explanations?" = "온디바이스 AI 해설을 끌까요?";
+"Keep Enabled" = "계속 사용";
+"New taste evidence, recommendations and reports will pause. Existing analysis and saved works are kept. Your other devices apply this choice after syncing." = "새로운 취향 기록 수집·추천·통계 생성을 중지합니다. 기존 분석 기록과 저장한 작품은 유지되며, 다른 기기에는 다음 동기화 때 적용됩니다.";
+"New AI explanations will pause. Your statistics and recommendations will continue to work without AI." = "새로운 AI 해설 생성을 중지합니다. 통계와 추천은 AI 없이 계속 사용할 수 있습니다.";
+"For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "동영상은 두 손가락으로 탭하여 퀵메뉴를 엽니다. 재생 컨트롤도 그대로 사용할 수 있습니다.";
+"Tap with two fingers for the video menu" = "두 손가락으로 탭하면 동영상 메뉴가 열려요";
+"Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "미리보기는 빠르게 표시할 수 있도록 이 기기에 최대 256MB까지 캐시됩니다. iCloud에 업로드하지 않으며 여기서 삭제할 수 있습니다.";

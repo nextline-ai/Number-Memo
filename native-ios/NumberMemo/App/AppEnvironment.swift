@@ -58,6 +58,8 @@ public final class AppEnvironment: @unchecked Sendable {
         }
     }
 
+    func gridColumns(for mode: AppMode) -> Int { mode == .hitomi ? hitomiColumns : booruColumns }
+
     public var gridColumns: Int {
         get { mode == .hitomi ? hitomiColumns : booruColumns }
         set {
@@ -82,6 +84,14 @@ public final class AppEnvironment: @unchecked Sendable {
     var defaultExcludedTags: String {
         didSet { browserPreferences.set(defaultExcludedTags, forKey: "hitomi.defaultExcludedTags") }
     }
+
+    @MainActor var taste: TasteController {
+        if let tasteStorage { return tasteStorage }
+        let controller = TasteController(library: database, images: booru)
+        tasteStorage = controller
+        return controller
+    }
+    @ObservationIgnored private var tasteStorage: TasteController?
 
     @MainActor var sync: LibraryCloudSync { syncStorage ?? makeSync() }
     @ObservationIgnored private var syncStorage: LibraryCloudSync?

@@ -4,7 +4,10 @@ import GRDB
 enum SearchRetention {
     static func days(booru: Bool) -> Int {
         let defaults = booru ? ReaderPreferences.booruDefaults : ReaderPreferences.defaults
-        return defaults.object(forKey: "search.retentionDays") as? Int ?? 3
+        return days(in: defaults)
+    }
+    static func days(in defaults: UserDefaults) -> Int {
+        return defaults.object(forKey: "search.retentionDays") as? Int ?? 0
     }
     static func cutoff(booru: Bool) -> Double {
         let days = days(booru: booru)
@@ -24,7 +27,7 @@ extension AppDatabase {
         guard !value.isEmpty else { return }
         try dbWriter.write { db in
             try db.execute(sql: "INSERT OR REPLACE INTO search_history VALUES (?, ?)", arguments: [value, Date().timeIntervalSince1970])
-            try db.execute(sql: "DELETE FROM search_history WHERE used_at < ? OR query NOT IN (SELECT query FROM search_history ORDER BY used_at DESC LIMIT 500)", arguments: [SearchRetention.cutoff(booru: false)])
+            try db.execute(sql: "DELETE FROM search_history WHERE used_at < ?", arguments: [SearchRetention.cutoff(booru: false)])
         }
     }
     func deleteSearch(_ query: String) throws { try dbWriter.write { try $0.execute(sql: "DELETE FROM search_history WHERE query = ?", arguments: [query]) } }
@@ -71,7 +74,10 @@ extension BooruStore {
     }
     func removeFavorites(_ posts: [BooruPost]) throws {
         try database.write { db in
-            for post in posts { try db.execute(sql: "DELETE FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID]) }
+            for post in posts {
+                try TasteStore.record(.remove, item: Self.tasteItem(post, db: db), db: db)
+                try db.execute(sql: "DELETE FROM favorites WHERE server_id = ? AND post_id = ?", arguments: [post.serverID, post.postID])
+            }
         }
         try refresh()
     }
@@ -91,6 +97,7 @@ extension AppDatabase {
     func deleteSelectedWorks(_ ids: Set<Int64>) throws {
         try dbWriter.write { db in
             for id in ids {
+                try TasteStore.record(.remove, item: .comic(id), db: db)
                 try db.execute(sql: "DELETE FROM folder_works WHERE work_id IN (SELECT id FROM works WHERE gallery_id = ?)", arguments: [id])
                 try db.execute(sql: "DELETE FROM works WHERE gallery_id = ?", arguments: [id])
             }

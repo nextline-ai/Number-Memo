@@ -30,56 +30,7 @@ public struct AppRootTabView: View {
         }
     }
 
-    private var hitomiTabs: some View {
-        ZStack(alignment: .bottomTrailing) {
-            TabView(selection: $selectedTab) {
-                NavigationStack {
-                    FoldersView()
-                        .safeAreaInset(edge: .top) { if !env.isSiteVerified { ComicsConnectionCard().padding(.horizontal) } }
-                }
-                .tabItem {
-                    Label(L10n.text("Saved"), systemImage: selectedTab == .folders ? "folder.fill" : "folder")
-                }
-                .tag(AppTab.folders)
-
-                exploration
-                .tabItem {
-                    Label(L10n.text("Explore"), systemImage: "globe")
-                }
-                .tag(AppTab.works)
-
-                NavigationStack {
-                    ArtistsListView()
-                }
-                .tabItem {
-                    Label(L10n.text("Artists"), systemImage: selectedTab == .artists ? "person.2.fill" : "person.2")
-                }
-                .tag(AppTab.artists)
-
-                NavigationStack {
-                    SettingsView()
-                }
-                .tabItem {
-                    Label(L10n.text("Settings"), systemImage: selectedTab == .settings ? "gearshape.fill" : "gearshape")
-                }
-                .tag(AppTab.settings)
-            }
-            .adaptableTabStyleIfAvailable()
-
-        }
-    }
-
-    @ViewBuilder private var exploration: some View {
-        if env.isSiteVerified { ContentEntryView(embedded: true) }
-        else {
-            NavigationStack {
-                Group {
-                    if env.booru.servers.isEmpty { ComicsSetupView() }
-                    else { ComicsPoolsView() }
-                }.appRootHeader("Explore")
-            }
-        }
-    }
+    private var hitomiTabs: some View { ComicsRootTabs(selection: $selectedTab) }
 
     private func setupApp() {
         #if DEBUG
@@ -195,7 +146,6 @@ private final class RetainedModeController: UIViewController {
             hosts[mode] = host
         }
         for (key, host) in hosts {
-            host.rootView = key == .hitomi ? hitomi : booru
             host.view.isHidden = key != mode
             host.view.accessibilityElementsHidden = key != mode
             host.view.frame = view.bounds
@@ -206,4 +156,99 @@ private final class RetainedModeController: UIViewController {
         super.viewDidLayoutSubviews()
         for host in hosts.values { host.view.frame = view.bounds }
     }
+}
+
+/// Both libraries share the same destinations, including a persistent AI workspace.
+struct AppTabLayout<Saved: View, Explore: View, Collections: View, Settings: View>: View {
+    @Binding var selection: AppTab
+    @Environment(AppEnvironment.self) private var env
+    @State private var showingRecap = false
+    let mode: AppMode
+    let saved: Saved
+    let explore: Explore
+    let collections: Collections
+    let settings: Settings
+    private var collectionsTitle: String { L10n.text(mode == .booru ? "Tags" : "Artists") }
+    private var collectionsIcon: String { mode == .booru ? "tag" : "person.2" }
+    private var settingsTitle: String { L10n.text(mode == .booru ? "More" : "Settings") }
+    private var settingsIcon: String { mode == .booru ? "ellipsis" : "gearshape" }
+    private var insights: some View {
+        NavigationStack { TasteDashboard(mode: mode == .booru ? .booru : .comics, isRoot: true, explore: { selection = .works }) }
+    }
+    var body: some View {
+        VStack(spacing: 0) {
+            if let date = env.taste.pendingRecap(tasteMode) {
+                TasteRecapBanner(mode: tasteMode, date: date, open: { showingRecap = true }, dismiss: { env.taste.dismissRecap(tasteMode) })
+                    .environment(\.timeZone, TimeZone(identifier: env.taste.control.timeZone) ?? .gmt)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            tabContent
+        }
+        .sheet(isPresented: $showingRecap, onDismiss: { env.taste.dismissRecap(tasteMode) }) {
+            NavigationStack {
+                TasteReportsView(mode: tasteMode, period: .month)
+                    .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(L10n.text("Done")) { showingRecap = false } } }
+            }
+        }
+    }
+    private var tabContent: some View {
+        Group {
+            if #available(iOS 18.0, *) {
+                TabView(selection: $selection) {
+                    Tab(L10n.text("Saved"), systemImage: "folder.fill", value: .folders) { saved }
+                    Tab(L10n.text("Explore"), systemImage: "globe", value: .works) { explore }
+                    Tab(collectionsTitle, systemImage: collectionsIcon, value: .artists) { collections }
+                    Tab(settingsTitle, systemImage: settingsIcon, value: .settings) { settings }
+                    Tab("AI", systemImage: "apple.intelligence", value: .insights, role: insightsRole) { insights }
+                }
+            } else {
+                TabView(selection: $selection) {
+                    saved.tabItem { Label(L10n.text("Saved"), systemImage: "folder.fill") }.tag(AppTab.folders)
+                    explore.tabItem { Label(L10n.text("Explore"), systemImage: "globe") }.tag(AppTab.works)
+                    collections.tabItem { Label(collectionsTitle, systemImage: collectionsIcon) }.tag(AppTab.artists)
+                    settings.tabItem { Label(settingsTitle, systemImage: settingsIcon) }.tag(AppTab.settings)
+                    insights.tabItem { Label("AI", systemImage: "apple.intelligence") }.tag(AppTab.insights)
+                }
+            }
+        }.adaptableTabStyleIfAvailable()
+    }
+
+    private var tasteMode: TasteMode { mode == .booru ? .booru : .comics }
+    @available(iOS 18.0, *)
+    private var insightsRole: TabRole? {
+        #if compiler(>=6.4)
+        if #available(iOS 27.0, *) { return .prominent }
+        #endif
+        // iOS 26 gives the search role the separate trailing glass circle.
+        if #available(iOS 26.0, *) { return .search }
+        return nil
+    }
+}
+
+private struct ComicsRootTabs: View {
+    @Environment(AppEnvironment.self) private var env
+    @Binding var selection: AppTab
+    var body: some View {
+        AppTabLayout(selection: $selection, mode: .hitomi,
+            saved: NavigationStack {
+                FoldersView()
+                    .safeAreaInset(edge: .top) { if !env.isSiteVerified { ComicsConnectionCard().padding(.horizontal) } }
+            },
+            explore: exploration,
+            collections: NavigationStack { ArtistsListView() },
+            settings: NavigationStack { SettingsView() })
+    }
+
+    @ViewBuilder private var exploration: some View {
+        if env.isSiteVerified { ContentEntryView(embedded: true) }
+        else {
+            NavigationStack {
+                Group {
+                    if env.booru.servers.isEmpty { ComicsSetupView() }
+                    else { ComicsPoolsView() }
+                }.appRootHeader("Explore")
+            }
+        }
+    }
+
 }

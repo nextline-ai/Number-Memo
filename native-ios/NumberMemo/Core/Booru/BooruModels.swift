@@ -166,6 +166,7 @@ struct BooruPost: Codable, Identifiable, Hashable, Sendable {
     var score: Int
     var fileExtension: String
     var poolIDs: [Int64] = []
+    var metadataTags: [String]? = nil
     var id: String { "\(serverID):\(postID)" }
     var isVideo: Bool { ["mp4", "webm", "mov", "m4v"].contains(fileExtension.lowercased()) }
     var isAnimated: Bool { ["gif", "webp", "apng"].contains(fileExtension.lowercased()) || tags.contains("animated") }
@@ -176,6 +177,7 @@ struct BooruTag: Identifiable, Hashable, Sendable {
     let name: String
     let count: Int
     let category: Int
+    var isMetadata = false
     var id: String { name }
     var isArtist: Bool { category == 1 }
 }
@@ -286,7 +288,7 @@ struct BooruFolder: Identifiable, Hashable, Sendable {
 
 extension BooruPost {
     func onServer(_ id: String) -> Self {
-        Self(serverID: id, postID: postID, previewURL: previewURL, sampleURL: sampleURL, fileURL: fileURL, width: width, height: height, tags: tags, artists: artists, rating: rating, score: score, fileExtension: fileExtension, poolIDs: poolIDs)
+        Self(serverID: id, postID: postID, previewURL: previewURL, sampleURL: sampleURL, fileURL: fileURL, width: width, height: height, tags: tags, artists: artists, rating: rating, score: score, fileExtension: fileExtension, poolIDs: poolIDs, metadataTags: metadataTags)
     }
 }
 

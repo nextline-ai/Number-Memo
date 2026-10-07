@@ -1,6 +1,7 @@
 import SwiftUI
 
 public struct AddWorkSheet: View {
+    @Environment(\.discoveryContext) private var discovery
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var env
 
@@ -173,7 +174,8 @@ public struct AddWorkSheet: View {
                     tags: catalog?.tags,
                     publishedAt: catalog?.published,
                     metadataSource: catalog != nil ? "catalog" : nil,
-                    catalogMatched: catalog != nil
+                    catalogMatched: catalog != nil,
+                    discoveryContext: discovery
                 )
                 if existing == nil {
                     createdCount += 1

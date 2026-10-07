@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct BooruPostView: View {
+    @Environment(\.discoveryContext) private var discovery
     let posts: [BooruPost]
     private let initialServer: BooruServer
     private var server: BooruServer { store.servers.first { $0.id == post.serverID } ?? initialServer }
@@ -12,6 +13,7 @@ struct BooruPostView: View {
     @State private var notesError: String?
     @Environment(\.scenePhase) private var scenePhase
     @State private var menuVisible = false
+    @SwiftUI.AppStorage("booru.videoMenuHintSeen", store: ReaderPreferences.booruDefaults) private var videoMenuHintSeen = false
     @State private var readerSettings = false
     @State private var filing = false
     @State private var translation: ReaderTranslationRequest?
@@ -95,23 +97,19 @@ struct BooruPostView: View {
                     .accessibilityLabel(L10n.text("Swipe down to exit the work"))
                     .accessibilityAddTraits(.isButton).accessibilityAction { dismiss() }
             }
-            .overlay(alignment: .topTrailing) {
-                HStack(spacing: 8) {
-                    Button { shortcut(.exit) } label: { Image(systemName: "xmark").frame(width: 44, height: 44).glassCircle() }
-                        .accessibilityLabel(L10n.text("Exit")).accessibilityIdentifier("booru.pointerClose").keyboardShortcut(.cancelAction)
-                    Button { menuVisible.toggle() } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).glassCircle() }
-                        .accessibilityLabel(L10n.text("Quick Menu")).accessibilityIdentifier("booru.videoMenu")
-                }.foregroundStyle(.white).padding(12)
-            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if bottomMenu && !menuVisible && translation == nil { menuActions(compact: true).padding(12).modifier(ReaderMenuGlass()).padding(.horizontal, 12).padding(.bottom, 6) }
             }
+            .background(VideoMenuGesture(enabled: post.isVideo && !info && !readerSettings && !filing && translation == nil && selectedNote == nil && !showJump) { menuVisible.toggle() })
+            .accessibilityAction(named: L10n.text("Open Menu")) { menuVisible = true }
+            .background(ReaderExitGesture(enabled: !zoomed && !menuVisible && !info && !readerSettings && !filing && !showJump && translation == nil && selectedNote == nil, progress: { _ in }, exit: { dismiss() }))
             .background(ReaderKeyboardCommands(enabled: !info && !readerSettings && !filing && !showJump && selectedNote == nil, action: shortcut))
             .statusBarHidden(true)
             .persistentSystemOverlays(.hidden)
             .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             .interactiveDismissDisabled()
-            .sheet(isPresented: $filing) { BooruFolderPicker(post: post) }
+            .task(id: post.id) { try? store.observeTaste(post, context: discovery) }
+            .sheet(isPresented: $filing) { BooruFolderPicker(post: post).environment(\.discoveryContext, discovery) }
             .sheet(isPresented: $readerSettings) { ReaderSettingsView(booru: true) }
             .alert(L10n.text("Go to Page"), isPresented: $showJump) {
                 TextField(L10n.text("Page Number"), text: $jumpText).keyboardType(.numberPad)
@@ -123,6 +121,9 @@ struct BooruPostView: View {
             .onDisappear { UIApplication.shared.isIdleTimerDisabled = previousIdleTimer }
             .onChange(of: loadOriginal) { _, value in original = value; mediaStatus = "loading" }
             .onChange(of: defaultNotes) { _, value in showNotes = value }
+            .onChange(of: post.isVideo, initial: true) { _, video in
+                if video && !videoMenuHintSeen { videoMenuHintSeen = true; toast = L10n.text("Tap with two fingers for the video menu") }
+            }
             .task(id: toast) {
                 guard toast != nil else { return }
                 do { try await Task.sleep(for: .seconds(2)); toast = nil } catch {}
@@ -210,7 +211,7 @@ struct BooruPostView: View {
     }
     private func menuActions(compact: Bool) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: compact ? 4 : 3), spacing: 18) {
-            menuButton(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), icon: store.isFavorite(post) ? "heart.fill" : "heart", id: "favorite", compact: compact) { store.perform { try store.toggleFavorite(post) } }
+            menuButton(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), icon: store.isFavorite(post) ? "heart.fill" : "heart", id: "favorite", compact: compact) { store.perform { try store.toggleFavorite(post, context: discovery) } }
             menuButton(L10n.text("Save to Folder"), icon: "folder", id: "folder", compact: compact) { filing = true }
             menuButton(L10n.text("Translate"), icon: "translate", id: "translate", compact: compact) {
                 menuVisible = false; translation = .init(index: index, rect: viewport)
@@ -240,7 +241,7 @@ struct BooruPostView: View {
             else if tapNavigation { move((x < 0.3 ? -1 : 1) * (rtl ? -1 : 1)) }
         case .swipe(let delta): if !zoomed { move(delta * (rtl ? -1 : 1)) }
         case .hold:
-            store.perform { try store.toggleFavorite(post) }
+            store.perform { try store.toggleFavorite(post, context: discovery) }
             toast = L10n.text(store.isFavorite(post) ? "Saved to Favorites" : "Favorite removed")
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         case .dismiss: if !zoomed { dismiss() }
@@ -343,4 +344,27 @@ struct BooruPostView: View {
         viewport = CGRect(x: 0, y: 0, width: 1, height: 1); translation = nil
         post = posts[next]; original = loadOriginal; mediaStatus = "loading"; zoomed = false; notes = []
     }
+}
+
+/// Two fingers reach the app menu without intercepting a video's native play,
+/// seek, mute, or fullscreen controls. Single taps outside video still work.
+private struct VideoMenuGesture: UIViewRepresentable {
+    var enabled: Bool
+    var action: () -> Void
+    func makeUIView(context: Context) -> VideoMenuGestureView { VideoMenuGestureView() }
+    func updateUIView(_ view: VideoMenuGestureView, context: Context) { view.action = action; view.tap.isEnabled = enabled }
+    static func dismantleUIView(_ view: VideoMenuGestureView, coordinator: ()) { view.tap.view?.removeGestureRecognizer(view.tap) }
+}
+private final class VideoMenuGestureView: UIView, UIGestureRecognizerDelegate {
+    var action: () -> Void = {}
+    lazy var tap: UITapGestureRecognizer = {
+        let value = UITapGestureRecognizer(target: self, action: #selector(openMenu))
+        value.numberOfTouchesRequired = 2; value.cancelsTouchesInView = false; value.delegate = self
+        return value
+    }()
+    override func didMoveToWindow() {
+        super.didMoveToWindow(); tap.view?.removeGestureRecognizer(tap); window?.addGestureRecognizer(tap)
+    }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+    @objc private func openMenu() { action() }
 }

@@ -6,6 +6,7 @@ private enum ReaderSheet: String, Identifiable {
 }
 
 struct NativeReaderView: View {
+    @Environment(\.discoveryContext) private var discovery
     @Environment(AppEnvironment.self) private var env
     let galleryID: Int64
     let initialPage: Int
@@ -96,16 +97,6 @@ struct NativeReaderView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if bottomMenu && !menuVisible && gallery != nil { menuActions(compact: true).padding(.horizontal, 12).padding(.vertical, 8)
                     .modifier(ReaderMenuGlass()).padding(.horizontal, 12).padding(.bottom, 6) }
-        }
-        .overlay(alignment: .topTrailing) {
-            if translationRequest == nil {
-                HStack(spacing: 8) {
-                    Button(action: exit) { Image(systemName: "xmark").frame(width: 44, height: 44).glassCircle() }
-                        .accessibilityLabel(L10n.text("Exit")).accessibilityIdentifier("reader.pointerClose").keyboardShortcut(.cancelAction)
-                    Button { menuVisible.toggle() } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).glassCircle() }
-                        .accessibilityLabel(L10n.text("Quick Menu"))
-                }.foregroundStyle(.white).padding(12)
-            }
         }
         .background(ReaderKeyboardCommands(enabled: sheet == nil && !showJump, action: shortcut))
         .statusBarHidden(true)
@@ -257,7 +248,7 @@ struct NativeReaderView: View {
         currentPage = ReaderLayout.next(currentPage, delta: delta, count: pagesPerSpread, total: gallery.pages.count)
     }
     private func bookmark() {
-        do { toast = try ContentBookmarkAction.toggle(id: galleryID, gallery: gallery, env: env, images: images) }
+        do { toast = try ContentBookmarkAction.toggle(id: galleryID, gallery: gallery, env: env, images: images, context: discovery) }
         catch { toast = L10n.text("Unable to save. Please try again.") }
     }
     private func loadGallery() async {
@@ -271,6 +262,7 @@ struct NativeReaderView: View {
             currentPage = min(max((initialPage > 1 ? initialPage : max(initialPage, saved)) - 1, 0), value.pages.count - 1)
             currentPage = ReaderLayout.start(currentPage, count: pagesPerSpread)
             gallery = value
+            try? env.database.observeTaste(value, context: discovery)
             if !helpHidden { sheet = .help }
             if savesProgress { try? env.database.markOpened(galleryId: galleryID) }
         } catch {

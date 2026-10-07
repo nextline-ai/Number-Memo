@@ -5,14 +5,25 @@ import ImageIO
 actor BooruThumbnailCache {
     static let shared = BooruThumbnailCache()
     private let cache = NSCache<NSString, UIImage>()
+    private var disk: BooruThumbnailDiskCache
+    private var inFlight: [String: Task<UIImage, Error>] = [:]
+    private var generation = UUID()
+    private let loadData: (@Sendable (URL, BooruServer) async throws -> Data)?
     private let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieStorage = nil
         return URLSession(configuration: config, delegate: BooruRedirectPolicy(publicMedia: true), delegateQueue: nil)
     }()
-    func clear() { cache.removeAllObjects() }
-    init() { cache.totalCostLimit = 32 * 1024 * 1024 }
-    private func cacheKey(_ url: URL, _ server: BooruServer) -> NSString { (server.id + ":" + url.absoluteString) as NSString }
+    func clear() {
+        generation = UUID(); inFlight.values.forEach { $0.cancel() }; inFlight = [:]
+        cache.removeAllObjects(); disk.clear()
+    }
+    init(directory: URL = BooruThumbnailDiskCache.defaultDirectory, diskCapacity: Int = 256 * 1024 * 1024,
+         loadData: (@Sendable (URL, BooruServer) async throws -> Data)? = nil) {
+        disk = .init(directory: directory, capacity: diskCapacity); self.loadData = loadData
+        cache.totalCostLimit = 32 * 1024 * 1024
+    }
+    private func cacheKey(_ url: URL, _ server: BooruServer) -> String { server.canonicalAddress + ":" + server.id + ":" + url.absoluteString }
     func translationImage(post: BooruPost, server: BooruServer, rect: CGRect) async throws -> UIImage {
         #if DEBUG
         if BooruUITestSupport.enabled {
@@ -30,17 +41,40 @@ actor BooruThumbnailCache {
         return try ReaderTranslationImage.decode(source: source, rect: rect)
     }
     func image(url: URL, server: BooruServer) async throws -> UIImage {
-        if let image = cache.object(forKey: cacheKey(url, server)) { return image }
-        let (source, file) = try await imageSource(url, server: server)
-        defer { if let file { try? FileManager.default.removeItem(at: file) } }
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
-                  kCGImageSourceThumbnailMaxPixelSize: 600, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary) else { throw BooruError.invalidResponse }
-        let image = UIImage(cgImage: cgImage)
-        cache.setObject(image, forKey: cacheKey(url, server), cost: cgImage.bytesPerRow * cgImage.height)
-        return image
+        let key = cacheKey(url, server)
+        if let image = cache.object(forKey: key as NSString) { return image }
+        if let data = disk.read(key), let image = UIImage(data: data) {
+            cache.setObject(image, forKey: key as NSString, cost: image.cgImage.map { $0.bytesPerRow * $0.height } ?? data.count)
+            return image
+        }
+        disk.remove(key)
+        if let pending = inFlight[key] { return try await pending.value }
+        let captured = generation
+        // A shared load survives cell reuse and feeds both memory and disk caches.
+        let task = Task<UIImage, Error> {
+            let (source, file) = try await imageSource(url, server: server)
+            defer { if let file { try? FileManager.default.removeItem(at: file) } }
+            try Task.checkCancellation()
+            guard captured == generation,
+                  let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
+                      kCGImageSourceThumbnailMaxPixelSize: 600, kCGImageSourceCreateThumbnailWithTransform: true,
+                      kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { throw BooruError.invalidResponse }
+            let image = UIImage(cgImage: cgImage)
+            cache.setObject(image, forKey: key as NSString, cost: cgImage.bytesPerRow * cgImage.height)
+            if let data = image.pngData() { disk.write(data, key: key) }
+            return image
+        }
+        inFlight[key] = task
+        defer { if captured == generation { inFlight[key] = nil } }
+        return try await task.value
     }
 
     private func imageSource(_ url: URL, server: BooruServer) async throws -> (CGImageSource, URL?) {
+        if let loadData {
+            let data = try await loadData(url, server)
+            guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { throw BooruError.invalidResponse }
+            return (source, nil)
+        }
         let request = await BooruBrowserSession.prepare(URLRequest(url: url), server: server)
         do {
             let (file, response) = try await session.download(for: request)

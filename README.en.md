@@ -51,19 +51,19 @@ Saved items, tags, artists, appearance, and viewer settings are separate for eac
 
 Appearance, language, browsing, and media settings are directly accessible in **More**.
 
-Booru favorites are stored in the app and do not automatically sync with your website account. Video, pool, and note support varies by server and device.
+Booru favorites are stored in the app and do not automatically sync with your website account. Previews are prefetched when saving and cached locally up to 256 MB for reuse after relaunch or offline. Use Clear Image Cache in More to remove them. Video, pool, and note support varies by server and device.
 
 ## Library, searches and sync
 
 - Switching modes keeps the corresponding tab, search text, and loaded Explore results. Clear the search and pull down to refresh the default feed.
 - Hold an item inside a folder for its menu, or use **Select** to move or delete multiple items. Hold a folder to change its name, color or order.
-- Tap the **star** next to a search history entry to keep the complete query, including multiple tags, in **Saved Searches**. History keeps the last 3 days by default. Swipe to remove one entry or use the trash button beside the heading to clear history. Saved searches remain.
+- Tap the **star** next to a search history entry to keep the complete query, including multiple tags, in **Saved Searches**. History is kept until you delete it by default. Swipe to remove one entry or use the trash button beside the heading to clear history. Saved searches remain.
 - **iCloud sync is on by default.** Enable iCloud Drive with the same Apple account to merge saved items, folder colors and order, artists, searches, and general settings. Turn it off in either mode's settings; existing data stays intact.
 - Grid layout, playback preferences, cached media, server account keys, and browser cookies stay separate on each device.
 
 ## Viewer and translation
 
-Tap the center to open the menu. Tap the edges or swipe sideways to move between pages or images. Double-tap or pinch to zoom. In the Booru viewer, swipe down at the original zoom level to close. Videos autoplay muted; use the playback controls to turn on sound. Details includes the post ID and a copy button.
+Tap the center to open the menu. Tap the edges or swipe sideways to move between pages or images. Double-tap or pinch to zoom. In the Booru viewer, swipe down at the original zoom level to close. For videos, tap with two fingers to open the quick menu. Videos autoplay muted; use the playback controls to turn on sound. Details includes the post ID and a copy button.
 
 The **Translate** menu uses Apple's text recognition and translation. Translation follows your system language by default; choose a different language in each mode's settings. Custom translation languages require iOS 18 or later. You can also change the app's display language in Settings.
 
@@ -94,3 +94,11 @@ Report problems through the [Discord community](https://discord.gg/vUTGZNMaMB). 
 
 Number Memo is an independent client and is not affiliated with Apple or the supported websites.
 [Privacy Policy](docs/privacy-policy.md) · [App Store review checklist](docs/app-store-review.md)
+
+## AI recommendations and taste statistics
+
+Browse new works in the **AI tab** with infinite scrolling. Existing recommendations stay in place when switching tabs or modes or opening a work; only an explicit refresh replaces the list. Refresh deals unseen candidates first and rotates statistical highlights. Hold a work to save it, and hold again to remove it. These deliberate choices contribute preference evidence while retaining their recommendation origin. **Recommendation evidence** links to the supporting tags and works. Weekly statistics and monthly card-based **Recaps** are at the top of Taste Analysis Settings. New recaps appear in a dismissible banner across tabs. Explicit search-and-save evidence is separated from recurring co-occurring tags. File formats, resolution, and management metadata do not contribute to preferences. Analysis exclusion tags are editable per mode. Defaults are `1girl`, `1boy`, and `solo` for images; `female:solo_female`, `male:solo_male`, `tag:digital`, and `tag:group` for comics.
+
+Analysis is on by default, with separate image and comic profiles. Records are kept until deletion, independently of search-history retention, and merge through iCloud when both sync settings are enabled. You can pause analysis, disable AI explanations or analysis sync, or delete analysis without deleting your library. Offline devices apply changes on their next sync.
+
+AI explanations require iOS 26 or later and an available on-device Apple Intelligence model. Only temporary opaque identifiers and computed statistics reach the model; tags, titles, images, and source URLs do not. AI results are reused, with at least five minutes between generations and one active session at a time. Temperature does not gate generation. Low Power Mode and backgrounding pause generation; statistical recommendations remain available without AI. Recommendation search tags reach your connected websites. iCloud Drive uses your existing protection settings.
