@@ -378,6 +378,15 @@ final class BooruTests: XCTestCase {
         XCTAssertFalse(second.hasMore)
     }
 
+    @MainActor func testNewSearchRetainsPaginationWhenFirstPageMatchesPreviousFeed() async {
+        let loader = BooruFeedLoader(), server = BooruServer.presets[0], source = BooruFixtureSource()
+        await loader.load(server: server, source: source, query: "", reset: true)
+        await loader.load(server: server, source: source, query: "scenery", reset: true)
+        XCTAssertTrue(loader.hasMore)
+        await loader.load(server: server, source: source, query: "scenery", reset: false)
+        XCTAssertEqual(loader.posts.map(\.postID), [101, 102, 103])
+        XCTAssertFalse(loader.hasMore)
+    }
     @MainActor func testStaleSearchCannotReplaceNewerResults() async {
         let source = DelayedBooruSource()
         let loader = BooruFeedLoader()

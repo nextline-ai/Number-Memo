@@ -43,7 +43,7 @@ struct TasteSettingsView: View {
                 Text(L10n.text("When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website."))
                     .font(.footnote).foregroundStyle(.secondary)
                 Text(OnDeviceInsightService.availabilityMessage).font(.footnote).foregroundStyle(.secondary)
-                Text(L10n.text("To reduce heat, AI results are reused and new generations are spaced at least five minutes apart. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available."))
+                Text(L10n.text("AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available."))
                     .font(.footnote).foregroundStyle(.secondary)
             } footer: { Text(L10n.text("Search context and saved works build your profile. Opened works only provide a comparison sample. Technical and management tags are excluded.")) }
             Section {

@@ -2,20 +2,23 @@ import Foundation
 import UIKit
 
 struct InsightGenerationPolicy {
-    static let interval: TimeInterval = 5 * 60
-    var lastStarted: TimeInterval?
+    static let window: TimeInterval = 5 * 60
+    static let limit = 3
+    var starts: [TimeInterval] = []
     var running = false
     mutating func begin(now: TimeInterval, foreground: Bool, lowPower: Bool) -> Bool {
         guard foreground, !lowPower, !running else { return false }
-        if let lastStarted, now - lastStarted < Self.interval { return false }
-        lastStarted = now; running = true
+        starts.removeAll { now - $0 >= Self.window }
+        guard starts.count < Self.limit else { return false }
+        starts.append(now); running = true
         return true
     }
     mutating func finish() { running = false }
 }
 
 /// Shared by reports and candidate ordering: no parallel model sessions or queued
-/// catch-up bursts. The cooldown survives app restarts. Temperature is not a gate.
+/// catch-up bursts. Up to three starts per rolling five minutes, persisted across
+/// launches. Calls within that allowance need no spacing. Temperature is not a gate.
 actor InsightGenerationBudget {
     static let shared = InsightGenerationBudget()
     private var policy: InsightGenerationPolicy
@@ -24,13 +27,14 @@ actor InsightGenerationBudget {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let previous = defaults.object(forKey: "taste.ai.lastStarted") as? Double
-        policy = .init(lastStarted: previous)
+        policy = .init(starts: defaults.array(forKey: "taste.ai.starts") as? [Double] ?? previous.map { [$0] } ?? [])
     }
     func begin() async -> Bool {
         let foreground = await MainActor.run { UIApplication.shared.applicationState == .active }
         let now = Date().timeIntervalSince1970
         guard policy.begin(now: now, foreground: foreground, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled) else { return false }
-        defaults.set(now, forKey: "taste.ai.lastStarted")
+        defaults.set(policy.starts, forKey: "taste.ai.starts")
+        defaults.removeObject(forKey: "taste.ai.lastStarted")
         return true
     }
     func finish() { policy.finish() }

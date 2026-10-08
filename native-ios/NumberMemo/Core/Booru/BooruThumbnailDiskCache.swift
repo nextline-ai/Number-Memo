@@ -7,20 +7,21 @@ struct BooruThumbnailDiskCache {
     private struct Entry { var size: Int; var accessed: Date; var persisted: Date }
     let directory: URL
     let capacity: Int
+    private let fileExtension: String
     private var entries: [String: Entry] = [:]
     private var bytes = 0
     private var indexed = false
     static var defaultDirectory: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("BooruThumbnails", isDirectory: true)
     }
-    init(directory: URL = Self.defaultDirectory, capacity: Int = 256 * 1024 * 1024) {
-        self.directory = directory; self.capacity = max(0, capacity)
+    init(directory: URL = Self.defaultDirectory, capacity: Int = 256 * 1024 * 1024, fileExtension: String = "png") {
+        self.directory = directory; self.capacity = max(0, capacity); self.fileExtension = fileExtension
     }
     private mutating func ensureIndex() {
         guard !indexed else { return }
         indexed = true
         let keys: Set<URLResourceKey> = [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey]
-        for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys))) ?? [] where file.pathExtension == "png" {
+        for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys))) ?? [] where file.pathExtension == fileExtension {
             guard let value = try? file.resourceValues(forKeys: keys), value.isRegularFile == true else { continue }
             let date = value.contentModificationDate ?? .distantPast
             let entry = Entry(size: value.fileSize ?? 0, accessed: date, persisted: date)
@@ -28,7 +29,7 @@ struct BooruThumbnailDiskCache {
         }
         trim()
     }
-    private func name(_ key: String) -> String { SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined() + ".png" }
+    private func name(_ key: String) -> String { SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined() + "." + fileExtension }
     mutating func read(_ key: String, now: Date = Date()) -> Data? {
         ensureIndex()
         let name = name(key), file = directory.appendingPathComponent(name)

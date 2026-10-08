@@ -51,7 +51,7 @@ Saved items, tags, artists, appearance, and viewer settings are separate for eac
 
 Appearance, language, browsing, and media settings are directly accessible in **More**.
 
-Booru favorites are stored in the app and do not automatically sync with your website account. Previews are prefetched when saving and cached locally up to 256 MB for reuse after relaunch or offline. Use Clear Image Cache in More to remove them. Video, pool, and note support varies by server and device.
+Booru favorites are stored in the app and do not automatically sync with your website account. Previews are prefetched when saving and cached locally up to 256 MB for reuse after relaunch or offline. Viewer images use a separate 512 MB cache and preload two images in each direction. Viewers show a loading indicator until the full image is ready and continue into the next Explore or recommendation page. Use Clear Image Cache in More to remove both caches. Video, pool, and note support varies by server and device.
 
 ## Library, searches and sync
 
@@ -101,4 +101,4 @@ Browse new works in the **AI tab** with infinite scrolling. Existing recommendat
 
 Analysis is on by default, with separate image and comic profiles. Records are kept until deletion, independently of search-history retention, and merge through iCloud when both sync settings are enabled. You can pause analysis, disable AI explanations or analysis sync, or delete analysis without deleting your library. Offline devices apply changes on their next sync.
 
-AI explanations require iOS 26 or later and an available on-device Apple Intelligence model. Only temporary opaque identifiers and computed statistics reach the model; tags, titles, images, and source URLs do not. AI results are reused, with at least five minutes between generations and one active session at a time. Temperature does not gate generation. Low Power Mode and backgrounding pause generation; statistical recommendations remain available without AI. Recommendation search tags reach your connected websites. iCloud Drive uses your existing protection settings.
+AI explanations require iOS 26 or later and an available on-device Apple Intelligence model. Only temporary opaque identifiers and computed statistics reach the model; tags, titles, images, and source URLs do not. AI results are reused, with up to three generations per rolling five-minute window and one active session at a time. Temperature does not gate generation. Low Power Mode and backgrounding pause generation; statistical recommendations remain available without AI. Recommendation search tags reach your connected websites. iCloud Drive uses your existing protection settings.

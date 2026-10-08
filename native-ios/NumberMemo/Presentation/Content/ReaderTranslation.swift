@@ -58,6 +58,7 @@ struct ReaderTranslationView: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
             if let image {
                 if #available(iOS 18.0, *), targetLanguage != "system" {
                     TargetedTranslationCanvas(image: image, target: ReaderTranslationLanguage.resolved(targetLanguage), retry: retry,

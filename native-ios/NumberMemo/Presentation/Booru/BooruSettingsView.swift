@@ -179,7 +179,6 @@ struct BooruMoreView: View {
     @State private var validating: BooruServer?
     @State private var cacheCleared = false
     @State private var confirmClearCache = false
-    @SwiftUI.AppStorage("booru.autoLoad", store: ReaderPreferences.booruDefaults) private var autoLoad = false
     @SwiftUI.AppStorage("booru.fitThumbnails", store: ReaderPreferences.booruDefaults) private var fitThumbnails = false
     @SwiftUI.AppStorage("booru.useEmbeddedBrowser", store: ReaderPreferences.booruDefaults) private var useEmbeddedBrowser = false
     var body: some View {
@@ -203,7 +202,6 @@ struct BooruMoreView: View {
             Section {
                 Toggle(L10n.text("Use Embedded Browser"), isOn: $useEmbeddedBrowser).accessibilityIdentifier("booru.browserToggle")
                 Toggle(L10n.text("Fit Entire Thumbnails"), isOn: $fitThumbnails)
-                Toggle(L10n.text("Load Next Page Automatically"), isOn: $autoLoad)
             } header: { Text(L10n.text("Browsing")) } footer: {
                 Text(L10n.text("Use the website if the native viewer stops working. Turn off to return to the native viewer."))
             }
@@ -230,7 +228,7 @@ struct BooruMoreView: View {
             } header: { Text(L10n.text("Data & Storage")) } footer: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L10n.text("Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server."))
-                    Text(L10n.text("Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here."))
+                    Text(L10n.text("Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here."))
                 }
             }
             SettingsSupportSection(showOnboarding: $showOnboarding)
@@ -238,7 +236,7 @@ struct BooruMoreView: View {
         }
         .toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }
         .alert(L10n.text("Clear Image Cache?"), isPresented: $confirmClearCache) {
-            Button(L10n.text("Clear Image Cache"), role: .destructive) { Task { await BooruThumbnailCache.shared.clear(); cacheCleared = true } }
+            Button(L10n.text("Clear Image Cache"), role: .destructive) { Task { await BooruThumbnailCache.shared.clear(); await BooruViewerImageCache.shared.clear(); cacheCleared = true } }
             Button(L10n.text("Cancel"), role: .cancel) {}
         } message: { Text(L10n.text("Saved favorites are kept. Images will be downloaded again when needed.")) }
         .sheet(isPresented: $showReader) { ReaderSettingsView(booru: true) }

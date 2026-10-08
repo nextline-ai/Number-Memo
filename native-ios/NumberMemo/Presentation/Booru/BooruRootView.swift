@@ -125,10 +125,11 @@ final class BooruFeedLoader {
                 guard !Task.isCancelled, token == generation else { group.cancelAll(); return }
                 if let batch {
                     var seen = Set(nextPosts.map(\.id))
-                    nextPosts += batch.posts.filter { seen.insert($0.id).inserted }
+                    let incoming = batch.posts.filter { seen.insert($0.id).inserted }
+                    nextPosts += incoming
                     if sort == .popular && poolID == nil { nextPosts.sort { $0.score == $1.score ? $0.id < $1.id : $0.score > $1.score } }
                     nextPages[id, default: 0] += 1
-                    if !batch.hasMore { nextRemaining.remove(id) }
+                    if !batch.hasMore || batch.posts.isEmpty || !reset && incoming.isEmpty { nextRemaining.remove(id) }
                 } else { nextErrors[id] = error }
             }
         }
@@ -152,6 +153,7 @@ struct BooruFeedView: View {
     @State private var searchText: String
     @State private var query: String
     @State private var suggestions: [BooruTag] = []
+    @State private var suggesting = false
     @State private var suggestionError: String?
     @State private var retry = 0
     @State private var validating: BooruServer?
@@ -164,10 +166,10 @@ struct BooruFeedView: View {
     @SwiftUI.AppStorage("booru.rating", store: ReaderPreferences.booruDefaults) private var rating: BooruRating = .all
     @SwiftUI.AppStorage("booru.useEmbeddedBrowser", store: ReaderPreferences.booruDefaults) private var useEmbeddedBrowser = false
     @State private var selectedPost: BooruPost?
+    @State private var viewerPosition: BooruPost?
     @State private var saveFeedback: WorkSaveFeedback?
     @FocusState private var searchFocused: Bool
     @SwiftUI.AppStorage("booru.rememberHistory", store: ReaderPreferences.booruDefaults) private var rememberHistory = true
-    @SwiftUI.AppStorage("booru.autoLoad", store: ReaderPreferences.booruDefaults) private var autoLoad = false
 
     init(server: BooruServer, source: any BooruProviding, initialQuery: String = "", pool: BooruPool? = nil) {
         self.init(servers: [server], source: source, initialQuery: initialQuery, pool: pool)
@@ -194,7 +196,14 @@ struct BooruFeedView: View {
         }
         .sheet(item: $accountServer) { BooruServerEditor(server: $0) }
         .fullScreenCover(item: $selectedPost) { post in
-            if let server = store.servers.first(where: { $0.id == post.serverID }) { BooruPostView(post: post, posts: visiblePosts, server: server, source: source).environment(\.discoveryContext, discovery) }
+            if let server = store.servers.first(where: { $0.id == post.serverID }) { BooruPostView(post: viewerPosition ?? post, posts: visiblePosts, server: server, source: source, loadMore: {
+                for _ in 0..<3 {
+                    let count = visiblePosts.count
+                    await load(reset: false)
+                    if visiblePosts.count > count || !loader.hasMore { break }
+                }
+                return BooruViewerBatch(posts: visiblePosts, hasMore: loader.hasMore, failure: loader.error)
+            }, positionChanged: { viewerPosition = $0 }).environment(\.discoveryContext, discovery) }
         }
     }
     private var nativeFeed: some View {
@@ -202,7 +211,7 @@ struct BooruFeedView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     if pool == nil { filters }
-                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: true, feedback: { saveFeedback = $0 }) { selectedPost = $0 }.environment(\.discoveryContext, discovery)
+                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: true, feedback: { saveFeedback = $0 }) { viewerPosition = $0; selectedPost = $0 }.environment(\.discoveryContext, discovery)
                     if loader.loading { ProgressView(L10n.text("Loading")).padding(24) }
                     ForEach(servers.filter { loader.errors[$0.id] != nil }) { server in
                         VStack(alignment: .leading, spacing: 12) {
@@ -233,7 +242,7 @@ struct BooruFeedView: View {
                     if loader.hasMore && !loader.loading {
                         Button(L10n.text("Load More")) { Task { await load(reset: false) } }
                             .buttonStyle(.bordered).accessibilityIdentifier("booru.more")
-                            .task(id: autoLoad) { if autoLoad { await load(reset: false) } }
+                            .onAppear { Task { await load(reset: false) } }
                     }
                 }.padding(16).padding(.top, pool == nil ? 56 : 0)
             }
@@ -253,11 +262,9 @@ struct BooruFeedView: View {
             if pool == nil {
                 VStack(spacing: 0) {
                     ScrollSearchBar(text: $searchText, focused: $searchFocused, prompt: L10n.text("Search tags"), identifier: "booru.search") { submit(searchText) }
-                    if searchFocused && (searchText.isEmpty && !searchHistory.isEmpty || !suggestions.isEmpty || suggestionError != nil) {
+                    if searchFocused && (searchText.isEmpty && !searchHistory.isEmpty || !suggestions.isEmpty || suggestionError != nil || suggesting) {
                         searchSuggestions
-                            .frame(maxHeight: searchText.isEmpty ? 260 : min(280, CGFloat(suggestions.count) * 47))
-                            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-                            .padding(.horizontal, 16).shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                            .searchResultsPanel(height: searchText.isEmpty ? 260 : max(60, min(280, CGFloat(suggestions.count) * 47)))
                     }
                 }
                 .offset(y: isSearchBarVisible ? 0 : -60).opacity(isSearchBarVisible ? 1 : 0)
@@ -266,7 +273,6 @@ struct BooruFeedView: View {
         }
         .animation(isSearchBarVisible ? .spring(response: 0.35, dampingFraction: 0.86) : .easeInOut(duration: 0.32), value: isSearchBarVisible)
         .onChange(of: searchFocused) { _, focused in if focused { isSearchBarVisible = true } }
-        .onChange(of: searchText) { _, value in if value.isEmpty { query = "" } }
         .onAppear { if !BooruRating.options(for: servers).contains(rating) { rating = .all } }
         .onChange(of: servers) { _, _ in if !BooruRating.options(for: servers).contains(rating) { rating = .all } }
         .task(id: requestKey) {
@@ -308,22 +314,29 @@ struct BooruFeedView: View {
                     }, remove: { query in store.perform { for server in servers { try store.deleteSearch(query, serverID: server.id) } } }, clear: {
                         store.perform { for server in servers { try store.clearHistory(serverID: server.id) } }
                     })
-                }.listStyle(.plain).frame(height: 260)
+                }.listStyle(.plain).scrollContentBackground(.hidden)
 
             } else {
-                ForEach(suggestions) { tag in
-                    Button {
-                        if let completion = BooruCompletion(searchText) { searchText = completion.inserting(tag.name) }
-                    } label: {
-                        HStack {
-                            Image(systemName: tag.isArtist ? "person" : "number")
-                            Text(tag.name).lineLimit(1)
-                            Spacer()
-                            Text(tag.count.formatted()).font(.caption).foregroundStyle(.secondary)
-                        }.padding(.vertical, 10).contentShape(Rectangle())
-                    }.accessibilityIdentifier("booru.suggestion.\(tag.name)")
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(suggestions) { tag in
+                            Button {
+                                if let completion = BooruCompletion(searchText) { searchText = completion.inserting(tag.name) }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: tag.isArtist ? "person" : "number").foregroundStyle(.secondary)
+                                    Text(tag.name).font(.subheadline).foregroundStyle(.primary).lineLimit(1)
+                                    Spacer(minLength: 4)
+                                    Text(tag.count.formatted()).font(.caption).foregroundStyle(.secondary)
+                                }.frame(minHeight: 46).padding(.horizontal, 12).contentShape(Rectangle())
+                            }.accessibilityIdentifier("booru.suggestion.\(tag.name)")
+                            if tag.id != suggestions.last?.id { Divider() }
+                        }
+                        if suggesting { ProgressView().padding(16).accessibilityLabel(L10n.text("Finding tags")) }
+                        if let suggestionError { Text(suggestionError).font(.caption).foregroundStyle(.secondary).padding(12) }
+                    }
                 }
-                if let suggestionError { Text(suggestionError).font(.caption).foregroundStyle(.secondary) }
+
             }
         }.buttonStyle(.plain)
     }
@@ -344,8 +357,10 @@ struct BooruFeedView: View {
     }
     private func load(reset: Bool) async { await loader.load(servers: servers, source: source, query: query, poolID: pool?.id, sort: sort, rating: rating, reset: reset) }
     private func complete() async {
-        suggestions = []; suggestionError = nil
+        suggestions = []; suggestionError = nil; suggesting = false
         guard searchFocused, let completion = BooruCompletion(searchText) else { return }
+        suggesting = true
+        defer { if !Task.isCancelled { suggesting = false } }
         do {
             try await Task.sleep(for: .milliseconds(300))
             let tasteStore = store.tasteStore

@@ -436,7 +436,7 @@ struct ScrollSearchBar: View {
                 .accessibilityIdentifier(identifier)
             Button {
                 if text.isEmpty { focused.wrappedValue = false } else { text = "" }
-            } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(.secondary) }
+            } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(.secondary).frame(width: 32, height: 40).contentShape(Rectangle()) }
                 .buttonStyle(.plain).opacity((focused.wrappedValue || !text.isEmpty) ? 1 : 0)
                 .accessibilityLabel(L10n.text("Clear Search"))
         }
@@ -488,5 +488,18 @@ private struct WorkMonthJumpView: View {
             .navigationTitle(L10n.text("Jump to Saved Month")).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Close")) { dismiss() } } }
         }.presentationDetents([.medium, .large])
+    }
+}
+
+/// One bounded, scrollable suggestion surface for both search modes.
+extension View {
+    func searchResultsPanel(height: CGFloat) -> some View {
+        frame(height: height)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.06)))
+            .padding(.horizontal, 16)
+            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+            .accessibilityIdentifier("search.suggestions")
     }
 }

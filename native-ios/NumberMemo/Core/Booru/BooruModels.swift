@@ -171,6 +171,11 @@ struct BooruPost: Codable, Identifiable, Hashable, Sendable {
     var isVideo: Bool { ["mp4", "webm", "mov", "m4v"].contains(fileExtension.lowercased()) }
     var isAnimated: Bool { ["gif", "webp", "apng"].contains(fileExtension.lowercased()) || tags.contains("animated") }
     var displayURL: URL? { sampleURL ?? fileURL ?? previewURL }
+    // A preview-only post must resolve its details before entering the viewer.
+    func viewerURL(original: Bool) -> URL? {
+        if isVideo || isAnimated || original { return fileURL ?? sampleURL }
+        return sampleURL ?? fileURL
+    }
 }
 
 struct BooruTag: Identifiable, Hashable, Sendable {

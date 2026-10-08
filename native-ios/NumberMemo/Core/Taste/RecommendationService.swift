@@ -41,7 +41,7 @@ struct RecommendationService {
     }
     @MainActor
     static func load(mode: TasteMode, snapshot: TasteSnapshot, report: TasteReport?, env: AppEnvironment, language: String,
-                     booruSource: any BooruProviding = BooruClient.shared, comicSource: any ContentProviding = HitomiContentSource.shared, useAIOrdering: Bool = true, cursor: RecommendationCursor = .init(), excluding: Set<String> = [], shuffled: Bool = false, seedOffset: Int = 0) async throws -> TasteRecommendations {
+                     booruSource: any BooruProviding = BooruClient.shared, comicSource: any ContentProviding = HitomiContentSource.shared, useAIOrdering: Bool = true, cursor: RecommendationCursor = .init(), excluding: Set<String> = [], shuffled: Bool = false, seedOffset: Int = 0, requestTimeout: TimeInterval = 20) async throws -> TasteRecommendations {
         guard env.taste.control.enabled else { return .init() }
         var output = TasteRecommendations(); output.cursor = cursor
         var activeSeeds = Set<String>()
@@ -62,30 +62,67 @@ struct RecommendationService {
         if mode == .booru {
             let rating = BooruRating(rawValue: ReaderPreferences.booruDefaults.string(forKey: "booru.rating") ?? "all") ?? .all
             let saved = env.booru.favoriteIDs
-            for server in env.booru.selectedServers {
-                let blacklist = BooruBlacklist(env.booru.blacklist(serverID: server.id))
-                for seed in seeds(server.canonicalAddress) {
-                    activeSeeds.insert(seed.id)
-                    guard !cursor.finished.contains(seed.id) else { continue }
-                    let page = cursor.pages[seed.id, default: 0]
-                    try Task.checkCancellation()
-                    guard env.taste.control.enabled else { return .init() }
-                    do {
-                        // One content tag leaves room for the rating constraint on limited accounts.
-                        let batch = try await booruSource.posts(server: server, query: rating.query(seed.name, server: server), page: page)
-                        let fingerprint = batch.posts.map(\.id).joined(separator: ",")
-                        if !batch.hasMore || batch.posts.isEmpty || cursor.fingerprints[seed.id] == fingerprint { output.cursor.finished.insert(seed.id) }
-                        output.cursor.fingerprints[seed.id] = fingerprint
-                        output.cursor.pages[seed.id] = page + 1
-                        for post in batch.posts where !saved.contains(post.id) && !blacklist.contains(post) && ratingAllows(rating, post: post, server: server) {
-                            let item = TasteItem(source: server.canonicalAddress, id: post.postID, tags: post.tags, metadata: post.metadataTags ?? [])
-                            guard item.eligibleTags.contains(seed.name), !excluding.contains(item.key) else { continue }
-                            output.items.append(.init(item: item, post: post, gallery: nil, reason: seed, score: score(item, tags: tags, ignoring: Set(item.eligibleTags.filter { !env.taste.control.allows($0, source: item.source, mode: mode) }.map(TasteControl.normalizeExclusion)))))
-                        }
-                    } catch is CancellationError { throw CancellationError() }
-                    catch { if !output.failures.contains(server.displayName) { output.failures.append(server.displayName) } }
+            // Each server owns its seed selection, cursor, filtering and timeout.
+            // HTML-backed engines fetch fewer seeds because detail requests serialize in WebKit.
+            let control = env.taste.control
+            let servers = env.booru.selectedServers
+            let plans = servers.map { server in
+                let available = seeds(server.canonicalAddress)
+                let htmlSeed = max(0, seedOffset) % 3 == 2 ? available.first(where: \.discovery) ?? available.first : available.first
+                let selected = server.engine.usesGelbooruPages ? htmlSeed.map { [$0] } ?? [] : available
+                return (server, selected, BooruBlacklist(env.booru.blacklist(serverID: server.id)))
+            }
+            await withTaskGroup(of: TasteRecommendations.self) { group in
+                for (server, selected, blacklist) in plans {
+                    let scoped = selected.map { (seed: $0, key: server.id + "|" + server.engine.rawValue + "|" + rating.rawValue + "|" + $0.id) }
+                    activeSeeds.formUnion(scoped.map(\.key))
+                    group.addTask { @MainActor in
+                        var result = TasteRecommendations(); result.cursor = cursor
+                        do {
+                            result = try await RecommendationDeadline.run(seconds: requestTimeout) {
+                                var result = TasteRecommendations(); result.cursor = cursor
+                                for (seed, key) in scoped where !cursor.finished.contains(key) {
+                                    try Task.checkCancellation()
+                                    let page = cursor.pages[key, default: 0]
+                                    let batch = try await booruSource.posts(server: server, query: rating.query(seed.name, server: server), page: page)
+                                    let fingerprint = batch.posts.map(\.id).joined(separator: ",")
+                                    if !batch.hasMore || batch.posts.isEmpty || cursor.fingerprints[key] == fingerprint { result.cursor.finished.insert(key) }
+                                    result.cursor.fingerprints[key] = fingerprint
+                                    result.cursor.pages[key] = page + 1
+                                    var hydrated = 0
+                                    for var post in batch.posts where !saved.contains(post.id) {
+                                        try Task.checkCancellation()
+                                        // Public galleries can omit tags/rating. Validate details before ranking;
+                                        // never relax rating/blacklist or borrow a different server's profile.
+                                        if server.engine.usesGelbooruPages && (!post.tags.contains(seed.name) || rating != .all && post.rating.isEmpty) {
+                                            guard hydrated < 8 else { continue }
+                                            hydrated += 1
+                                            guard let details = try? await booruSource.details(server: server, post: post) else { continue }
+                                            post = details
+                                        }
+                                        guard !blacklist.contains(post), ratingAllows(rating, post: post, server: server) else { continue }
+                                        let item = TasteItem(source: server.canonicalAddress, id: post.postID, tags: post.tags, metadata: post.metadataTags ?? [])
+                                        guard item.eligibleTags.contains(seed.name), !excluding.contains(item.key) else { continue }
+                                        let ignored = Set(item.eligibleTags.filter { !control.allows($0, source: item.source, mode: mode) }.map(TasteControl.normalizeExclusion))
+                                        result.items.append(.init(item: item, post: post, gallery: nil, reason: seed, score: score(item, tags: tags, ignoring: ignored)))
+                                    }
+                                }
+                                return result
+                            }
+                        } catch { result.failures = [server.displayName] }
+                        return result
+                    }
+                }
+                for await result in group {
+                    output.items += result.items
+                    output.failures += result.failures
+                    // Only each task's changed keys are merged; unrelated cursors remain intact.
+                    for (key, page) in result.cursor.pages where page != cursor.pages[key] { output.cursor.pages[key] = page }
+                    for (key, value) in result.cursor.fingerprints where value != cursor.fingerprints[key] { output.cursor.fingerprints[key] = value }
+                    output.cursor.finished.formUnion(result.cursor.finished)
                 }
             }
+
         } else if env.isSiteVerified {
             var fetched = Set<Int64>()
             for seed in seeds("https://hitomi.la") {
@@ -125,5 +162,41 @@ struct RecommendationService {
         let expected: String
         switch rating { case .general: expected = "g"; case .sensitive: expected = "s"; case .questionable: expected = "q"; case .explicit: expected = "e"; case .all: return true }
         return post.rating == expected
+    }
+}
+
+/// A deadline must return even when a WebKit callback ignores task cancellation.
+/// The losing request is cancelled and its late result cannot mutate the feed.
+@MainActor
+private final class RecommendationDeadline<Value: Sendable> {
+    private var continuation: CheckedContinuation<Value, Error>?
+    private var operation: Task<Void, Never>?
+    private var timer: Task<Void, Never>?
+    private var cancelled = false
+    private func resolve(_ result: Result<Value, Error>) {
+        guard let continuation else { return }
+        self.continuation = nil
+        operation?.cancel(); timer?.cancel(); operation = nil; timer = nil
+        continuation.resume(with: result)
+    }
+    static func run(seconds: TimeInterval, operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
+        let deadline = RecommendationDeadline()
+        return try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                deadline.continuation = continuation
+                if deadline.cancelled { deadline.resolve(.failure(CancellationError())); return }
+                deadline.operation = Task {
+                    do { deadline.resolve(.success(try await operation())) }
+                    catch { deadline.resolve(.failure(error)) }
+                }
+                deadline.timer = Task {
+                    do { try await Task.sleep(for: .seconds(seconds)); deadline.resolve(.failure(URLError(.timedOut))) }
+                    catch { }
+                }
+            }
+        } onCancel: {
+            Task { @MainActor in deadline.cancelled = true; deadline.resolve(.failure(CancellationError())) }
+        }
     }
 }

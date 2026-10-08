@@ -66,7 +66,7 @@ struct TasteDashboard: View {
         .onAppear { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) }
         .onChange(of: env.taste.control.enabled) { _, enabled in if enabled { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) } }
         .refreshable { refresh(); await feed.waitForRefresh() }
-        .tasteWorkPresentation($opened) { .recommended($0.reason.name, session: feed.discoverySession) }
+        .tasteWorkPresentation($opened, feed: feed) { .recommended($0.reason.name, session: feed.discoverySession) }
         .navigationDestination(item: $detail) { TasteTagDetail(tag: $0, mode: mode) }
     }
 

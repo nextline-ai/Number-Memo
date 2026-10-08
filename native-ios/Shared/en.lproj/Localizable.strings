@@ -828,7 +828,7 @@
 "Private by design, processed on your device" = "Private by design, processed on your device";
 "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model.";
 "When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website." = "When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website.";
-"To reduce heat, AI results are reused and new generations are spaced at least five minutes apart. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "To reduce heat, AI results are reused and new generations are spaced at least five minutes apart. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available.";
+"AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available.";
 "Turn off taste analysis?" = "Turn off taste analysis?";
 "Turn off on-device AI explanations?" = "Turn off on-device AI explanations?";
 "Keep Enabled" = "Keep Enabled";
@@ -836,7 +836,7 @@
 "New AI explanations will pause. Your statistics and recommendations will continue to work without AI." = "New AI explanations will pause. Your statistics and recommendations will continue to work without AI.";
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "For videos, tap with two fingers to open the quick menu. Playback controls remain available.";
 "Tap with two fingers for the video menu" = "Tap with two fingers for the video menu";
-"Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here.";
+"Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here." = "Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here.";
 "Not favorited" = "Not favorited";
 "Remove Bookmark" = "Remove Bookmark";
 "Thumbnail" = "Thumbnail";

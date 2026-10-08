@@ -1,8 +1,22 @@
 import SwiftUI
 
+struct BooruViewerBatch {
+    let posts: [BooruPost]
+    let hasMore: Bool
+    var failure: String? = nil
+}
+
 struct BooruPostView: View {
     @Environment(\.discoveryContext) private var discovery
-    let posts: [BooruPost]
+    @State private var posts: [BooruPost]
+    var loadMore: (() async -> BooruViewerBatch)?
+    var positionChanged: (BooruPost) -> Void
+    var contextForPost: ((BooruPost) -> DiscoveryContext)?
+    private var activeDiscovery: DiscoveryContext { contextForPost?(post) ?? discovery }
+    @State private var loadingMore = false
+    @State private var pagingTask: Task<Void, Never>?
+    @State private var wantsNext = false
+    @State private var hasMorePages = true
     private let initialServer: BooruServer
     private var server: BooruServer { store.servers.first { $0.id == post.serverID } ?? initialServer }
     let source: any BooruProviding
@@ -42,8 +56,8 @@ struct BooruPostView: View {
     @State private var mediaStatus = "loading"
     @State private var retry = 0
     @State private var refreshedMediaID: String?
-    init(post: BooruPost, posts: [BooruPost], server: BooruServer, source: any BooruProviding) {
-        self.posts = posts; self.initialServer = server; self.source = source; _post = State(initialValue: post)
+    init(post: BooruPost, posts: [BooruPost], server: BooruServer, source: any BooruProviding, loadMore: (() async -> BooruViewerBatch)? = nil, positionChanged: @escaping (BooruPost) -> Void = { _ in }, contextForPost: ((BooruPost) -> DiscoveryContext)? = nil) {
+        _posts = State(initialValue: posts); self.loadMore = loadMore; self.positionChanged = positionChanged; self.contextForPost = contextForPost; self.initialServer = server; self.source = source; _post = State(initialValue: post)
         _original = State(initialValue: ReaderPreferences.booruDefaults.bool(forKey: "booru.original"))
         _showNotes = State(initialValue: ReaderPreferences.booruDefaults.object(forKey: "booru.showNotes") as? Bool ?? true)
     }
@@ -52,9 +66,9 @@ struct BooruPostView: View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
-                if post.displayURL != nil {
-                    BooruMediaView(post: post, server: server, original: original, notes: notes, showNotes: showNotes,
-                                   onNote: { selectedNote = $0 }, onStatus: { mediaStatus = $0 }, onGesture: gesture).ignoresSafeArea().id("\(post.id)-\(post.fileURL?.absoluteString ?? "")-\(retry)")
+                if post.viewerURL(original: original) != nil {
+                    BooruMediaView(post: post, server: server, original: original, active: scenePhase == .active, notes: notes, showNotes: showNotes,
+                                   onNote: { selectedNote = $0 }, onStatus: { mediaStatus = $0 }, onGesture: gesture).ignoresSafeArea().id("\(server.id)-\(retry)")
                     #if DEBUG
                     if BooruUITestSupport.enabled || BooruUITestSupport.liveEnabled {
                         Text("\(post.postID):\(zoomed ? "zoomed" : "fit")").font(.caption2).foregroundStyle(.white).accessibilityIdentifier("booru.viewerState").frame(maxHeight: .infinity, alignment: .bottom).allowsHitTesting(false)
@@ -64,7 +78,7 @@ struct BooruPostView: View {
                             .allowsHitTesting(false)
                     }
                     #endif
-                    if mediaStatus == "loading" { ProgressView().tint(.white).allowsHitTesting(false) }
+                    if mediaStatus == "loading" || loadingMore && wantsNext { ProgressView().tint(.white).allowsHitTesting(false) }
                     if mediaStatus == "error" {
                         ContentUnavailableView {
                             Label(L10n.text("Unable to Load"), systemImage: "photo.badge.exclamationmark")
@@ -73,6 +87,8 @@ struct BooruPostView: View {
                             Link(L10n.text("Open on Website"), destination: server.pageURL(postID: post.postID))
                         }.padding(.bottom, 240).background(.black.opacity(0.8))
                     }
+                } else if server.engine.usesGelbooruPages && mediaStatus != "error" {
+                    ProgressView().tint(.white)
                 } else {
                     ContentUnavailableView(L10n.text("Media Unavailable"), systemImage: "lock", description: Text(L10n.text("The server did not provide a media URL. Check your server account access.")))
                 }
@@ -89,7 +105,7 @@ struct BooruPostView: View {
                     ReaderTranslationView(loadImage: {
                         try await BooruThumbnailCache.shared.translationImage(post: post, server: server, rect: translation.rect)
                     }, booru: true, finished: { self.translation = nil }, failed: { message in self.translation = nil; toast = message })
-                        .id(translation.id).background(.black).transition(.opacity)
+                        .id(translation.id).frame(maxWidth: .infinity, maxHeight: .infinity).background(.black).transition(.opacity)
                 }
             }
             .foregroundStyle(.white).tint(.white).preferredColorScheme(.dark)
@@ -108,8 +124,15 @@ struct BooruPostView: View {
             .persistentSystemOverlays(.hidden)
             .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             .interactiveDismissDisabled()
-            .task(id: post.id) { try? store.observeTaste(post, context: discovery) }
-            .sheet(isPresented: $filing) { BooruFolderPicker(post: post).environment(\.discoveryContext, discovery) }
+            .task(id: post.id) {
+                try? store.observeTaste(post, context: activeDiscovery)
+                positionChanged(post)
+            }
+            .task(id: "\(post.id):\(posts.count):\(loadOriginal)") { await preloadNeighbors() }
+            .onChange(of: post.id, initial: true) { _, _ in
+                if index >= posts.count - 3 { requestMore() }
+            }
+            .sheet(isPresented: $filing) { BooruFolderPicker(post: post).environment(\.discoveryContext, activeDiscovery) }
             .sheet(isPresented: $readerSettings) { ReaderSettingsView(booru: true) }
             .alert(L10n.text("Go to Page"), isPresented: $showJump) {
                 TextField(L10n.text("Page Number"), text: $jumpText).keyboardType(.numberPad)
@@ -118,7 +141,7 @@ struct BooruPostView: View {
             }
             .onAppear { previousIdleTimer = UIApplication.shared.isIdleTimerDisabled; UIApplication.shared.isIdleTimerDisabled = keepAwake }
             .onChange(of: keepAwake) { _, value in UIApplication.shared.isIdleTimerDisabled = value }
-            .onDisappear { UIApplication.shared.isIdleTimerDisabled = previousIdleTimer }
+            .onDisappear { UIApplication.shared.isIdleTimerDisabled = previousIdleTimer; pagingTask?.cancel() }
             .onChange(of: loadOriginal) { _, value in original = value; mediaStatus = "loading" }
             .onChange(of: defaultNotes) { _, value in showNotes = value }
             .onChange(of: post.isVideo, initial: true) { _, video in
@@ -134,7 +157,7 @@ struct BooruPostView: View {
                 do {
                     try await Task.sleep(for: .seconds(min(120, max(2, autoSeconds))))
                     try Task.checkCancellation()
-                    if index < posts.count - 1 { move(1) } else { autoAdvance = false }
+                    if index < posts.count - 1 || loadMore != nil && hasMorePages { move(1) } else { autoAdvance = false }
                 } catch {}
             }
             .task(id: mediaStatus == "error" ? post.id : "") {
@@ -151,13 +174,14 @@ struct BooruPostView: View {
             }
             .task(id: post.id + ":\(retry)") {
                 notes = []; notesError = nil
-                if server.engine.usesGelbooruPages && post.fileURL == nil {
+                if server.engine.usesGelbooruPages && post.viewerURL(original: original) == nil {
                     do {
                         let resolved = try await source.details(server: server, post: post)
                         try Task.checkCancellation()
-                        post = resolved
+                        post = resolved; positionChanged(resolved)
+                        if let i = posts.firstIndex(where: { $0.id == resolved.id }) { posts[i] = resolved }
                         if let folder = store.folderID(for: post) { try store.saveFavorite(post, folderID: folder) }
-                    } catch { if !Task.isCancelled { toast = BooruConnectionMessage.describe(error) } }
+                    } catch { if !Task.isCancelled { mediaStatus = "error"; toast = BooruConnectionMessage.describe(error) } }
                 }
                 do {
                     let result = try await source.notes(server: server, postID: post.postID)
@@ -203,7 +227,7 @@ struct BooruPostView: View {
                 Button { jumpText = String(index + 1); showJump = true } label: { Text("\(index + 1) / \(posts.count)").font(.headline.monospacedDigit()) }.accessibilityIdentifier("booru.position")
                 Spacer()
                 Button { move(1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
-                    .disabled(index >= posts.count - 1).accessibilityLabel(L10n.text("Next")).accessibilityIdentifier("booru.next")
+                    .disabled(index >= posts.count - 1 && (loadMore == nil || !hasMorePages)).accessibilityLabel(L10n.text("Next")).accessibilityIdentifier("booru.next")
                 Button { menuVisible = false } label: { Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44) }
                     .accessibilityLabel(L10n.text("Close Menu")).accessibilityIdentifier("booru.menuClose")
             }
@@ -234,7 +258,7 @@ struct BooruPostView: View {
         Button(action: action) { menuLabel(title, icon: icon, compact: compact) }.accessibilityLabel(title).accessibilityIdentifier("booru." + id)
     }
     private func toggleFavorite() {
-        saveFeedback = .perform { try BooruFavoriteAction.toggle(post, store: store, context: discovery) }
+        saveFeedback = .perform { try BooruFavoriteAction.toggle(post, store: store, context: activeDiscovery) }
     }
     private func closeViewer() {
         guard !exiting else { return }
@@ -347,10 +371,59 @@ struct BooruPostView: View {
     }
     private func move(_ delta: Int) {
         let next = index + delta
-        guard posts.indices.contains(next) else { return }
+        guard posts.indices.contains(next) else {
+            if delta > 0, loadMore != nil, hasMorePages { wantsNext = true; requestMore() }
+            return
+        }
+        wantsNext = false
         viewport = CGRect(x: 0, y: 0, width: 1, height: 1); translation = nil
         post = posts[next]; original = loadOriginal; mediaStatus = "loading"; zoomed = false; notes = []
+        positionChanged(post)
     }
+    private func requestMore() {
+        guard !loadingMore, loadMore != nil, hasMorePages else { return }
+        loadingMore = true
+        pagingTask = Task {
+            await extendFeed()
+            loadingMore = false
+        }
+    }
+    private func extendFeed() async {
+        guard let loadMore else { return }
+        let batch = await loadMore()
+        guard !Task.isCancelled else { return }
+        var seen = Set(posts.map(\.id))
+        posts += batch.posts.filter { seen.insert($0.id).inserted }
+        hasMorePages = batch.hasMore
+        if let failure = batch.failure { toast = failure }
+        if wantsNext {
+            wantsNext = false
+            if index + 1 < posts.count { move(1) }
+        }
+    }
+    private func preloadNeighbors() async {
+        #if DEBUG
+        if BooruUITestSupport.enabled { return }
+        #endif
+        // Preload exactly two each way. Encoded-byte cache deduplicates in-flight/cached loads.
+        for offset in [1, -1, 2, -2] {
+            guard !Task.isCancelled else { return }
+            let next = index + offset
+            guard posts.indices.contains(next) else { continue }
+            var item = posts[next]
+            guard let host = store.servers.first(where: { $0.id == item.serverID }) else { continue }
+            if item.viewerURL(original: loadOriginal) == nil, host.engine.usesGelbooruPages,
+               let resolved = try? await source.details(server: host, post: item) {
+                guard !Task.isCancelled else { return }
+                item = resolved
+                if let i = posts.firstIndex(where: { $0.id == item.id }) { posts[i] = item }
+            }
+            if !item.isVideo, let url = item.viewerURL(original: loadOriginal) {
+                _ = try? await BooruViewerImageCache.shared.data(url: url, server: host)
+            }
+        }
+    }
+
 }
 
 /// Two fingers reach the app menu without intercepting a video's native play,

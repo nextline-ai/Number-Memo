@@ -147,12 +147,21 @@ struct TasteRecommendationCard: View {
 
 struct TasteOpenedWork: View {
     let item: TasteRecommendation
+    var feed: TasteFeedState? = nil
+    @Binding var viewerPosition: BooruPost?
     var context = DiscoveryContext(origin: .recommendation)
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         if let post = item.post, let server = env.booru.servers.first(where: { $0.canonicalAddress == item.item.source }) {
-            BooruPostView(post: post, posts: [post], server: server, source: TasteSources.booru)
+            BooruPostView(post: viewerPosition ?? post, posts: feed?.results.items.compactMap(\.post) ?? [post], server: server, source: TasteSources.booru,
+                loadMore: feed.map { feed in {
+                    await feed.loadMore(mode: .booru, env: env, language: "all")
+                    return BooruViewerBatch(posts: feed.results.items.compactMap(\.post), hasMore: feed.results.cursor.hasMore && feed.results.failures.isEmpty, failure: feed.results.failures.isEmpty ? nil : L10n.text("Unable to Load"))
+                } }, positionChanged: { viewerPosition = $0 }, contextForPost: { post in
+                    guard let feed, let recommendation = feed.results.items.first(where: { $0.post?.id == post.id }) else { return context }
+                    return .recommended(recommendation.reason.name, session: feed.discoverySession)
+                })
                 .environment(env.booru).environment(\.discoveryContext, context)
         } else if item.item.source == "https://hitomi.la" {
             ContentEntryView(initialUrl: HitomiUrls.galleryUrl(for: item.item.id))
@@ -169,6 +178,8 @@ struct TasteOpenedWork: View {
 
 private struct TasteWorkPresentation: ViewModifier {
     @Binding var item: TasteRecommendation?
+    @State private var viewerPosition: BooruPost?
+    var feed: TasteFeedState?
     var context: (TasteRecommendation) -> DiscoveryContext
     private func selection(comics: Bool) -> Binding<TasteRecommendation?> {
         Binding(get: {
@@ -180,18 +191,19 @@ private struct TasteWorkPresentation: ViewModifier {
     }
     func body(content: Content) -> some View {
         content
+            .onChange(of: item?.id) { _, _ in viewerPosition = nil }
             .sheet(item: selection(comics: true)) { item in
-                TasteOpenedWork(item: item, context: context(item))
+                TasteOpenedWork(item: item, feed: feed, viewerPosition: $viewerPosition, context: context(item))
                     .presentationDetents([.large]).presentationDragIndicator(.visible)
             }
             .fullScreenCover(item: selection(comics: false)) { item in
-                TasteOpenedWork(item: item, context: context(item))
+                TasteOpenedWork(item: item, feed: feed, viewerPosition: $viewerPosition, context: context(item))
             }
     }
 }
 extension View {
-    func tasteWorkPresentation(_ item: Binding<TasteRecommendation?>,
+    func tasteWorkPresentation(_ item: Binding<TasteRecommendation?>, feed: TasteFeedState? = nil,
                                context: @escaping (TasteRecommendation) -> DiscoveryContext = { _ in .init(origin: .recommendation) }) -> some View {
-        modifier(TasteWorkPresentation(item: item, context: context))
+        modifier(TasteWorkPresentation(item: item, feed: feed, context: context))
     }
 }

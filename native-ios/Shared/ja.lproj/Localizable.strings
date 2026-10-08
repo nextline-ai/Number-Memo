@@ -828,7 +828,7 @@
 "Private by design, processed on your device" = "プライバシーを守り、デバイス内で処理";
 "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AIはこのデバイス内で動作します。一時的なIDと統計のみを使い、元のタグ・検索語・画像・タイトルは渡しません。クラウドAIにリクエストを送信しません。";
 "When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website." = "iCloud同期にはiCloud Driveの暗号化が適用されます。おすすめ作品の検索時は、選んだタグを接続先のコンテンツサイトに送信します。";
-"To reduce heat, AI results are reused and new generations are spaced at least five minutes apart. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AIの結果を再利用し、新しい生成は5分以上の間隔を空けて処理を抑えます。低電力モードやバックグラウンドではAI生成を休止します。統計によるおすすめは引き続き利用できます。";
+"AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AIの結果を再利用し、直近5分間で最大3回生成します。回数内なら生成の間に待つ必要はありません。低電力モードやバックグラウンドではAI生成を休止します。統計によるおすすめは引き続き利用できます。";
 "Turn off taste analysis?" = "好みの分析をオフにしますか？";
 "Turn off on-device AI explanations?" = "オンデバイスAIの解説をオフにしますか？";
 "Keep Enabled" = "有効のままにする";
@@ -836,7 +836,7 @@
 "New AI explanations will pause. Your statistics and recommendations will continue to work without AI." = "新しいAIの解説の生成を停止します。統計とおすすめはAIなしで引き続き利用できます。";
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "動画では2本指でタップするとクイックメニューが開きます。再生コントロールも引き続き使えます。";
 "Tap with two fingers for the video menu" = "2本指でタップして動画メニューを開く";
-"Previews are cached on this device for faster loading, up to 256 MB. They stay out of iCloud and can be cleared here." = "プレビューをすばやく表示するため、このデバイスに最大256MBまでキャッシュします。iCloudには送信せず、ここで削除できます。";
+"Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here." = "プレビューは最大256MB、ビューア画像は最大512MBを端末にキャッシュします。前後2枚の画像を先読みします。キャッシュはiCloudに保存されず、ここで削除できます。";
 "Not favorited" = "お気に入り未登録";
 "Remove Bookmark" = "ブックマークを解除";
 "Thumbnail" = "サムネイル";

@@ -68,6 +68,35 @@ final class BooruThumbnailCacheTests: XCTestCase {
         XCTAssertEqual(image.size.width, 600)
         let calls = await loader.calls; XCTAssertEqual(calls, 1)
     }
+    @MainActor func testViewerCachesFullPixelsAndDeduplicatesAcrossRelaunch() async throws {
+        let root = directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let bytes = preview(), loader = ThumbnailLoader(data: preview())
+        let url = URL(string: "https://example.test/full.png")!, server = BooruServer.presets[0]
+        let cache = BooruViewerImageCache(directory: root, loadData: { url, _ in try await loader.load(url) })
+        async let before = cache.data(url: url, server: server)
+        async let current = cache.data(url: url, server: server)
+        let values = try await [before, current]
+        XCTAssertEqual(values[0], bytes); XCTAssertEqual(values[1], bytes)
+        XCTAssertEqual(UIImage(data: values[0])?.size, UIImage(data: bytes)?.size)
+        let calls = await loader.calls; XCTAssertEqual(calls, 1)
+        await loader.goOffline()
+        let relaunched = BooruViewerImageCache(directory: root, loadData: { url, _ in try await loader.load(url) })
+        let restored = try await relaunched.data(url: url, server: server)
+        XCTAssertEqual(restored, bytes)
+        await relaunched.clear()
+        do { _ = try await relaunched.data(url: url, server: server); XCTFail("Clear removes original bytes too") } catch { }
+    }
+    func testViewerNeverUsesPreviewAsFullMedia() {
+        let server = BooruServer.presets[0]
+        var post = BooruFixtureSource.post(1, server: server)
+        post.fileURL = nil; post.sampleURL = nil
+        XCTAssertNotNil(post.displayURL)
+        XCTAssertNil(post.viewerURL(original: false))
+        post.fileURL = URL(string: "https://example.test/animated.gif")
+        post.sampleURL = URL(string: "https://example.test/still.jpg")
+        post.fileExtension = "gif"
+        XCTAssertEqual(post.viewerURL(original: false), post.fileURL)
+    }
     @MainActor func testClearDuringDownloadCannotResurrectPreview() async throws {
         let root = directory(); defer { try? FileManager.default.removeItem(at: root) }
         let loader = ThumbnailLoader(data: preview(), delay: .seconds(1))

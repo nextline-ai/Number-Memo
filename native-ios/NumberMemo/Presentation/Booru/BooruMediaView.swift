@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import ImageIO
+import UniformTypeIdentifiers
 
 actor BooruThumbnailCache {
     static let shared = BooruThumbnailCache()
@@ -35,9 +36,9 @@ actor BooruThumbnailCache {
             }
         }
         #endif
-        guard let url = post.fileURL ?? post.displayURL else { throw BooruError.invalidResponse }
-        let (source, file) = try await imageSource(url, server: server)
-        defer { if let file { try? FileManager.default.removeItem(at: file) } }
+        guard let url = post.viewerURL(original: true) else { throw BooruError.invalidResponse }
+        let data = try await BooruViewerImageCache.shared.data(url: url, server: server)
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { throw BooruError.invalidResponse }
         return try ReaderTranslationImage.decode(source: source, rect: rect)
     }
     func image(url: URL, server: BooruServer) async throws -> UIImage {
@@ -149,6 +150,7 @@ struct BooruMediaView: UIViewRepresentable {
     let post: BooruPost
     let server: BooruServer
     let original: Bool
+    var active = true
     let notes: [BooruNote]
     let showNotes: Bool
     let onNote: (BooruNote) -> Void
@@ -178,19 +180,27 @@ struct BooruMediaView: UIViewRepresentable {
         coordinator.onNote = onNote; coordinator.onStatus = onStatus; coordinator.notes = notes
         coordinator.showNotes = showNotes
         coordinator.onGesture = onGesture
-        let url = post.isVideo || post.isAnimated || original ? post.fileURL ?? post.displayURL : post.displayURL
+        let url = post.viewerURL(original: original)
         let key = post.id + ":" + (url?.absoluteString ?? "")
         if coordinator.key != key {
             coordinator.key = key
             coordinator.ready = false
             coordinator.width = max(post.width, 1); coordinator.height = max(post.height, 1)
             var displayURL = url
-            if server.isGelbooruWebsite, !post.isVideo, let url, url.scheme == "https" {
+            if !post.isVideo, let url, url.scheme == "https" {
                 coordinator.resources.source = url; coordinator.resources.server = server
                 displayURL = URL(string: "numbermemo-image://media/" + UUID().uuidString)
             }
-            view.loadHTMLString(Self.document(post: post, url: displayURL), baseURL: server.baseURL)
+            coordinator.documentID = UUID().uuidString
+            view.scrollView.setZoomScale(view.scrollView.minimumZoomScale, animated: false)
+            coordinator.document = Self.document(post: post, url: displayURL, identifier: coordinator.documentID)
+            coordinator.baseURL = server.baseURL
+            view.loadHTMLString(coordinator.document, baseURL: server.baseURL)
         } else { coordinator.updateNotes(view) }
+        if coordinator.active != active {
+            coordinator.active = active
+            view.evaluateJavaScript(active ? "window.resumePlayback?.()" : "window.pausePlayback?.()", completionHandler: nil)
+        }
     }
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
         view.stopLoading()
@@ -203,7 +213,7 @@ struct BooruMediaView: UIViewRepresentable {
         text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "\"", with: "&quot;")
             .replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
     }
-    static func document(post: BooruPost, url: URL?) -> String {
+    static func document(post: BooruPost, url: URL?, identifier: String = "") -> String {
         var source = url?.absoluteString ?? ""
         #if DEBUG
         if BooruUITestSupport.enabled {
@@ -223,13 +233,13 @@ struct BooruMediaView: UIViewRepresentable {
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data: numbermemo-image:; media-src https: blob: data:; style-src 'unsafe-inline'; script-src 'nonce-\(nonce)'; base-uri 'none'; form-action 'none'">
         <meta name="referrer" content="origin"><style>
         html,body{margin:0;width:100%;height:100%;background:#000;color:white;-webkit-touch-callout:none;-webkit-user-select:none}body{display:flex;align-items:center;justify-content:center}
-        #canvas{position:relative;flex:none}#media{display:block;width:100%;height:100%;object-fit:contain}
+        #canvas{position:relative;flex:none}#media{display:block;width:100%;height:100%;object-fit:contain;visibility:hidden}
         #notes{position:absolute;inset:0;pointer-events:none}.note{position:absolute;box-sizing:border-box;border:2px solid #ffd45a;background:#ffd45a30;color:white;pointer-events:auto;padding:0;min-width:18px;min-height:18px;text-align:left}
         .note span{background:#202020dd;padding:2px 5px;font:12px -apple-system;border-radius:4px}
         </style></head><body><div id="canvas">\(media)<div id="notes"></div></div>
         <script nonce="\(nonce)">
         const media=document.getElementById('media');
-        const send=value=>window.webkit.messageHandlers.media.postMessage(value);
+        const send=value=>window.webkit.messageHandlers.media.postMessage({...value,documentID:'\(identifier)'});
         const fit=()=>{const w=media.naturalWidth||media.videoWidth||\(max(post.width, 1));const h=media.naturalHeight||media.videoHeight||\(max(post.height, 1));
           const scale=Math.min(innerWidth/w,innerHeight/h);const canvas=document.getElementById('canvas');canvas.style.width=(w*scale)+'px';canvas.style.height=(h*scale)+'px';};
         let retries=0;
@@ -239,18 +249,36 @@ struct BooruMediaView: UIViewRepresentable {
           setTimeout(()=>{const url=media.getAttribute('src');media.removeAttribute('src');media.setAttribute('src',url);
             if(media.tagName==='VIDEO')media.load();},retries*500);
         });
-        media.addEventListener('load',()=>{fit();send({status:'ready'});});
-        media.addEventListener('loadedmetadata',()=>{fit();send({status:'ready'});});
+        media.addEventListener('load',()=>{fit();media.style.visibility='visible';send({status:'ready'});});
+        media.addEventListener('loadedmetadata',()=>{fit();});
+        media.addEventListener('loadeddata',()=>{fit();media.style.visibility='visible';send({status:'ready'});});
         media.addEventListener('playing',()=>send({status:'playing'}));
         media.addEventListener('ended',()=>send({status:'ended'}));
-        if(media.tagName==='VIDEO')send({status:'waiting'});
+        let playTimer=null,playAttempts=0;
+        const play=()=>{
+          if(media.tagName!=='VIDEO'||document.hidden)return;
+          clearTimeout(playTimer);
+          media.muted=true;media.playsInline=true;
+          const result=media.play();
+          result?.catch(()=>{if(++playAttempts<5)playTimer=setTimeout(play,400*playAttempts);});
+        };
+        window.resumePlayback=()=>{playAttempts=0;play();};
+        window.pausePlayback=()=>{clearTimeout(playTimer);if(media.tagName==='VIDEO')media.pause();};
+        if(media.tagName==='VIDEO') {
+          send({status:'loading'});
+          media.addEventListener('canplay',play);
+          media.addEventListener('loadeddata',play);
+          window.addEventListener('pageshow',window.resumePlayback);
+          document.addEventListener('visibilitychange',()=>document.hidden?window.pausePlayback():window.resumePlayback());
+          play();
+        }
         window.addEventListener('resize',fit);fit();
         let start=null,holdTimer=null,tapTimer=null,lastTap=0,held=false,lastTouchAt=0;
         const zoom=()=>window.visualViewport?.scale||1;
         const viewport=()=>{const r=media.getBoundingClientRect(),v=window.visualViewport;
           if(!r.width||!r.height)return;
           const left=v?.offsetLeft||0,top=v?.offsetTop||0,right=left+(v?.width||innerWidth),bottom=top+(v?.height||innerHeight);
-          const x=Math.max(0,(left-r.left)/r.width),y=Math.max(0,(top-r.top)/r.height);
+          const x=Math.max(0,Math.min(1,(left-r.left)/r.width)),y=Math.max(0,Math.min(1,(top-r.top)/r.height));
           send({viewport:{x:x,y:y,w:Math.max(0,Math.min(1,(right-r.left)/r.width)-x),h:Math.max(0,Math.min(1,(bottom-r.top)/r.height)-y)}});
         };
         media.addEventListener('load',viewport);
@@ -322,6 +350,10 @@ struct BooruMediaView: UIViewRepresentable {
         let resources = BooruImageResourceHandler()
         var key = ""
         var ready = false
+        var active = true
+        var documentID = ""
+        var document = ""
+        var baseURL: URL?
         var width = 1
         var height = 1
         var notes: [BooruNote] = []
@@ -339,7 +371,7 @@ struct BooruMediaView: UIViewRepresentable {
             view.evaluateJavaScript("window.renderNotes(\(json), \(showNotes ? "true" : "false"));", completionHandler: nil)
         }
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.frameInfo.isMainFrame, let value = message.body as? [String: Any] else { return }
+            guard message.frameInfo.isMainFrame, let value = message.body as? [String: Any], value["documentID"] as? String == documentID else { return }
             if let index = value["note"] as? Int, notes.indices.contains(index) { onNote?(notes[index]) }
             if let status = value["status"] as? String { onStatus?(status) }
             if let rect = value["viewport"] as? [String: Double], let x = rect["x"], let y = rect["y"], let w = rect["w"], let h = rect["h"], w > 0, h > 0 {
@@ -368,7 +400,10 @@ struct BooruMediaView: UIViewRepresentable {
         }
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { ready = true; updateNotes(webView) }
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onStatus?("error") }
-        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { onStatus?("error") }
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            ready = false; onStatus?("loading")
+            webView.loadHTMLString(document, baseURL: baseURL)
+        }
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             decisionHandler(action.navigationType == .linkActivated ? .cancel : .allow)
         }
@@ -383,17 +418,9 @@ final class BooruImageResourceHandler: NSObject, WKURLSchemeHandler {
     var source: URL?
     var server: BooruServer?
     private var pending: [ObjectIdentifier: Task<Void, Never>] = [:]
-    private let session: URLSession = {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.httpCookieStorage = nil
-        configuration.timeoutIntervalForRequest = 25
-        configuration.timeoutIntervalForResource = 60
-        return URLSession(configuration: configuration, delegate: BooruRedirectPolicy(publicMedia: true), delegateQueue: nil)
-    }()
     func cancel() {
         for task in pending.values { task.cancel() }
         pending.removeAll()
-        session.invalidateAndCancel()
     }
     func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
         let id = ObjectIdentifier(urlSchemeTask)
@@ -403,24 +430,12 @@ final class BooruImageResourceHandler: NSObject, WKURLSchemeHandler {
         pending[id] = Task {
             defer { pending[id] = nil }
             do {
-                let request = await BooruBrowserSession.prepare(URLRequest(url: source), server: server)
-                let (file, response) = try await session.download(for: request)
-                defer { try? FileManager.default.removeItem(at: file) }
+                let data = try await BooruViewerImageCache.shared.data(url: source, server: server)
                 try Task.checkCancellation()
-                guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-                      let mime = response.mimeType, mime.hasPrefix("image/"),
-                      let image = CGImageSourceCreateWithURL(file as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
-                      CGImageSourceGetCount(image) > 0 else { throw BooruError.invalidResponse }
-                let size = (try file.resourceValues(forKeys: [.fileSizeKey])).fileSize ?? 0
-                guard size <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
-                let handle = try FileHandle(forReadingFrom: file)
-                defer { try? handle.close() }
-                urlSchemeTask.didReceive(URLResponse(url: localURL, mimeType: mime, expectedContentLength: size, textEncodingName: nil))
-                while let chunk = try handle.read(upToCount: 64 * 1024), !chunk.isEmpty {
-                    try Task.checkCancellation()
-                    urlSchemeTask.didReceive(chunk)
-                    await Task.yield()
-                }
+                guard let image = CGImageSourceCreateWithData(data as CFData, nil),
+                      let type = CGImageSourceGetType(image), let mime = UTType(type as String)?.preferredMIMEType else { throw BooruError.invalidResponse }
+                urlSchemeTask.didReceive(URLResponse(url: localURL, mimeType: mime, expectedContentLength: data.count, textEncodingName: nil))
+                urlSchemeTask.didReceive(data)
                 try Task.checkCancellation()
                 urlSchemeTask.didFinish()
             } catch {
@@ -430,5 +445,69 @@ final class BooruImageResourceHandler: NSObject, WKURLSchemeHandler {
     }
     func webView(_ webView: WKWebView, stop urlSchemeTask: any WKURLSchemeTask) {
         pending.removeValue(forKey: ObjectIdentifier(urlSchemeTask))?.cancel()
+    }
+}
+
+/// Original encoded image bytes, separate from the small grid-thumbnail cache.
+/// Shared downloads survive swipes; bounded LRU disk storage survives app launches.
+actor BooruViewerImageCache {
+    static let shared = BooruViewerImageCache()
+    private var disk: BooruThumbnailDiskCache
+    private var generation = UUID()
+    private var inFlight: [String: Task<Data, Error>] = [:]
+    private let loadData: (@Sendable (URL, BooruServer) async throws -> Data)?
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpCookieStorage = nil
+        config.timeoutIntervalForRequest = 25
+        config.timeoutIntervalForResource = 60
+        return URLSession(configuration: config, delegate: BooruRedirectPolicy(publicMedia: true), delegateQueue: nil)
+    }()
+    init(directory: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("BooruViewerImages"),
+         capacity: Int = 512 * 1024 * 1024, loadData: (@Sendable (URL, BooruServer) async throws -> Data)? = nil) {
+        disk = .init(directory: directory, capacity: capacity, fileExtension: "media")
+        self.loadData = loadData
+    }
+    func clear() {
+        generation = UUID()
+        inFlight.values.forEach { $0.cancel() }; inFlight = [:]; disk.clear()
+    }
+    func data(url: URL, server: BooruServer) async throws -> Data {
+        let key = server.canonicalAddress + ":" + server.id + ":" + url.absoluteString
+        if let data = disk.read(key), let image = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(image) > 0 { return data }
+        disk.remove(key)
+        if let pending = inFlight[key] { return try await pending.value }
+        let captured = generation
+        let task = Task<Data, Error> {
+            let data: Data
+            if let loadData { data = try await loadData(url, server) }
+            else {
+                let request = await BooruBrowserSession.prepare(URLRequest(url: url), server: server)
+                do {
+                    let (file, response) = try await session.download(for: request)
+                    defer { try? FileManager.default.removeItem(at: file) }
+                    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                          (try file.resourceValues(forKeys: [.fileSizeKey])).fileSize ?? 0 <= 128 * 1024 * 1024 else { throw BooruError.invalidResponse }
+                    let downloaded = try Data(contentsOf: file, options: .mappedIfSafe)
+                    guard let image = CGImageSourceCreateWithData(downloaded as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+                          CGImageSourceGetCount(image) > 0 else { throw BooruError.invalidResponse }
+                    data = downloaded
+                } catch {
+                    try Task.checkCancellation()
+                    guard await BooruWebTransport.hasSession(for: server) else { throw error }
+                    data = try await BooruWebTransport.imageData(url: url, server: server)
+                }
+            }
+            guard data.count <= 128 * 1024 * 1024,
+                  let image = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+                  CGImageSourceGetCount(image) > 0 else { throw BooruError.invalidResponse }
+            try Task.checkCancellation()
+            guard generation == captured else { throw CancellationError() }
+            disk.write(data, key: key)
+            return data
+        }
+        inFlight[key] = task
+        defer { if generation == captured { inFlight[key] = nil } }
+        return try await task.value
     }
 }

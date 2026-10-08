@@ -235,6 +235,7 @@ private struct GalleryFeedView: View {
                 else if loader.ids.isEmpty { ContentUnavailableView.search(text: query.text) }
                 else if loader.hasMore {
                     Button(L10n.text("Load More")) { loader.load(effectiveQuery, reset: false) }.frame(maxWidth: .infinity).accessibilityIdentifier("content.more")
+                        .onAppear { loader.load(effectiveQuery, reset: false) }
                 }
             }.padding(16).padding(.top, 56)
         }
@@ -263,7 +264,7 @@ private struct GalleryFeedView: View {
                             }
                         }
                     }
-                }.listStyle(.plain).frame(height: 260).clipShape(RoundedRectangle(cornerRadius: 16)).padding(.horizontal, 16)
+                }.listStyle(.plain).scrollContentBackground(.hidden).searchResultsPanel(height: 260)
             } else if isSearchFocused, !suggestions.isEmpty {
                 ScrollView {
                     VStack(spacing: 0) {
@@ -283,11 +284,9 @@ private struct GalleryFeedView: View {
                             if item.id != suggestions.last?.id { Divider() }
                         }
                     }
-                }.frame(height: min(280, CGFloat(suggestions.count) * 47))
-                    .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 16).shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                }.searchResultsPanel(height: min(280, CGFloat(suggestions.count) * 47))
             } else if isSearchFocused && suggesting {
-                ProgressView().padding(8).background(.regularMaterial, in: Capsule())
+                ProgressView().frame(maxWidth: .infinity).searchResultsPanel(height: 60)
                     .accessibilityLabel(L10n.text("Finding tags"))
             }
         }
@@ -321,7 +320,6 @@ private struct GalleryFeedView: View {
             LiquidGlassTitleCapsule(artist ?? (query.text.isEmpty ? L10n.text("Explore") : L10n.text("Search Results")))
         } }
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: searchText) { _, value in if value.isEmpty { query.text = "" } }
         .task {
             do {
                 let observation = ValueObservation.tracking { db in
@@ -502,6 +500,7 @@ final class GalleryFeedLoader {
     init(source: any ContentProviding) { self.source = source }
 
     @discardableResult func load(_ query: GalleryQuery, reset: Bool) -> Task<Void, Never> {
+        if !reset, loading, currentQuery == query, let task { return task }
         task?.cancel()
         let changedQuery = currentQuery != query
         if changedQuery { ids = []; nextOffset = 0; hasMore = false }
@@ -523,7 +522,7 @@ final class GalleryFeedLoader {
                 let incoming = batch.ids.filter { seen.insert($0).inserted }
                 self.ids = (reset ? [] : self.ids) + incoming
                 self.nextOffset = offset + batch.ids.count
-                self.hasMore = batch.hasMore
+                self.hasMore = batch.hasMore && !batch.ids.isEmpty && (reset || !incoming.isEmpty)
             } catch {
                 if !Task.isCancelled, let self, self.generation == token { self.error = ContentError.message(error) }
             }

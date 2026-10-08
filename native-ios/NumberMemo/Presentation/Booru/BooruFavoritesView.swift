@@ -106,6 +106,7 @@ struct BooruFolderContentsView: View {
     @Environment(BooruStore.self) private var store
     @State private var query = ""
     @State private var selectedPost: BooruPost?
+    @State private var viewerPosition: BooruPost?
     @State private var saveFeedback: WorkSaveFeedback?
     @State private var selecting = false
     @State private var selection = Set<String>()
@@ -123,7 +124,7 @@ struct BooruFolderContentsView: View {
                 Group {
                     if posts.isEmpty {
                         ContentUnavailableView(L10n.text("No Favorites"), systemImage: "heart", description: Text(L10n.text("Hold an image to save it, or choose Save to Folder from its menu."))).padding(.top, 48)
-                    } else { BooruPostGrid(posts: posts, selection: selecting ? $selection : nil, feedback: { saveFeedback = $0 }) { selectedPost = $0 }.padding(16) }
+                    } else { BooruPostGrid(posts: posts, selection: selecting ? $selection : nil, feedback: { saveFeedback = $0 }) { viewerPosition = $0; selectedPost = $0 }.padding(16) }
                 }.padding(.top, 56)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -173,7 +174,7 @@ struct BooruFolderContentsView: View {
             }.presentationDetents([.medium, .large])
         }
         .fullScreenCover(item: $selectedPost) { post in
-            if let server = store.servers.first(where: { $0.id == post.serverID }) { BooruPostView(post: post, posts: posts, server: server, source: source) }
+            if let server = store.servers.first(where: { $0.id == post.serverID }) { BooruPostView(post: viewerPosition ?? post, posts: posts, server: server, source: source, positionChanged: { viewerPosition = $0 }) }
         }
         }
     }
