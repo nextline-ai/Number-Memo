@@ -1,16 +1,9 @@
 import XCTest
 import GRDB
+import UIKit
 @testable import NumberMemo
 
 final class TasteTests: XCTestCase {
-    func testOnDeviceInsightGenerationWhenAvailable() async throws {
-        guard OnDeviceInsightService.canGenerate else { throw XCTSkip("The on-device model is unavailable on this device.") }
-        let snapshot = TasteAnalyzer.analyze((1...8).map { event(Int64($0), session: "sample-\($0)") }, control: .init())
-        let report = await OnDeviceInsightService.report(snapshot: snapshot, control: .init(), language: "en")
-        XCTAssertTrue(report.isValid(for: snapshot))
-        let result = XCTAttachment(string: report.generatedByAI ? "On-device generation succeeded with validated anonymous references." : "On-device generation used the validated statistical fallback.")
-        result.name = "On-device insight result"; result.lifetime = .keepAlways; add(result)
-    }
     func testSearchRetentionDefaultsToForeverAndPreservesExplicitChoice() throws {
         let suite = "taste-retention-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -98,17 +91,6 @@ final class TasteTests: XCTestCase {
         var b = event(2); b.item.source = "https://other.test"
         XCTAssertEqual(TasteAnalyzer.analyze([event(1), b], control: .init()).tags.filter { $0.name == "blue_hair" }.count, 2)
     }
-    func testPromptBoundaryContainsOnlyOpaqueTokensAndMetrics() throws {
-        let snapshot = TasteAnalyzer.analyze([event(1)], control: .init())
-        let boundary = TastePromptBoundary(snapshot: snapshot)
-        let text = String(decoding: try JSONEncoder().encode(boundary.input), as: UTF8.self)
-        for forbidden in ["blue_hair", "green_eyes", "example.test", "https", "s1"] { XCTAssertFalse(text.contains(forbidden)) }
-        XCTAssertNil(boundary.validate([("invented", "frequent")]))
-        let token = boundary.input.candidates[0].token
-        XCTAssertNil(boundary.validate([(token, "discovery")]))
-        XCTAssertNil(boundary.validate([(token, "frequent"), (token, "frequent")]))
-        XCTAssertNotNil(boundary.validate([(token, "frequent")]))
-    }
     func testDigestIsStableAcrossEncodingAndEventOrder() throws {
         let events = [event(1, tags: ["green_eyes", "blue_hair"], query: "blue_hair another_tag"), event(2)]
         let decoded = try JSONDecoder().decode([TasteEvent].self, from: JSONEncoder().encode(events))
@@ -187,10 +169,10 @@ final class TasteTests: XCTestCase {
         original.author = "a"
         var reset = original; reset.timestamp = 100; reset.epoch = UUID().uuidString; reset.resetTimestamp = 100; reset.resetAuthor = "a"
         reset.enabled = false; reset.enabledTimestamp = 100; reset.enabledAuthor = "a"; reset.generation = "paused"
-        var stale = original; stale.timestamp = 200; stale.author = "b"; stale.aiEnabled = false
+        var stale = original; stale.timestamp = 200; stale.author = "b"; stale.cloudEnabled = false
         let merged = reset.merged(with: stale)
         XCTAssertEqual(merged.epoch, reset.epoch); XCTAssertFalse(merged.enabled); XCTAssertEqual(merged.generation, "paused")
-        XCTAssertFalse(merged.aiEnabled)
+        XCTAssertFalse(merged.cloudEnabled)
         XCTAssertEqual(merged, stale.merged(with: reset))
     }
     func testServerMetadataClassificationAlsoExcludesSearchAndLegacyEvidence() {
@@ -247,7 +229,7 @@ final class TasteTests: XCTestCase {
 
     func testCachedReportRejectsUnsupportedEvidence() {
         let snapshot = TasteAnalyzer.analyze([event(1)], control: .init())
-        var report = TasteReport(epoch: "initial", digest: snapshot.digest, language: "en", insights: [.init(tagKey: snapshot.tags[0].id, pattern: .frequent)], generatedByAI: true)
+        var report = TasteReport(epoch: "initial", digest: snapshot.digest, language: "en", insights: [.init(tagKey: snapshot.tags[0].id, pattern: .frequent)])
         XCTAssertTrue(report.isValid(for: snapshot))
         report.insights[0].pattern = .discovery
         XCTAssertFalse(report.isValid(for: snapshot))
@@ -285,15 +267,37 @@ final class TasteTests: XCTestCase {
         XCTAssertTrue(TasteAnalyzer.analyze(events, control: .init()).tags.isEmpty)
     }
 
-    func testRecommendationPromptOmitsContentAndRejectsUnknownSelections() throws {
-        let candidate = TasteRecommendation(item: event(1).item, post: nil, gallery: nil, reason: .init(source: source, name: "blue_hair", general: 3), score: 2)
-        let boundary = RecommendationPromptBoundary([candidate])
-        let encoded = String(decoding: try JSONEncoder().encode(boundary.input), as: UTF8.self)
-        XCTAssertFalse(encoded.contains("blue_hair"))
-        XCTAssertFalse(encoded.contains(source))
-        XCTAssertEqual(boundary.validate(["C1"])?.map(\.id), [candidate.id])
-        XCTAssertNil(boundary.validate(["C2"]))
-        XCTAssertNil(boundary.validate(["C1", "C1"]))
-    }
 
+}
+
+
+extension TasteTests {
+    @MainActor func testVisionFingerprintsPersistCompareAndExcludeDeletedWorks() async throws {
+        let db = try AppDatabase.inMemory()
+        for id: Int64 in [1,2,3] { _ = try db.upsertWork(galleryId: id) }
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 128, height: 128))
+        let data = try XCTUnwrap(renderer.image { context in
+            UIColor.white.setFill(); context.fill(CGRect(x: 0, y: 0, width: 128, height: 128))
+            UIColor.blue.setFill(); context.fill(CGRect(x: 20, y: 20, width: 60, height: 90))
+        }.pngData())
+        let other = try XCTUnwrap(renderer.image { context in
+            UIColor.black.setFill(); context.fill(CGRect(x: 0, y: 0, width: 128, height: 128))
+            UIColor.red.setFill(); context.cgContext.fillEllipse(in: CGRect(x: 50, y: 50, width: 60, height: 60))
+        }.pngData())
+        let store = VisualFingerprintStore(database: db.dbWriter)
+        let first = try await store.save(data: data, scope: "comics", id: 1)
+        let cached = try await store.save(data: data, scope: "comics", id: 1)
+        XCTAssertEqual(first, cached)
+        _ = try await store.save(data: data, scope: "comics", id: 2)
+        _ = try await store.save(data: other, scope: "comics", id: 3)
+        var candidates = try store.all(scope: "comics"); candidates.removeValue(forKey: 1)
+        let ranked = try await VisualFingerprintEngine.shared.rank(seed: first, candidates: candidates)
+        XCTAssertEqual(ranked.first?.0, 2); XCTAssertEqual(ranked.first?.1 ?? 1, 0, accuracy: 0.0001)
+        XCTAssertGreaterThan(ranked.last?.1 ?? 0, 0)
+        try db.deleteWork(galleryId: 2)
+        XCTAssertNil(try store.all(scope: "comics")[2])
+        // An extraction finishing after removal cannot restore deleted evidence.
+        _ = try await store.save(data: other, scope: "comics", id: 2)
+        XCTAssertNil(try store.all(scope: "comics")[2])
+    }
 }

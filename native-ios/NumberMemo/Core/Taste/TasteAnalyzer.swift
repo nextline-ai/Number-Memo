@@ -3,7 +3,7 @@ import GRDB
 
 /// Pure, deterministic statistics. No language model sees tags or computes numbers.
 enum TasteAnalyzer {
-    static let version = 5
+    static let version = 6
     static func analyze(_ input: [TasteEvent], control: TasteControl, period: DateInterval? = nil, previous: DateInterval? = nil, savedKeys: Set<String>? = nil, mode: TasteMode = .booru) -> TasteSnapshot {
         let events = Dictionary(input.filter { $0.epoch == control.epoch }.map { ($0.id, $0) }, uniquingKeysWith: { a, b in TasteEvent.ordered(a, b) ? b : a }).values.sorted(by: TasteEvent.ordered)
         var metadataBySource: [String: Set<String>] = [:]
@@ -104,7 +104,7 @@ enum TasteAnalyzer {
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let digestData = (try? encoder.encode(events)) ?? Data()
-        let controlData = (try? encoder.encode(control.excluded.sorted() + control.analysisExcluded(mode).sorted())) ?? Data()
+        let controlData = Data(control.analysisKey(mode).utf8)
         let signature = Data("\(version):\(TasteTagPolicy.version):\(control.timeZone):\(period?.start.timeIntervalSince1970 ?? -1):\(period?.end.timeIntervalSince1970 ?? -1):\(previous?.start.timeIntervalSince1970 ?? -1):\(previous?.end.timeIntervalSince1970 ?? -1)".utf8) + ((try? encoder.encode(evidence.keys.sorted())) ?? Data())
         return .init(tags: tags.values.filter { $0.count > 0 || $0.searches > 0 }.sorted { $0.weight == $1.weight ? $0.id < $1.id : $0.weight > $1.weight }, saves: chosen.count, opens: observed.count, searches: searchCount, activity: activity, digest: tasteDigest(digestData + controlData + signature), period: period, previousSaves: previous == nil ? nil : previousWorks.count, previousTagCounts: previousTags.mapValues(\.count))
     }

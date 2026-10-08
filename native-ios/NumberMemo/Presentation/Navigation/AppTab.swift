@@ -15,7 +15,7 @@ public enum AppTab: String, CaseIterable, Identifiable, Hashable, Sendable {
         case .works: return L10n.text("Explore")
         case .artists: return L10n.text("Artists")
         case .settings: return L10n.text("Settings")
-        case .insights: return "AI"
+        case .insights: return L10n.text("Smart")
         }
     }
 

@@ -12,6 +12,7 @@ public struct AppRootTabView: View {
         RetainedModeContainer(mode: env.mode,
             hitomi: AnyView(hitomiTabs.environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()),
             booru: AnyView(BooruRootView(selectedTab: $selectedTab).environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .clearTopScrollEdge()
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -128,6 +129,10 @@ private struct RetainedModeContainer: UIViewControllerRepresentable {
     let hitomi: AnyView
     let booru: AnyView
     func makeUIViewController(context: Context) -> RetainedModeController { RetainedModeController() }
+    func sizeThatFits(_ proposal: ProposedViewSize, uiViewController: RetainedModeController, context: Context) -> CGSize? {
+        guard let width = proposal.width, let height = proposal.height else { return nil }
+        return CGSize(width: width, height: height)
+    }
     func updateUIViewController(_ controller: RetainedModeController, context: Context) {
         controller.update(mode: mode, hitomi: hitomi, booru: booru)
     }
@@ -139,26 +144,36 @@ private final class RetainedModeController: UIViewController {
     override var childForStatusBarHidden: UIViewController? { hosts[selected] }
     override var childForStatusBarStyle: UIViewController? { hosts[selected] }
     func update(mode: AppMode, hitomi: AnyView, booru: AnyView) {
+        let changed = selected != mode && hosts[selected] != nil
         selected = mode
         if hosts[mode] == nil {
             let host = UIHostingController(rootView: mode == .hitomi ? hitomi : booru)
-            addChild(host); view.addSubview(host.view); host.didMove(toParent: self)
+            addChild(host)
+            host.view.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(host.view)
+            NSLayoutConstraint.activate([
+                host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                host.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                host.view.topAnchor.constraint(equalTo: view.topAnchor),
+                host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            ])
+            host.didMove(toParent: self)
             hosts[mode] = host
+        }
+        if changed && !UIAccessibility.isReduceMotionEnabled {
+            UIView.transition(with: view, duration: 0.2, options: [.transitionCrossDissolve, .allowUserInteraction, .beginFromCurrentState]) {
+                for (key, host) in self.hosts { host.view.isHidden = key != mode }
+            }
         }
         for (key, host) in hosts {
             host.view.isHidden = key != mode
             host.view.accessibilityElementsHidden = key != mode
-            host.view.frame = view.bounds
         }
         setNeedsStatusBarAppearanceUpdate()
     }
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        for host in hosts.values { host.view.frame = view.bounds }
-    }
 }
 
-/// Both libraries share the same destinations, including a persistent AI workspace.
+/// Both libraries share the same destinations, including a persistent recommendation workspace.
 struct AppTabLayout<Saved: View, Explore: View, Collections: View, Settings: View>: View {
     @Binding var selection: AppTab
     @Environment(AppEnvironment.self) private var env
@@ -199,7 +214,7 @@ struct AppTabLayout<Saved: View, Explore: View, Collections: View, Settings: Vie
                     Tab(L10n.text("Explore"), systemImage: "globe", value: .works) { explore }
                     Tab(collectionsTitle, systemImage: collectionsIcon, value: .artists) { collections }
                     Tab(settingsTitle, systemImage: settingsIcon, value: .settings) { settings }
-                    Tab("AI", systemImage: "apple.intelligence", value: .insights, role: insightsRole) { insights }
+                    Tab(L10n.text("Smart"), systemImage: "apple.intelligence", value: .insights, role: insightsRole) { insights }
                 }
             } else {
                 TabView(selection: $selection) {
@@ -207,7 +222,7 @@ struct AppTabLayout<Saved: View, Explore: View, Collections: View, Settings: Vie
                     explore.tabItem { Label(L10n.text("Explore"), systemImage: "globe") }.tag(AppTab.works)
                     collections.tabItem { Label(collectionsTitle, systemImage: collectionsIcon) }.tag(AppTab.artists)
                     settings.tabItem { Label(settingsTitle, systemImage: settingsIcon) }.tag(AppTab.settings)
-                    insights.tabItem { Label("AI", systemImage: "apple.intelligence") }.tag(AppTab.insights)
+                    insights.tabItem { Label(L10n.text("Smart"), systemImage: "apple.intelligence") }.tag(AppTab.insights)
                 }
             }
         }.adaptableTabStyleIfAvailable()

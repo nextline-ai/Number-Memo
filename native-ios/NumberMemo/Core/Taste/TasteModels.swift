@@ -90,6 +90,19 @@ struct TasteEvent: Codable, Hashable, Sendable {
     static func ordered(_ a: Self, _ b: Self) -> Bool { a.at == b.at ? a.id < b.id : a.at < b.at }
 }
 
+enum RecommendationSort: String, Codable, CaseIterable, Identifiable, Sendable {
+    case recommended, latest, today, week, month, year
+    var id: String { rawValue }
+    var title: String { self == .recommended ? L10n.text("Recommended") : GallerySort(rawValue: rawValue)?.title ?? L10n.text("Popular") }
+    static func options(_ mode: TasteMode) -> [Self] { mode == .comics ? allCases : [.recommended, .latest, .week] }
+    func title(_ mode: TasteMode) -> String { mode == .booru && self == .week ? L10n.text("Popular") : title }
+}
+struct RecommendationPreferences: Codable, Equatable, Sendable {
+    var includedTags: [String] = []
+    var language = "all"
+    var sort = RecommendationSort.recommended
+}
+
 struct TasteControl: Codable, Equatable, Sendable {
     var version = 1
     var timestamp: Double = 0
@@ -101,12 +114,50 @@ struct TasteControl: Codable, Equatable, Sendable {
     var enabledAuthor = ""
     var resetTimestamp: Double = 0
     var resetAuthor = ""
-    var aiEnabled = true
     var cloudEnabled = true
     var timeZone = TimeZone.current.identifier
     var excluded: Set<String> = []
     // Optional for backward-compatible decoding of existing local and iCloud controls.
     var analysisExclusions: [String: [String]]?
+    var sourceAnalysisExclusions: [String: [String]]?
+    var recommendationPreferences: [String: RecommendationPreferences]?
+    func preferences(source: String) -> RecommendationPreferences { recommendationPreferences?[source] ?? .init() }
+    mutating func setPreferences(_ value: RecommendationPreferences, source: String) {
+        if recommendationPreferences == nil { recommendationPreferences = [:] }
+        recommendationPreferences?[source] = value
+    }
+    func analysisExcluded(_ mode: TasteMode, source: String) -> Set<String> {
+        if let saved = sourceAnalysisExclusions?[source] { return Set(saved.map { Self.normalizeAnalysisExclusion($0, mode: mode) }) }
+        return analysisExcluded(mode)
+    }
+    mutating func setAnalysisExcluded(_ tags: Set<String>, mode: TasteMode, source: String) {
+        if sourceAnalysisExclusions == nil { sourceAnalysisExclusions = [:] }
+        sourceAnalysisExclusions?[source] = Set(tags.map { Self.normalizeAnalysisExclusion($0, mode: mode) }).sorted()
+    }
+    // Wire-only retirement flags keep older app versions able to decode controls.
+    // No model, generation preference, or runtime AI behavior remains.
+    private enum RetiredKeys: String, CodingKey { case aiEnabled }
+    func encode(to encoder: Encoder) throws {
+        var legacy = encoder.container(keyedBy: RetiredKeys.self)
+        try legacy.encode(false, forKey: .aiEnabled)
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(version, forKey: .version)
+        try values.encode(timestamp, forKey: .timestamp)
+        try values.encode(author, forKey: .author)
+        try values.encode(epoch, forKey: .epoch)
+        try values.encode(generation, forKey: .generation)
+        try values.encode(enabled, forKey: .enabled)
+        try values.encode(enabledTimestamp, forKey: .enabledTimestamp)
+        try values.encode(enabledAuthor, forKey: .enabledAuthor)
+        try values.encode(resetTimestamp, forKey: .resetTimestamp)
+        try values.encode(resetAuthor, forKey: .resetAuthor)
+        try values.encode(cloudEnabled, forKey: .cloudEnabled)
+        try values.encode(timeZone, forKey: .timeZone)
+        try values.encode(excluded.sorted(), forKey: .excluded)
+        try values.encodeIfPresent(analysisExclusions, forKey: .analysisExclusions)
+        try values.encodeIfPresent(sourceAnalysisExclusions, forKey: .sourceAnalysisExclusions)
+        try values.encodeIfPresent(recommendationPreferences, forKey: .recommendationPreferences)
+    }
     func analysisExcluded(_ mode: TasteMode) -> Set<String> {
         if let saved = analysisExclusions?[mode.rawValue] { return Set(saved.map { Self.normalizeAnalysisExclusion($0, mode: mode) }) }
         return mode == .comics ? ["female:sole_female", "male:sole_male", "tag:digital", "tag:group"] : ["1girl", "1boy", "solo"]
@@ -145,14 +196,15 @@ struct TasteControl: Codable, Equatable, Sendable {
                   ["female", "male", "tag"].contains(String(blocked[..<colon])) else { return false }
             return normalized == String(blocked[blocked.index(after: colon)...])
         }
-        return !analysisExcluded(mode).contains(where: matches) && !excluded.contains(where: { key in
+        return !analysisExcluded(mode, source: source).contains(where: matches) && !excluded.contains(where: { key in
             let parts = key.components(separatedBy: "\n")
             return parts.count == 2 && parts[0] == source && matches(parts[1])
         })
     }
     func analysisKey(_ mode: TasteMode) -> String {
-        let values = [epoch, timeZone, String(aiEnabled), String(enabled)] + analysisExcluded(mode).sorted() + excluded.sorted()
-        return tasteDigest((try? JSONEncoder().encode(values)) ?? Data())
+        let values = [epoch, timeZone, String(enabled)] + analysisExcluded(mode).sorted() + excluded.sorted()
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return tasteDigest(((try? encoder.encode(values)) ?? Data()) + ((try? encoder.encode(sourceAnalysisExclusions)) ?? Data()))
     }
     func newer(than other: Self) -> Bool { timestamp == other.timestamp ? author > other.author : timestamp > other.timestamp }
     func merged(with other: Self) -> Self {

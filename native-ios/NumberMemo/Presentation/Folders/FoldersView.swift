@@ -79,7 +79,7 @@ public struct FoldersView: View {
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 16) {
+                AppToolbarActions {
                     Button {
                         showCreateAlert = true
                     } label: {
@@ -96,7 +96,6 @@ public struct FoldersView: View {
                             .font(.system(size: 18, weight: .medium))
                     }
                 }
-                .padding(.horizontal, 8)
             }
         }
         .background {

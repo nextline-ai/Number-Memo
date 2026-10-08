@@ -174,8 +174,6 @@ struct BooruMoreView: View {
     @Environment(BooruStore.self) private var store
     @State private var showOnboarding = false
     @State private var showReader = false
-    @State private var settingsServerID = ""
-    private var settingsServer: BooruServer? { store.servers.first { $0.id == settingsServerID } ?? store.selectedServer }
     @State private var validating: BooruServer?
     @State private var cacheCleared = false
     @State private var confirmClearCache = false
@@ -205,11 +203,8 @@ struct BooruMoreView: View {
             } header: { Text(L10n.text("Browsing")) } footer: {
                 Text(L10n.text("Use the website if the native viewer stops working. Turn off to return to the native viewer."))
             }
-            if let server = settingsServer {
-                Section(L10n.text("Connection & Filters")) {
-                    Picker(L10n.text("Server"), selection: Binding(get: { server.id }, set: { settingsServerID = $0 })) {
-                        ForEach(store.servers) { Text($0.displayName).tag($0.id) }
-                    }
+            ForEach(store.selectedServers) { server in
+                Section(L10n.text("Connection & Filters") + " · " + server.displayName) {
                     NavigationLink { BooruBlacklistView(server: server) } label: { Label(L10n.text("Tag Blacklist"), systemImage: "eye.slash") }.accessibilityIdentifier("booru.blacklist")
                     Button(L10n.text("Validate Client"), systemImage: "checkmark.shield") { validating = server }.accessibilityIdentifier("booru.validate")
                     NavigationLink { BooruCookiesView(server: server) } label: { Label(L10n.text("Cookies"), systemImage: "network.badge.shield.half.filled") }.accessibilityIdentifier("booru.cookies")

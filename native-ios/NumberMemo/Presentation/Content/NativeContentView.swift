@@ -212,16 +212,20 @@ private struct GalleryFeedView: View {
         ScrollView {
             VStack(spacing: 16) {
                 HStack {
+                BrowseFilterMenu(title: L10n.text(query.language.capitalized), icon: "globe") {
                 Picker(L10n.text("Language"), selection: $query.language) {
                     Text(L10n.text("Korean")).tag("korean")
                     Text(L10n.text("Japanese")).tag("japanese")
                     Text(L10n.text("English")).tag("english")
                     Text(L10n.text("All")).tag("all")
-                }.pickerStyle(.menu).accessibilityIdentifier("content.language")
+                }
+                }.accessibilityIdentifier("content.language")
                 Spacer()
+                BrowseFilterMenu(title: query.sort.title, icon: "arrow.up.arrow.down") {
                 Picker(L10n.text("Sort"), selection: $query.sort) {
                     ForEach(GallerySort.allCases) { Text($0.title).tag($0) }
-                }.pickerStyle(.menu).accessibilityIdentifier("content.sort")
+                }
+                }.accessibilityIdentifier("content.sort")
                 }
                 LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 16) {
                     ForEach(loader.ids, id: \.self) { id in

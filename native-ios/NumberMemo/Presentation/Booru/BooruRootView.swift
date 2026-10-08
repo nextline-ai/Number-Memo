@@ -22,7 +22,10 @@ struct BooruRootView: View {
                 Group {
                     if store.servers.isEmpty { BooruSetupView() }
                     else {
-                        BooruFeedView(servers: store.selectedServers, source: source)
+                        Group {
+                            if store.selectedServers.isEmpty { BooruNoSelectionView() }
+                            else { BooruFeedView(servers: store.selectedServers, source: source) }
+                        }
                             .toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }
                     }
                 }.appRootHeader("Explore")
@@ -74,12 +77,12 @@ struct BooruServerMenu: View {
             ForEach(store.servers) { server in
                 Button { store.perform { try store.toggleServer(server) } } label: {
                     Label(server.displayName, systemImage: store.selectedServerIDs.contains(server.id) ? "checkmark.circle.fill" : "globe")
-                }.disabled(store.selectedServerIDs == [server.id])
+                }
             }
         } label: {
             Image(systemName: "server.rack").font(.system(size: 17, weight: .medium))
-                .frame(width: compact ? nil : 32, height: compact ? nil : 32)
-        }.menuActionDismissBehavior(.disabled).accessibilityLabel(L10n.text("Servers") + ": " + store.selectedServers.map(\.displayName).joined(separator: ", ")).accessibilityIdentifier("booru.server")
+                .frame(width: compact ? nil : 36, height: compact ? nil : 44)
+        }.menuActionDismissBehavior(.disabled).accessibilityLabel(L10n.text("Servers") + ": " + (store.selectedServerIDs.isEmpty ? L10n.text("None") : store.selectedServers.map(\.displayName).joined(separator: ", "))).accessibilityIdentifier("booru.server")
     }
 }
 
@@ -88,6 +91,7 @@ final class BooruFeedLoader {
     private(set) var posts: [BooruPost] = []
     private(set) var loading = false
     private(set) var didLoad = false
+    private(set) var unsupportedSort = false
     private(set) var errors: [String: String] = [:]
     var error: String? { errors.values.first }
     var hasMore: Bool { remaining.contains { errors[$0] == nil } }
@@ -103,6 +107,7 @@ final class BooruFeedLoader {
         if !reset && (loading || !hasMore) { return }
         if reset { generation = UUID() }
         let token = generation
+        unsupportedSort = false
         var nextPages = reset ? [:] : pages
         var nextPosts = reset ? [] : posts
         var nextErrors = reset ? [:] : errors
@@ -116,13 +121,15 @@ final class BooruFeedLoader {
                     do {
                         let batch: BooruBatch
                         if let poolID { batch = try await source.poolPosts(server: server, poolID: poolID, page: page) }
-                        else { batch = try await source.posts(server: server, query: sort.query(rating.query(query, server: server), engine: server.engine), page: page) }
+                        else { batch = try await BooruSortValidation.posts(source: source, server: server, query: rating.query(query, server: server), page: page, sort: sort) }
                         return (server.id, batch, nil)
-                    } catch { return (server.id, nil, BooruConnectionMessage.describe(error)) }
+                    } catch is UnsupportedBooruSort { return (server.id, nil, "unsupported-sort") }
+                    catch { return (server.id, nil, BooruConnectionMessage.describe(error)) }
                 }
             }
             for await (id, batch, error) in group {
                 guard !Task.isCancelled, token == generation else { group.cancelAll(); return }
+                if error == "unsupported-sort" { unsupportedSort = true; continue }
                 if let batch {
                     var seen = Set(nextPosts.map(\.id))
                     let incoming = batch.posts.filter { seen.insert($0.id).inserted }
@@ -135,6 +142,7 @@ final class BooruFeedLoader {
         }
         // A cancelled refresh must never replace a populated feed with an empty one.
         guard !Task.isCancelled, token == generation else { return }
+        guard !unsupportedSort else { return }
         posts = nextPosts; pages = nextPages; errors = nextErrors; remaining = nextRemaining
         didLoad = true
     }
@@ -160,6 +168,8 @@ struct BooruFeedView: View {
     @State private var accountServer: BooruServer?
     @State private var browserServerID: String?
     @State private var sort: BooruSort = .latest
+    @State private var acceptedSort: BooruSort = .latest
+    @State private var sortMessage: String?
     @State private var isSearchBarVisible = true
     @State private var searchScroll = ScrollSearchVisibility()
     @State private var loadedRequest: String?
@@ -279,29 +289,24 @@ struct BooruFeedView: View {
             guard loadedRequest != requestKey else { return }
             let key = requestKey
             await load(reset: true)
-            if !Task.isCancelled { loadedRequest = key }
+            if !Task.isCancelled && !loader.unsupportedSort { loadedRequest = key }
         }
         .onReceive(NotificationCenter.default.publisher(for: .booruClientValidated)) { if let id = $0.object as? String, servers.contains(where: { $0.id == id }) { retry += 1 } }
+        .transientMessage($sortMessage)
         .task(id: "\(searchFocused):\(searchText)") { await complete() }
     }
     private var requestKey: String { query + "|\(sort.rawValue)|\(rating.rawValue)|\(retry)|" + servers.map { $0.id + $0.canonicalAddress }.joined(separator: ",") }
     private var filters: some View {
         HStack {
-            Menu {
-                Picker(L10n.text("Sort"), selection: $sort) {
-                    ForEach(BooruSort.allCases) { Text($0.title).tag($0) }
-                }
-            } label: { Label(sort.title, systemImage: "arrow.up.arrow.down").font(.subheadline.weight(.medium)) }
-                .accessibilityIdentifier("booru.sort")
-            Spacer()
             if BooruRating.options(for: servers).count > 1 {
-                Menu {
-                    Picker(L10n.text("Rating"), selection: $rating) {
-                        ForEach(BooruRating.options(for: servers)) { Text($0.title).tag($0) }
-                    }
-                } label: { Label(rating.title, systemImage: "line.3.horizontal.decrease").font(.subheadline.weight(.medium)) }
-                    .accessibilityLabel(L10n.text("Rating") + ": " + rating.title).accessibilityIdentifier("booru.rating")
+                BrowseFilterMenu(title: rating.title, icon: "line.3.horizontal.decrease") {
+                    Picker(L10n.text("Rating"), selection: $rating) { ForEach(BooruRating.options(for: servers)) { Text($0.title).tag($0) } }
+                }.accessibilityIdentifier("booru.rating")
             }
+            Spacer()
+            BrowseFilterMenu(title: sort.title, icon: "arrow.up.arrow.down") {
+                Picker(L10n.text("Sort"), selection: $sort) { ForEach(BooruSort.allCases) { Text($0.title).tag($0) } }
+            }.accessibilityIdentifier("booru.sort")
         }
     }
     @ViewBuilder private var searchSuggestions: some View {
@@ -355,7 +360,16 @@ struct BooruFeedView: View {
         } }
         if query == value { retry += 1 } else { query = value }
     }
-    private func load(reset: Bool) async { await loader.load(servers: servers, source: source, query: query, poolID: pool?.id, sort: sort, rating: rating, reset: reset) }
+    private func load(reset: Bool) async {
+        let requested = sort
+        await loader.load(servers: servers, source: source, query: query, poolID: pool?.id, sort: requested, rating: rating, reset: reset)
+        guard !Task.isCancelled, sort == requested else { return }
+        if loader.unsupportedSort {
+            sort = acceptedSort
+            loadedRequest = requestKey
+            sortMessage = L10n.text("This server does not support that sort. Your previous sort has been restored.")
+        } else if loader.errors.isEmpty { acceptedSort = requested }
+    }
     private func complete() async {
         suggestions = []; suggestionError = nil; suggesting = false
         guard searchFocused, let completion = BooruCompletion(searchText) else { return }
@@ -393,6 +407,7 @@ struct BooruPostGrid: View {
     @Environment(BooruStore.self) private var store
     @Environment(AppEnvironment.self) private var env
     @State private var filing: BooruPost?
+    @State private var similarity: VisualSimilaritySeed?
     var body: some View {
         let favorites = store.favoriteIDs
         return LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 12) {
@@ -422,6 +437,7 @@ struct BooruPostGrid: View {
                             Button { open(post) } label: { thumbnail(post, server: server, isFavorite: favorites.contains(post.id)) }
                                 .buttonStyle(.plain)
                                 .contextMenu {
+                                    if store.isFavorite(post) { Button(L10n.text("Find works with a similar art style"), systemImage: "photo.on.rectangle.angled") { similarity = .init(post: post) } }
                                     Button(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), systemImage: "heart") { save(post) }
                                     Button(L10n.text("Save to Folder"), systemImage: "folder") { filing = post }
                                     ShareLink(item: server.pageURL(postID: post.postID))
@@ -435,7 +451,8 @@ struct BooruPostGrid: View {
                     .accessibilityValue(selection.map { $0.wrappedValue.contains(post.id) ? L10n.text("Selected") : "" } ?? (showsFavoriteIndicator ? WorkSaveResult.accessibilityValue(saved: favorites.contains(post.id), mode: .booru) : ""))
                 }
             }
-        }.sheet(item: $filing) { BooruFolderPicker(post: $0).environment(\.discoveryContext, discovery) }
+        }.sheet(item: $similarity) { VisualSimilarityView(seed: $0) }
+        .sheet(item: $filing) { BooruFolderPicker(post: $0).environment(\.discoveryContext, discovery) }
     }
 
     private func thumbnail(_ post: BooruPost, server: BooruServer, isFavorite: Bool) -> some View {
@@ -472,5 +489,13 @@ struct BooruPostThumbnailCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             // Cropping pixels does not crop SwiftUI hit testing.
             .contentShape(Rectangle())
+    }
+}
+
+struct BooruNoSelectionView: View {
+    var body: some View {
+        ContentUnavailableView(L10n.text("No servers selected"), systemImage: "server.rack",
+            description: Text(L10n.text("Choose servers using the server button above. Your saved works are kept.")))
+            .accessibilityIdentifier("booru.noSelection")
     }
 }

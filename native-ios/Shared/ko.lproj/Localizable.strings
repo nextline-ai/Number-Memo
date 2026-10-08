@@ -642,7 +642,6 @@
 "Selected" = "선택됨";
 
 /* Local taste analysis */
-"AI Recommendations" = "AI 추천";
 "Taste Analysis" = "취향 분석";
 "Recommendations" = "추천";
 "Weekly" = "주간";
@@ -653,7 +652,6 @@
 "Taste analysis is paused on your devices." = "기기들의 취향 분석이 중지되어 있습니다.";
 "Enable Taste Analysis" = "취향 분석 켜기";
 "Preparing your insights…" = "취향을 분석하고 있습니다…";
-"Discover your taste" = "나의 취향 발견";
 "Search and save works to build your taste profile. Technical and management tags are excluded." = "작품을 검색하고 저장하면 취향을 발견할 수 있습니다. 기술·관리용 태그는 분석에서 제외합니다.";
 "Patterns describe your activity in this app. They are suggestions, not conclusions about you." = "앱에서의 선택을 바탕으로 발견한 패턴입니다. 취향에 대한 가설로 참고해 주세요.";
 "Evidence comes from distinct saved works. Opening a work alone does not add preference points." = "서로 다른 저장 작품을 근거로 합니다. 열람만으로 취향 점수가 오르지는 않습니다.";
@@ -663,7 +661,6 @@
 "Comparison sample" = "비교 표본";
 "Previous period" = "이전 기간";
 "Saved works over time" = "날짜별 저장 작품";
-"On-device AI insights" = "온디바이스 AI 해설";
 "Statistical insights" = "통계 해설";
 "You searched for this tag and saved %@ works with it." = "이 태그를 검색해 작품 %@개를 저장했습니다.";
 "You saved %@ works with this tag without searching for it, across %@ sessions." = "이 태그를 직접 검색하지 않았지만, %@개 작품을 %@번의 탐색에 걸쳐 저장했습니다.";
@@ -686,16 +683,12 @@
 "New works for you" = "나를 위한 새 작품";
 "Recommendation searches send the selected tags to your connected websites. Your taste profile is not sent." = "추천 검색 시 선택한 태그가 연결된 사이트에 전달됩니다. 취향 프로필 전체는 전달하지 않습니다.";
 "Unable to update taste analysis." = "취향 분석을 갱신하지 못했습니다.";
-"On-device AI available" = "온디바이스 AI 사용 가능";
-"Enable Apple Intelligence for AI insights." = "AI 해설을 사용하려면 Apple Intelligence를 켜세요.";
-"The on-device model is not ready yet." = "온디바이스 모델을 준비 중입니다.";
 "Statistical insights are available on this device." = "이 기기에서는 통계 기반 해설을 제공합니다.";
 "iCloud deletion pending" = "iCloud 삭제 대기 중";
 "Downloading analysis history…" = "분석 기록을 동기화하고 있습니다…";
 "Analysis sync is off" = "분석 동기화 꺼짐";
 "Some analysis files could not be read." = "일부 분석 기록을 읽지 못했습니다.";
 "Analysis synced" = "분석 기록 동기화됨";
-"On-device AI explanations" = "온디바이스 AI 해설";
 "Search context and saved works build your profile. Opened works only provide a comparison sample. Technical and management tags are excluded." = "검색 맥락과 저장 작품으로 취향을 분석합니다. 열람 작품은 비교 표본으로만 사용하며 기술·관리용 태그는 제외합니다.";
 "Sync analysis with iCloud" = "분석 데이터 iCloud 동기화";
 "Analysis time zone" = "분석 시간대";
@@ -708,14 +701,12 @@
 "Deletes activity, preference evidence, and reports. Your saved works remain. Existing works will not be automatically analyzed again." = "활동·취향 근거·보고서를 삭제합니다. 보관함의 작품은 유지되며, 기존 작품을 자동으로 다시 분석하지 않습니다.";
 "Taste Analysis Settings" = "취향 분석 설정";
 "Delete all analysis data?" = "분석 기록을 모두 삭제할까요?";
-"Taste analysis is on. Search context and saved works reveal patterns, and analysis records stay in your iCloud until you delete them. AI runs on your device without receiving tag names. You can turn this off in Settings at any time." = "취향 분석이 켜져 있습니다. 검색 맥락과 저장 작품에서 패턴을 찾고, 분석 기록은 삭제할 때까지 iCloud에 보관합니다. AI는 태그 이름을 받지 않고 기기에서 실행됩니다. 설정에서 언제든 끌 수 있습니다.";
 "Date" = "날짜";
 
 "Recommendations and insights shaped by what you save." = "저장한 작품에서 찾는 새로운 추천과 취향 이야기.";
 
 "How recommendations work" = "추천이 만들어지는 방식";
 
-"AI analyzes anonymous statistics on this device. Analysis records are kept until you delete them and sync through iCloud when enabled. You can change these options in Settings." = "AI는 이 기기에서 익명 통계만 분석합니다. 분석 기록은 직접 삭제할 때까지 보관하며, 동기화를 켜면 iCloud로 공유합니다. 설정에서 언제든 변경할 수 있습니다.";
 
 "Your taste" = "나의 취향";
 
@@ -826,14 +817,10 @@
 "Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available." = "제외 태그는 취향 근거에서 즉시 제거됩니다. 현재 작품 목록은 유지되며, 새 추천을 받으려면 새로고침하세요. 원본 태그와 검색 필터는 그대로 사용할 수 있습니다.";
 "You chose and saved %@ works associated with this tag." = "이 태그가 있는 작품 %@개를 선택해 저장했어요.";
 "Private by design, processed on your device" = "내 기기 안에서 안전하게 분석";
-"AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AI는 내 기기 안에서 실행됩니다. 원문 태그·검색어·이미지·제목 대신 임시 식별자와 통계만 사용하며, 클라우드 AI로 요청을 보내지 않습니다.";
 "When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website." = "iCloud 동기화에는 iCloud Drive의 암호화가 적용됩니다. 추천 작품을 검색할 때는 선택한 태그가 연결된 콘텐츠 사이트에 전달됩니다.";
-"AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AI 결과를 재사용하며, 최근 5분 동안 최대 3회 생성합니다. 허용 횟수 안에서는 기다리지 않고 연속 사용할 수 있습니다. 저전력 모드나 백그라운드에서는 AI 생성을 쉬며, 통계 기반 추천은 계속 사용할 수 있습니다.";
 "Turn off taste analysis?" = "취향 분석을 끌까요?";
-"Turn off on-device AI explanations?" = "온디바이스 AI 해설을 끌까요?";
 "Keep Enabled" = "계속 사용";
 "New taste evidence, recommendations and reports will pause. Existing analysis and saved works are kept. Your other devices apply this choice after syncing." = "새로운 취향 기록 수집·추천·통계 생성을 중지합니다. 기존 분석 기록과 저장한 작품은 유지되며, 다른 기기에는 다음 동기화 때 적용됩니다.";
-"New AI explanations will pause. Your statistics and recommendations will continue to work without AI." = "새로운 AI 해설 생성을 중지합니다. 통계와 추천은 AI 없이 계속 사용할 수 있습니다.";
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "동영상은 두 손가락으로 탭하여 퀵메뉴를 엽니다. 재생 컨트롤도 그대로 사용할 수 있습니다.";
 "Tap with two fingers for the video menu" = "두 손가락으로 탭하면 동영상 메뉴가 열려요";
 "Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here." = "미리보기는 최대 256MB, 뷰어 이미지는 최대 512MB를 기기에 캐시합니다. 현재 작품의 앞뒤 두 장을 미리 불러옵니다. 캐시는 iCloud에 저장되지 않으며 여기에서 삭제할 수 있습니다.";
@@ -842,3 +829,23 @@
 "Thumbnail" = "썸네일";
 "Thumbnail unavailable" = "썸네일 없음";
 "Thumbnail loaded" = "썸네일 로딩 완료";
+
+"Smart" = "스마트 추천";
+"Smart Recommendations" = "스마트 추천";
+"Recommended" = "추천순";
+"Recommendation filters" = "추천 조건";
+"Default included tag" = "기본 포함 태그";
+"Default included tags" = "기본 포함 태그";
+"Only this server uses these filters. All included tags must match. No language is required unless you choose one. Changes apply when you refresh recommendations." = "이 서버에만 적용됩니다. 포함 태그를 모두 만족하는 작품을 찾습니다. 언어는 직접 선택한 경우에만 제한합니다. 변경 사항은 추천을 새로고침할 때 적용됩니다.";
+"This server does not support that sort. Your previous sort has been restored." = "이 서버는 해당 정렬을 지원하지 않습니다. 이전 정렬로 돌아갑니다.";
+"Recommendations are calculated on your device from your choices. Analysis records sync through iCloud when enabled and remain until you delete them." = "선택한 작품과 태그를 바탕으로 기기 안에서 추천을 계산합니다. 분석 기록은 직접 삭제할 때까지 보관하며, 동기화를 켜면 iCloud로 동기화됩니다.";
+"Find works with a similar art style" = "이 그림체와 비슷한 작품 찾기";
+"Similar art styles" = "비슷한 그림체";
+"Find similar art styles in your saved works. Visual similarity also reflects composition, colors and subjects. Images and fingerprints stay on this device." = "저장한 작품에서 비슷한 그림을 찾습니다. 그림체뿐 아니라 구도·색상·소재도 유사도에 반영됩니다. 이미지와 이미지 지문은 이 기기 안에서만 처리합니다.";
+"Preparing saved thumbnails: %@ / %@" = "저장한 썸네일 준비 중: %@ / %@";
+"Load this work's thumbnail and try again." = "이 작품의 썸네일을 불러온 뒤 다시 시도해주세요.";
+"No similar saved works yet" = "비교할 저장 작품이 아직 없습니다";
+"Some saved thumbnails could not be read. Available works are shown." = "일부 썸네일을 읽지 못했습니다. 비교 가능한 작품을 표시합니다.";
+
+"No servers selected" = "선택한 서버가 없습니다";
+"Choose servers using the server button above. Your saved works are kept." = "상단 서버 버튼에서 서버를 선택해주세요. 저장한 작품은 그대로 유지됩니다.";

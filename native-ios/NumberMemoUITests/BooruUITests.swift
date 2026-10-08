@@ -45,10 +45,48 @@ final class BooruUITests: XCTestCase {
         return cards.allElementsBoundByIndex.first { $0.isHittable } ?? cards.firstMatch
     }
     private func openMenu(_ app: XCUIApplication) {
-        if !element(app, "booru.close").exists {
-            element(app, "booru.media").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)).tap()
-            XCTAssertTrue(element(app, "booru.close").waitForExistence(timeout: 5))
+        if !element(app, "booru.menuClose").exists {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            if !element(app, "booru.menuClose").waitForExistence(timeout: 1) { app.twoFingerTap() }
+            XCTAssertTrue(element(app, "booru.menuClose").waitForExistence(timeout: 5))
         }
+    }
+
+    func testSavedImageOffersSimilarArtStyleSearch() {
+        let app = launch(extra: ["--taste-ui-rich"])
+        app.tabBars.buttons["Saved"].tap()
+        element(app, "booru.allFavorites").tap()
+        let post = element(app, "booru.post.108")
+        XCTAssertTrue(post.waitForExistence(timeout: 5))
+        post.press(forDuration: 0.8)
+        let action = app.buttons["Find works with a similar art style"]
+        XCTAssertTrue(action.waitForExistence(timeout: 5))
+        action.tap()
+        XCTAssertTrue(app.navigationBars["Similar art styles"].waitForExistence(timeout: 5))
+        capture(app, "Saved visual similarity search")
+        app.buttons["Done"].tap()
+    }
+
+    func testSharedServerSelectionAllowsNoneAcrossAllTabs() {
+        let app = launch(extra: ["--taste-ui-rich"])
+        element(app, "booru.server").tap()
+        XCTAssertFalse(app.buttons["Deselect All"].exists)
+        XCTAssertFalse(app.buttons["Select All"].exists)
+        app.buttons["Danbooru"].tap()
+        // The multiselect menu stays open so several servers can be changed together.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.55)).tap()
+        XCTAssertTrue(element(app, "booru.noSelection").waitForExistence(timeout: 5))
+        for title in ["Saved", "Tags", "Smart"] {
+            app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).firstMatch.tap()
+            XCTAssertTrue(element(app, "booru.server").waitForExistence(timeout: 5))
+            XCTAssertTrue(element(app, "booru.noSelection").waitForExistence(timeout: 5))
+        }
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "More")).firstMatch.tap()
+        XCTAssertTrue(element(app, "booru.server").waitForExistence(timeout: 5))
+        element(app, "booru.server").tap()
+        app.buttons["Danbooru"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.55)).tap()
+        capture(app, "Shared server selection")
     }
 
     func testTasteAnalysisNavigationAndControls() {
@@ -56,7 +94,7 @@ final class BooruUITests: XCTestCase {
         let post = element(app, "booru.post.101")
         XCTAssertTrue(post.waitForExistence(timeout: 10))
         post.press(forDuration: 0.7)
-        let entry = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch
+        let entry = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 5)); entry.tap()
         XCTAssertTrue(element(app, "taste.dashboard").waitForExistence(timeout: 10))
         XCTAssertEqual(app.sheets.count, 0)
@@ -82,20 +120,12 @@ final class BooruUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 5), .completed)
         XCTAssertEqual(toggle.value as? String, "0")
         capture(app, "Taste analysis settings")
-        let ai = reveal(app, "taste.ai")
-        ai.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-        XCTAssertTrue(app.alerts["Turn off on-device AI explanations?"].waitForExistence(timeout: 5))
-        app.alerts.buttons["Keep Enabled"].tap()
-        XCTAssertEqual(app.switches["taste.ai"].firstMatch.value as? String, "1")
-        ai.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-        app.alerts.buttons["Turn Off"].tap()
-        XCTAssertEqual(app.switches["taste.ai"].firstMatch.value as? String, "0")
-        capture(app, "On-device privacy and generation controls")
+        XCTAssertFalse(app.switches["taste.ai"].exists)
     }
 
     func testTasteCardsDetailsAndEmptyStart() {
         let empty = launch()
-        empty.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        empty.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
         XCTAssertTrue(element(empty, "taste.empty").waitForExistence(timeout: 10))
         capture(empty, "AI getting started")
         element(empty, "taste.startExploring").tap()
@@ -103,7 +133,7 @@ final class BooruUITests: XCTestCase {
         empty.terminate()
 
         let app = launch(extra: ["--taste-ui-rich"])
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
         XCTAssertTrue(element(app, "taste.highlight").waitForExistence(timeout: 10))
         XCTAssertTrue(element(app, "taste.work.201").waitForExistence(timeout: 20))
         capture(app, "AI recommendations with works")
@@ -120,7 +150,7 @@ final class BooruUITests: XCTestCase {
 
     func testTasteFeedRetentionPaginationAndEvidence() {
         let app = launch(extra: ["--taste-ui-rich"])
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
         let first = firstTasteCard(app)
         first.tap()
         XCTAssertTrue(element(app, "booru.media").waitForExistence(timeout: 10))
@@ -132,8 +162,13 @@ final class BooruUITests: XCTestCase {
         element(app, "booru.next").tap()
         let nextState = element(app, "booru.viewerState").label
         XCTAssertNotEqual(nextState, initialState)
+        let mediaReady = expectation(for: NSPredicate(format: "label IN %@", ["ready", "playing", "ended"]), evaluatedWith: element(app, "booru.mediaStatus"))
+        wait(for: [mediaReady], timeout: 15)
         XCUIDevice.shared.press(.home); app.activate()
         XCTAssertEqual(element(app, "booru.viewerState").label, nextState)
+        XCTAssertTrue(element(app, "privacy.cover").waitForNonExistence(timeout: 3))
+        let resumedMedia = expectation(for: NSPredicate(format: "label IN %@", ["ready", "playing", "ended"]), evaluatedWith: element(app, "booru.mediaStatus"))
+        wait(for: [resumedMedia], timeout: 15)
         openMenu(app)
         element(app, "booru.previous").tap()
         XCTAssertEqual(element(app, "booru.viewerState").label, initialState)
@@ -143,7 +178,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(first.waitForExistence(timeout: 5))
         let y = first.frame.minY
         app.tabBars.buttons["Explore"].tap()
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
         XCTAssertTrue(first.waitForExistence(timeout: 5))
         XCTAssertEqual(first.frame.minY, y, accuracy: 10)
         XCTAssertFalse(app.buttons["Why this work?"].exists)
@@ -158,7 +193,7 @@ final class BooruUITests: XCTestCase {
     func testTasteMonthlyRecapBannerAndAnalysisExclusions() {
         let app = launch(extra: ["--taste-ui-rich", "--taste-recap-test"])
         XCTAssertTrue(element(app, "taste.recap.open").waitForExistence(timeout: 15))
-        for tab in ["Saved", "Tags", "More", "AI"] {
+        for tab in ["Saved", "Tags", "More", "Smart"] {
             app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", tab)).firstMatch.tap()
             XCTAssertTrue(element(app, "taste.recap.open").exists)
         }
@@ -199,7 +234,7 @@ final class BooruUITests: XCTestCase {
 
     func testLegacySoloExclusionFiltersActualSoleTagInComicRecommendations() {
         let app = launch(extra: ["--taste-ui-rich", "--taste-sole-exclusion-test"])
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
         element(app, "app.mode.hitomi").tap()
         let card = firstTasteCard(app), id = card.identifier
         element(app, "taste.evidence").tap()
@@ -222,7 +257,7 @@ final class BooruUITests: XCTestCase {
 
     func testExclusionUpdatesRetainedRecommendationEvidenceImmediately() {
         let app = launch(extra: ["--taste-ui-rich"])
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
         let card = firstTasteCard(app), id = card.identifier
         let reason = card.staticTexts.matching(NSPredicate(format: "label IN %@", ["scenery", "mountain", "cloud", "river"])).firstMatch
         XCTAssertTrue(reason.exists)
@@ -244,7 +279,7 @@ final class BooruUITests: XCTestCase {
 
     func testTasteComicCardsAndModeRetention() {
         let app = launch(extra: ["--taste-ui-rich"])
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
         let image = firstTasteCard(app)
         let imageID = image.identifier
         image.press(forDuration: 0.7)
@@ -256,7 +291,7 @@ final class BooruUITests: XCTestCase {
         app.swipeUp()
         let imageAnchor = firstTasteCard(app)
         let imageAnchorID = imageAnchor.identifier, imageY = imageAnchor.frame.minY
-        element(app, "app.mode.hitomi").tap()
+        element(app, "app.mode.booru").press(forDuration: 0.05, thenDragTo: element(app, "app.mode.hitomi"))
         let comic = firstTasteCard(app)
         XCTAssertTrue(comic.identifier.contains("900000"))
         comic.press(forDuration: 0.7)
@@ -287,7 +322,7 @@ final class BooruUITests: XCTestCase {
         app.swipeUp()
         let comicAnchor = firstTasteCard(app)
         let comicAnchorID = comicAnchor.identifier, comicY = comicAnchor.frame.minY
-        element(app, "app.mode.booru").tap()
+        element(app, "app.mode.hitomi").press(forDuration: 0.05, thenDragTo: element(app, "app.mode.booru"))
         XCTAssertTrue(element(app, imageAnchorID).waitForExistence(timeout: 5))
         XCTAssertEqual(element(app, imageAnchorID).frame.minY, imageY, accuracy: 10)
         XCTAssertTrue(element(app, imageID).exists)
@@ -301,7 +336,7 @@ final class BooruUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--booru-ui-test", "--taste-ui-rich", "-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "AI")).firstMatch.tap()
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "스마트 추천")).firstMatch.tap()
         XCTAssertTrue(element(app, "taste.highlight").waitForExistence(timeout: 10))
         capture(app, "AI Korean large text")
         let cards = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "taste.work."))

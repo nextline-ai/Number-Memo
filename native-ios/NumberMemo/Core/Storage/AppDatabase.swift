@@ -127,6 +127,8 @@ public final class AppDatabase: Sendable {
             try db.execute(sql: "CREATE TABLE library_order (key TEXT PRIMARY KEY, value BLOB NOT NULL)")
         }
         migrator.registerMigration("v5_taste") { try TasteStore.migrate($0) }
+        migrator.registerMigration("v6_visual_fingerprints") { try VisualFingerprintStore.migrate($0) }
+        migrator.registerMigration("v7_visual_cleanup") { try VisualFingerprintStore.installDeletionTrigger($0) }
         return migrator
     }
 
@@ -652,6 +654,13 @@ public final class AppDatabase: Sendable {
                     sql: "UPDATE works SET thumb_status = ?, thumb_path = NULL WHERE gallery_id = ?",
                     arguments: [status, galleryId]
                 )
+            }
+        }
+        if status == "ready", let path {
+            let store = VisualFingerprintStore(database: dbWriter)
+            Task.detached(priority: .utility) {
+                guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else { return }
+                _ = try? await store.save(data: data, scope: "comics", id: galleryId)
             }
         }
     }

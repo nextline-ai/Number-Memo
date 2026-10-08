@@ -14,7 +14,7 @@ final class BooruStore: @unchecked Sendable {
     var selectedServers: [BooruServer] { servers.filter { selectedServerIDs.contains($0.id) } }
     private(set) var revision = 0
     var error: String?
-    var selectedServer: BooruServer? { servers.first { $0.id == selectedServerID } ?? servers.first }
+    var selectedServer: BooruServer? { servers.first { $0.id == selectedServerID } }
 
     init(path: String? = nil, prefetchSavedPreviews: Bool = false) throws {
         self.prefetchSavedPreviews = prefetchSavedPreviews
@@ -87,6 +87,8 @@ final class BooruStore: @unchecked Sendable {
             try Self.organizeLegacyImports(db: db)
         }
         migrations.registerMigration("booru_v7_taste") { try TasteStore.migrate($0) }
+        migrations.registerMigration("booru_v8_visual_fingerprints") { try VisualFingerprintStore.migrate($0) }
+        migrations.registerMigration("booru_v9_visual_cleanup") { try VisualFingerprintStore.installDeletionTrigger($0) }
         try migrations.migrate(database)
         try reload()
     }
@@ -104,7 +106,6 @@ final class BooruStore: @unchecked Sendable {
         let legacy = try setting("selected_server") ?? servers.first?.id ?? ""
         let saved = try setting("selected_servers").flatMap { $0.data(using: .utf8) }.flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? [legacy]
         selectedServerIDs = servers.map(\.id).filter(saved.contains)
-        if selectedServerIDs.isEmpty, let first = servers.first { selectedServerIDs = [first.id] }
         selectedServerID = selectedServerIDs.first ?? ""
     }
 
@@ -121,13 +122,11 @@ final class BooruStore: @unchecked Sendable {
         var ids = selectedServerIDs
         if ids.contains(server.id) { ids.removeAll { $0 == server.id } }
         else { ids.append(server.id) }
-        guard !ids.isEmpty else { return }
         try setSelectedServers(ids)
     }
 
     func setSelectedServers(_ ids: [String]) throws {
         let valid = servers.map(\.id).filter(ids.contains)
-        guard !valid.isEmpty || servers.isEmpty else { return }
         try setSetting("selected_servers", value: String(decoding: JSONEncoder().encode(valid), as: UTF8.self))
         selectedServerIDs = valid
         selectedServerID = valid.first ?? ""
@@ -156,7 +155,6 @@ final class BooruStore: @unchecked Sendable {
             try db.execute(sql: "DELETE FROM settings WHERE key = ?", arguments: ["blacklist." + server.id])
         }
         try reload()
-        if !servers.contains(where: { $0.id == selectedServerID }) { selectedServerID = servers.first?.id ?? "" }
         revision += 1
     }
 
@@ -267,7 +265,11 @@ final class BooruStore: @unchecked Sendable {
 
     private func warmSavedPreview(_ post: BooruPost) {
         guard prefetchSavedPreviews, let server = servers.first(where: { $0.id == post.serverID }), let url = post.previewURL ?? post.sampleURL else { return }
-        Task(priority: .utility) { _ = try? await BooruThumbnailCache.shared.image(url: url, server: server) }
+        let store = VisualFingerprintStore(database: database)
+        Task(priority: .utility) {
+            guard let image = try? await BooruThumbnailCache.shared.image(url: url, server: server), let data = image.jpegData(compressionQuality: 0.9) else { return }
+            _ = try? await store.save(data: data, scope: server.id, id: post.postID)
+        }
     }
 
     func organizeLegacyImports() throws {

@@ -4,8 +4,10 @@ struct TasteAnalysisExclusionsView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var mode: TasteMode
     @State private var input = ""
-    init(mode: TasteMode) { _mode = State(initialValue: mode) }
-    private var tags: [String] { env.taste.control.analysisExcluded(mode).sorted() }
+    @State private var selectedSource = ""
+    private var source: String { mode == .comics ? "https://hitomi.la" : (env.booru.servers.first { $0.canonicalAddress == selectedSource } ?? env.booru.selectedServer ?? env.booru.servers.first)?.canonicalAddress ?? "" }
+    init(mode: TasteMode, source: String = "") { _mode = State(initialValue: mode); _selectedSource = State(initialValue: source) }
+    private var tags: [String] { env.taste.control.analysisExcluded(mode, source: source).sorted() }
     var body: some View {
         Form {
             Section {
@@ -13,6 +15,11 @@ struct TasteAnalysisExclusionsView: View {
                     Text(L10n.text("Images")).tag(TasteMode.booru)
                     Text(L10n.text("Comics")).tag(TasteMode.comics)
                 }.pickerStyle(.segmented).accessibilityIdentifier("taste.exclusions.mode")
+            }
+            if mode == .booru {
+                Picker(L10n.text("Server"), selection: Binding(get: { source }, set: { selectedSource = $0 })) {
+                    ForEach(env.booru.servers) { Text($0.displayName).tag($0.canonicalAddress) }
+                }
             }
             Section {
                 HStack {
@@ -29,17 +36,17 @@ struct TasteAnalysisExclusionsView: View {
                         Button { remove(tag) } label: { Image(systemName: "minus.circle").frame(width: 44, height: 44) }
                             .buttonStyle(.borderless).accessibilityLabel(L10n.text("Remove") + " " + tag)
                     }
-                }.onDelete { offsets in let removed = offsets.map { tags[$0] }; env.taste.change { $0.setAnalysisExcluded(Set(tags).subtracting(removed), mode: mode) } }
+                }.onDelete { offsets in let removed = offsets.map { tags[$0] }; env.taste.change { $0.setAnalysisExcluded(Set(tags).subtracting(removed), mode: mode, source: source) } }
             } footer: {
                 Text(L10n.text("Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available."))
-            }
+            }.disabled(source.isEmpty)
         }.navigationTitle(L10n.text("Analysis excluded tags"))
             .navigationBarTitleDisplayMode(.inline)
     }
     private func add() {
         let value = TasteControl.normalizeExclusion(input)
-        guard !value.isEmpty else { return }
-        env.taste.change { $0.setAnalysisExcluded(Set(tags).union([value]), mode: mode) }; input = ""
+        guard !source.isEmpty, !value.isEmpty else { return }
+        env.taste.change { $0.setAnalysisExcluded(Set(tags).union([value]), mode: mode, source: source) }; input = ""
     }
-    private func remove(_ tag: String) { env.taste.change { $0.setAnalysisExcluded(Set(tags).subtracting([tag]), mode: mode) } }
+    private func remove(_ tag: String) { env.taste.change { $0.setAnalysisExcluded(Set(tags).subtracting([tag]), mode: mode, source: source) } }
 }

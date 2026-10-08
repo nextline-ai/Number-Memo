@@ -642,7 +642,6 @@
 "Selected" = "選択済み";
 
 /* Local taste analysis */
-"AI Recommendations" = "AIおすすめ";
 "Taste Analysis" = "好みの分析";
 "Recommendations" = "おすすめ";
 "Weekly" = "週間";
@@ -653,7 +652,6 @@
 "Taste analysis is paused on your devices." = "各デバイスで好みの分析を停止しています。";
 "Enable Taste Analysis" = "好みの分析を有効にする";
 "Preparing your insights…" = "好みを分析しています…";
-"Discover your taste" = "自分の好みを発見";
 "Search and save works to build your taste profile. Technical and management tags are excluded." = "作品を検索・保存すると好みが見えてきます。技術・管理用タグは分析から除外します。";
 "Patterns describe your activity in this app. They are suggestions, not conclusions about you." = "このアプリでの選択から見つかった傾向です。好みについての仮説としてご覧ください。";
 "Evidence comes from distinct saved works. Opening a work alone does not add preference points." = "異なる保存作品を根拠にしています。閲覧だけでは好みのスコアは上がりません。";
@@ -663,7 +661,6 @@
 "Comparison sample" = "比較サンプル";
 "Previous period" = "前の期間";
 "Saved works over time" = "日別の保存作品";
-"On-device AI insights" = "オンデバイスAIの解説";
 "Statistical insights" = "統計による解説";
 "You searched for this tag and saved %@ works with it." = "このタグを検索し、該当する作品を%@件保存しました。";
 "You saved %@ works with this tag without searching for it, across %@ sessions." = "このタグを直接検索せずに、%@件の作品を%@回の探索で保存しました。";
@@ -686,16 +683,12 @@
 "New works for you" = "あなたへの新しい作品";
 "Recommendation searches send the selected tags to your connected websites. Your taste profile is not sent." = "おすすめの検索では選択したタグが接続先サイトに送信されます。好みのプロフィール全体は送信しません。";
 "Unable to update taste analysis." = "好みの分析を更新できませんでした。";
-"On-device AI available" = "オンデバイスAIを利用できます";
-"Enable Apple Intelligence for AI insights." = "AIの解説を使うにはApple Intelligenceを有効にしてください。";
-"The on-device model is not ready yet." = "オンデバイスモデルの準備中です。";
 "Statistical insights are available on this device." = "このデバイスでは統計による解説を利用できます。";
 "iCloud deletion pending" = "iCloudでの削除待ち";
 "Downloading analysis history…" = "分析履歴を同期しています…";
 "Analysis sync is off" = "分析の同期はオフです";
 "Some analysis files could not be read." = "一部の分析履歴を読み込めませんでした。";
 "Analysis synced" = "分析履歴を同期しました";
-"On-device AI explanations" = "オンデバイスAIの解説";
 "Search context and saved works build your profile. Opened works only provide a comparison sample. Technical and management tags are excluded." = "検索の文脈と保存作品から好みを分析します。閲覧作品は比較サンプルにのみ使い、技術・管理用タグは除外します。";
 "Sync analysis with iCloud" = "分析データをiCloudで同期";
 "Analysis time zone" = "分析のタイムゾーン";
@@ -708,14 +701,12 @@
 "Deletes activity, preference evidence, and reports. Your saved works remain. Existing works will not be automatically analyzed again." = "アクティビティ・好みの根拠・レポートを削除します。保存作品は残り、既存作品を自動で再分析しません。";
 "Taste Analysis Settings" = "好みの分析設定";
 "Delete all analysis data?" = "分析データをすべて削除しますか？";
-"Taste analysis is on. Search context and saved works reveal patterns, and analysis records stay in your iCloud until you delete them. AI runs on your device without receiving tag names. You can turn this off in Settings at any time." = "好みの分析はオンです。検索の文脈と保存作品から傾向を見つけ、分析履歴は削除するまでiCloudに保存します。AIはタグ名を受け取らず、デバイス上で動作します。設定でいつでもオフにできます。";
 "Date" = "日付";
 
 "Recommendations and insights shaped by what you save." = "保存した作品から、新しいおすすめと好みの発見を。";
 
 "How recommendations work" = "おすすめの仕組み";
 
-"AI analyzes anonymous statistics on this device. Analysis records are kept until you delete them and sync through iCloud when enabled. You can change these options in Settings." = "AIはこの端末で匿名の統計だけを分析します。分析記録は削除するまで保存され、同期を有効にするとiCloudで共有されます。設定でいつでも変更できます。";
 
 "Your taste" = "あなたの好み";
 
@@ -826,14 +817,10 @@
 "Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available." = "除外タグは好みの根拠からすぐに削除されます。現在の作品一覧は維持され、新しいおすすめは更新時に取得します。元のタグや検索フィルタは引き続き利用できます。";
 "You chose and saved %@ works associated with this tag." = "このタグに関連する作品を%@件選んで保存しました。";
 "Private by design, processed on your device" = "プライバシーを守り、デバイス内で処理";
-"AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AIはこのデバイス内で動作します。一時的なIDと統計のみを使い、元のタグ・検索語・画像・タイトルは渡しません。クラウドAIにリクエストを送信しません。";
 "When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website." = "iCloud同期にはiCloud Driveの暗号化が適用されます。おすすめ作品の検索時は、選んだタグを接続先のコンテンツサイトに送信します。";
-"AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AIの結果を再利用し、直近5分間で最大3回生成します。回数内なら生成の間に待つ必要はありません。低電力モードやバックグラウンドではAI生成を休止します。統計によるおすすめは引き続き利用できます。";
 "Turn off taste analysis?" = "好みの分析をオフにしますか？";
-"Turn off on-device AI explanations?" = "オンデバイスAIの解説をオフにしますか？";
 "Keep Enabled" = "有効のままにする";
 "New taste evidence, recommendations and reports will pause. Existing analysis and saved works are kept. Your other devices apply this choice after syncing." = "新しい好みの記録・おすすめ・レポートの生成を停止します。既存の分析と保存作品は保持され、他のデバイスには次回同期時に反映されます。";
-"New AI explanations will pause. Your statistics and recommendations will continue to work without AI." = "新しいAIの解説の生成を停止します。統計とおすすめはAIなしで引き続き利用できます。";
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "動画では2本指でタップするとクイックメニューが開きます。再生コントロールも引き続き使えます。";
 "Tap with two fingers for the video menu" = "2本指でタップして動画メニューを開く";
 "Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here." = "プレビューは最大256MB、ビューア画像は最大512MBを端末にキャッシュします。前後2枚の画像を先読みします。キャッシュはiCloudに保存されず、ここで削除できます。";
@@ -842,3 +829,23 @@
 "Thumbnail" = "サムネイル";
 "Thumbnail unavailable" = "サムネイルなし";
 "Thumbnail loaded" = "サムネイル読み込み完了";
+
+"Smart" = "スマート";
+"Smart Recommendations" = "スマートおすすめ";
+"Recommended" = "おすすめ順";
+"Recommendation filters" = "おすすめの条件";
+"Default included tag" = "必須タグ";
+"Default included tags" = "必須タグ";
+"Only this server uses these filters. All included tags must match. No language is required unless you choose one. Changes apply when you refresh recommendations." = "このサーバーだけに適用されます。すべての必須タグに一致する作品を探します。言語は選択した場合のみ制限されます。変更はおすすめを更新したときに適用されます。";
+"This server does not support that sort. Your previous sort has been restored." = "このサーバーはこの並び順に対応していません。前の並び順に戻しました。";
+"Recommendations are calculated on your device from your choices. Analysis records sync through iCloud when enabled and remain until you delete them." = "選んだ作品とタグから、このデバイス内でおすすめを計算します。分析記録は削除するまで保存され、有効にするとiCloudで同期します。";
+"Find works with a similar art style" = "似た絵柄の作品を探す";
+"Similar art styles" = "似た絵柄";
+"Find similar art styles in your saved works. Visual similarity also reflects composition, colors and subjects. Images and fingerprints stay on this device." = "保存した作品から似た画像を探します。絵柄だけでなく、構図・色・被写体も類似度に反映されます。画像と特徴データはこのデバイス内だけで処理します。";
+"Preparing saved thumbnails: %@ / %@" = "保存したサムネイルを準備中：%@ / %@";
+"Load this work's thumbnail and try again." = "この作品のサムネイルを読み込んでから、もう一度お試しください。";
+"No similar saved works yet" = "比較できる保存作品がありません";
+"Some saved thumbnails could not be read. Available works are shown." = "一部のサムネイルを読み込めませんでした。比較できる作品を表示しています。";
+
+"No servers selected" = "サーバーが選択されていません";
+"Choose servers using the server button above. Your saved works are kept." = "上部のサーバーボタンから選んでください。保存した作品は保持されています。";

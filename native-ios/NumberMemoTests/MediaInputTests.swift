@@ -3,6 +3,31 @@ import WebKit
 @testable import NumberMemo
 
 @MainActor final class MediaInputTests: XCTestCase {
+    func testResumeRecoversTheCurrentDocumentAfterAnInterruptedTransition() async throws {
+        let coordinator = BooruMediaView.Coordinator()
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+        web.navigationDelegate = coordinator
+        coordinator.observeLifecycle(of: web)
+        defer { NotificationCenter.default.removeObserver(coordinator) }
+        coordinator.documentID = "current-work"
+        coordinator.document = "<html><script>window.numberMemoDocumentID='current-work';window.resumePlayback=()=>{window.resumed=true};window.renderNotes=()=>{};</script></html>"
+        // A stale document can have finished even though a later transition did not.
+        web.loadHTMLString("<html><script>window.numberMemoDocumentID='old-work';window.resumePlayback=()=>{};window.renderNotes=()=>{};</script></html>", baseURL: nil)
+        for _ in 0..<100 {
+            if coordinator.ready { break }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        XCTAssertTrue(coordinator.ready)
+        coordinator.resume()
+        var recovered = false
+        for _ in 0..<100 {
+            recovered = (try? await web.evaluateJavaScript("window.numberMemoDocumentID === 'current-work' && window.resumed === true")) as? Bool == true
+            if recovered { break }
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        XCTAssertTrue(recovered)
+    }
+
     func testPrivacyCoverIsImmediateAndSurvivesInterruptedReturn() async throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)

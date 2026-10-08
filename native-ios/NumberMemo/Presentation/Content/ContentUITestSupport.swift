@@ -27,7 +27,6 @@ enum ContentUITestSupport {
                 let spellingTest = ProcessInfo.processInfo.arguments.contains("--taste-sole-exclusion-test")
                 if spellingTest {
                     env.taste.change { control in
-                        control.aiEnabled = false
                         control.analysisExclusions = ["comics": ["female:solo_female", "male:solo_male", "tag:digital", "tag:group"]]
                     }
                 }
@@ -52,7 +51,6 @@ enum ContentUITestSupport {
             }
         }
         if ProcessInfo.processInfo.arguments.contains("--taste-recap-test") {
-            env.taste.change { $0.aiEnabled = false }
             Task { await env.taste.prepareCompletedReports() }
         }
         if BooruUITestSupport.liveEnabled {

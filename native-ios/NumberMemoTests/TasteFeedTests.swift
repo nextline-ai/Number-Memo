@@ -40,11 +40,11 @@ final class TasteFeedTests: XCTestCase {
         let source = PagedTasteSource()
         let tag = TasteTag(source: server.canonicalAddress, name: "scenery", general: 5)
         let snapshot = TasteSnapshot(tags: [tag], saves: 5, opens: 0, searches: 0, activity: [:], digest: "test", period: nil)
-        let first = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, useAIOrdering: false)
-        let second = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, useAIOrdering: false, cursor: first.cursor, excluding: Set(first.items.map(\.id)))
+        let first = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source)
+        let second = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, cursor: first.cursor, excluding: Set(first.items.map(\.id)))
         XCTAssertEqual(first.items.map(\.item.id), [201, 202])
         XCTAssertEqual(second.items.map(\.item.id), [203])
-        let third = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, useAIOrdering: false, cursor: second.cursor, excluding: Set((first.items + second.items).map(\.id)))
+        let third = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, cursor: second.cursor, excluding: Set((first.items + second.items).map(\.id)))
         XCTAssertTrue(third.items.isEmpty); XCTAssertFalse(third.cursor.hasMore)
         let pages = await source.pages
         XCTAssertEqual(pages, [0, 1, 2])
@@ -53,7 +53,6 @@ final class TasteFeedTests: XCTestCase {
         let env = AppEnvironment.preview()
         let server = BooruServer.presets[0]
         try env.booru.saveServer(server); try env.booru.select(server)
-        env.taste.change { $0.aiEnabled = false }
         try env.booru.toggleFavorite(BooruFixtureSource.post(101, server: server, tags: ["scenery"]), context: .init(origin: .search, query: "scenery"))
         let source = PagedTasteSource()
         let feed = TasteFeedState(booruSource: source)
@@ -83,7 +82,7 @@ final class TasteFeedTests: XCTestCase {
         let tags = servers.map { TasteTag(source: $0.canonicalAddress, name: "taste_" + $0.id.lowercased(), general: 5) }
         let snapshot = TasteSnapshot(tags: tags, saves: 5, opens: 0, searches: 0, activity: [:], digest: "servers", period: nil)
         let source = ServerTasteSource()
-        let result = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, useAIOrdering: false)
+        let result = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source)
         XCTAssertEqual(Set(result.items.map(\.item.source)), Set(servers.map(\.canonicalAddress)))
         XCTAssertEqual(result.cursor.pages.count, 4)
         XCTAssertTrue(result.items.allSatisfy { $0.item.tags.contains($0.reason.name) && $0.item.source == $0.reason.source })
@@ -96,9 +95,9 @@ final class TasteFeedTests: XCTestCase {
         try env.booru.saveServer(server); try env.booru.select(server)
         let snapshot = TasteSnapshot(tags: [TasteTag(source: server.canonicalAddress, name: "first", general: 5), TasteTag(source: server.canonicalAddress, name: "second", general: 4)], saves: 9, opens: 0, searches: 0, activity: [:], digest: "rotation", period: nil)
         let source = ServerTasteSource()
-        _ = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, useAIOrdering: false, seedOffset: 0)
+        _ = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, seedOffset: 0)
         let first = await source.queries[server.id]
-        _ = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, useAIOrdering: false, seedOffset: 1)
+        _ = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, seedOffset: 1)
         let second = await source.queries[server.id]
         XCTAssertNotNil(first); XCTAssertNotNil(second); XCTAssertNotEqual(first, second)
     }
@@ -110,7 +109,7 @@ final class TasteFeedTests: XCTestCase {
         let snapshot = TasteSnapshot(tags: servers.map { TasteTag(source: $0.canonicalAddress, name: "taste_" + $0.id.lowercased(), general: 5) }, saves: 5, opens: 0, searches: 0, activity: [:], digest: "timeout", period: nil)
         let source = ServerTasteSource(slowID: servers[1].id)
         let clock = ContinuousClock(), start = clock.now
-        let result = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, useAIOrdering: false, requestTimeout: 0.1)
+        let result = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, requestTimeout: 0.1)
         XCTAssertLessThan(start.duration(to: clock.now), .seconds(1))
         XCTAssertEqual(result.items.map(\.item.source), [servers[0].canonicalAddress])
         XCTAssertEqual(result.failures, [servers[1].displayName])
@@ -173,7 +172,6 @@ final class TasteFeedTests: XCTestCase {
     @MainActor func testExclusionImmediatelyRemovesCachedEvidenceWithoutReplacingWorks() async throws {
         let env = AppEnvironment.preview(), server = BooruServer.presets[0]
         try env.booru.saveServer(server); try env.booru.select(server)
-        env.taste.change { $0.aiEnabled = false }
         try env.booru.toggleFavorite(BooruFixtureSource.post(101, server: server, tags: ["scenery"]), context: .init(origin: .search, query: "scenery"))
         let source = PagedTasteSource(), feed = TasteFeedState(booruSource: PagedTasteSource())
         feed.ensureLoaded(mode: .booru, env: env, language: "all"); await feed.waitForRefresh()
@@ -207,26 +205,9 @@ final class TasteFeedTests: XCTestCase {
         XCTAssertTrue(TasteAnalyzer.analyze([save, remove], control: .init()).tags.isEmpty)
         XCTAssertEqual(TasteAnalyzer.analyze([save, remove, again], control: .init()).saves, 1)
     }
-    func testGenerationBudgetUsesRollingWindowWithoutSpacing() {
-        var policy = InsightGenerationPolicy()
-        XCTAssertFalse(policy.begin(now: 1, foreground: false, lowPower: false))
-        XCTAssertFalse(policy.begin(now: 1, foreground: true, lowPower: true))
-        for now in [1.0, 2, 3] {
-            XCTAssertTrue(policy.begin(now: now, foreground: true, lowPower: false))
-            XCTAssertFalse(policy.begin(now: now, foreground: true, lowPower: false))
-            policy.finish()
-        }
-        XCTAssertFalse(policy.begin(now: 300, foreground: true, lowPower: false))
-        XCTAssertTrue(policy.begin(now: 301, foreground: true, lowPower: false))
-        policy.finish()
-        var restored = InsightGenerationPolicy(starts: policy.starts)
-        XCTAssertFalse(restored.begin(now: 301, foreground: true, lowPower: false))
-        XCTAssertTrue(restored.begin(now: 302, foreground: true, lowPower: false))
-    }
     @MainActor func testManualRefreshDealsUnseenWorksBeforeRepeating() async throws {
         let env = AppEnvironment.preview(), server = BooruServer.presets[0]
         try env.booru.saveServer(server); try env.booru.select(server)
-        env.taste.change { $0.aiEnabled = false }
         try env.booru.toggleFavorite(BooruFixtureSource.post(101, server: server, tags: ["scenery"]), context: .init(origin: .search, query: "scenery"))
         let feed = TasteFeedState(booruSource: PagedTasteSource())
         feed.ensureLoaded(mode: .booru, env: env, language: "all"); await feed.waitForRefresh()
@@ -239,12 +220,11 @@ final class TasteFeedTests: XCTestCase {
     func testStatisticsCanRotateWithoutInventingEvidence() async {
         let tags = (0..<8).map { TasteTag(source: "https://example.test", name: "tag\($0)", general: 10 - $0) }
         let snapshot = TasteSnapshot(tags: tags, saves: 10, opens: 0, searches: 0, activity: [:], digest: "rotation", period: nil)
-        var control = TasteControl(); control.aiEnabled = false
-        let first = await OnDeviceInsightService.report(snapshot: snapshot, control: control, language: "en")
-        let next = await OnDeviceInsightService.report(snapshot: snapshot, control: control, language: "en", selectionOffset: 3)
+        let control = TasteControl()
+        let first = await StatisticalInsightService.report(snapshot: snapshot, control: control, language: "en")
+        let next = await StatisticalInsightService.report(snapshot: snapshot, control: control, language: "en", selectionOffset: 3)
         XCTAssertTrue(first.isValid(for: snapshot)); XCTAssertTrue(next.isValid(for: snapshot))
         XCTAssertTrue(Set(first.insights.map(\.tagKey)).isDisjoint(with: next.insights.map(\.tagKey)))
-        XCTAssertFalse(next.generatedByAI)
     }
     @MainActor func testRecapDismissalIsPersistedAndScopedToMonth() throws {
         let env = AppEnvironment.preview(), date = Date(timeIntervalSince1970: 1_700_000_000)
@@ -289,6 +269,153 @@ private actor ServerTasteSource: BooruProviding {
         return .init(posts: [post], hasMore: false)
     }
     func details(server: BooruServer, post: BooruPost) async throws -> BooruPost { BooruFixtureSource.post(post.postID, server: server, tags: ["taste_" + server.id.lowercased()]) }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+
+extension TasteFeedTests {
+    func testAllServersCanBeDeselectedAcrossReloadWithoutFallback() throws {
+        let store = try BooruStore()
+        for server in BooruServer.presets { try store.saveServer(server) }
+        try store.select(BooruServer.presets[0])
+        try store.toggleServer(BooruServer.presets[0])
+        XCTAssertTrue(store.selectedServers.isEmpty); XCTAssertNil(store.selectedServer)
+        try store.reload()
+        XCTAssertTrue(store.selectedServerIDs.isEmpty); XCTAssertNil(store.selectedServer)
+        try store.toggleServer(BooruServer.presets[1])
+        XCTAssertEqual(store.selectedServerIDs, [BooruServer.presets[1].id])
+        try store.setSelectedServers([]); try store.reload()
+        XCTAssertTrue(store.selectedServers.isEmpty)
+    }
+    @MainActor func testSameEngineServersHaveIndependentSettingsEvidenceAndFeeds() async throws {
+        let env = AppEnvironment.preview()
+        let a = BooruServer(id: "a", name: "A", baseURL: URL(string: "https://a.booru.org")!, engine: .oldGelbooru)
+        let b = BooruServer(id: "b", name: "B", baseURL: URL(string: "https://b.booru.org")!, engine: .oldGelbooru)
+        for server in [a, b] { try env.booru.saveServer(server) }
+        var control = TasteControl()
+        control.setPreferences(.init(includedTags: ["watercolor"], language: "all", sort: .latest), source: a.canonicalAddress)
+        control.setAnalysisExcluded(["common"], mode: .booru, source: a.canonicalAddress)
+        XCTAssertTrue(control.preferences(source: b.canonicalAddress).includedTags.isEmpty)
+        XCTAssertEqual(control.preferences(source: b.canonicalAddress).sort, .recommended)
+        XCTAssertFalse(control.allows("common", source: a.canonicalAddress, mode: .booru))
+        XCTAssertTrue(control.allows("common", source: b.canonicalAddress, mode: .booru))
+        let restored = try JSONDecoder().decode(TasteControl.self, from: JSONEncoder().encode(control))
+        XCTAssertEqual(restored, control)
+        XCTAssertFalse(env.taste.feed(.booru, source: a.canonicalAddress) === env.taste.feed(.booru, source: b.canonicalAddress))
+        XCTAssertTrue(env.taste.feed(.booru, source: a.canonicalAddress) === env.taste.feed(.booru, source: a.canonicalAddress))
+        let events = [a,b].map { TasteEvent(kind: .save, item: .init(source: $0.canonicalAddress, id: 1, tags: ["common", "watercolor"])) }
+        let result = TasteAnalyzer.analyze(events, control: control)
+        XCTAssertEqual(result.tags.filter { $0.name == "common" }.map(\.source), [b.canonicalAddress])
+    }
+    @MainActor func testUnsupportedRecommendationSortPreservesPriorFeedAndCursor() async throws {
+        let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+        try env.booru.saveServer(server); try env.booru.select(server)
+        try env.booru.toggleFavorite(BooruFixtureSource.post(101, server: server, tags: ["scenery"]), context: .init(origin: .search, query: "scenery"))
+        let feed = TasteFeedState(source: server.canonicalAddress, booruSource: SortingTasteSource())
+        feed.refresh(mode: .booru, env: env, language: "all"); await feed.waitForRefresh()
+        let ids = feed.results.items.map(\.id), pages = feed.results.cursor.pages
+        XCTAssertFalse(ids.isEmpty)
+        env.taste.change { $0.setPreferences(.init(sort: .week), source: server.canonicalAddress) }
+        feed.refresh(mode: .booru, env: env, language: "all"); await feed.waitForRefresh()
+        XCTAssertEqual(feed.results.items.map(\.id), ids)
+        XCTAssertEqual(feed.results.cursor.pages, pages)
+        XCTAssertEqual(env.taste.control.preferences(source: server.canonicalAddress).sort, .recommended)
+        XCTAssertNotNil(feed.sortMessage)
+        XCTAssertFalse(feed.loading)
+    }
+    @MainActor func testExploreUnsupportedSortPreservesPostsAndNetworkErrorsAreNotUnsupported() async throws {
+        let loader = BooruFeedLoader(), server = BooruServer.presets[0]
+        await loader.load(servers: [server], source: SortingTasteSource(), query: "scenery", reset: true)
+        let ids = loader.posts.map(\.id)
+        await loader.load(servers: [server], source: SortingTasteSource(), query: "scenery", sort: .popular, reset: true)
+        XCTAssertTrue(loader.unsupportedSort); XCTAssertEqual(loader.posts.map(\.id), ids)
+        do {
+            _ = try await BooruSortValidation.posts(source: SortingTasteSource(networkError: true), server: server, query: "scenery", page: 0, sort: .popular)
+            XCTFail("Expected network error")
+        } catch { XCTAssertTrue(error is URLError); XCTAssertFalse(error is UnsupportedBooruSort) }
+    }
+    @MainActor func testComicRecommendationLanguageAndRequiredTagsAreExplicit() async throws {
+        let env = AppEnvironment.preview(); env.isSiteVerified = true
+        env.defaultTags = "implicit_tag"
+        let source = CapturingComicTasteSource()
+        let tag = TasteTag(source: "https://hitomi.la", name: "tag:scenery", general: 5)
+        let snapshot = TasteSnapshot(tags: [tag], saves: 5, opens: 0, searches: 0, activity: [:], digest: "language", period: nil)
+        _ = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "korean", comicSource: source)
+        var requests = await source.queries
+        XCTAssertEqual(requests.last?.language, "all")
+        XCTAssertFalse(requests.last?.text.contains("implicit_tag") ?? true)
+        env.taste.change { $0.setPreferences(.init(includedTags: ["tag:watercolor"], language: "japanese", sort: .month), source: "https://hitomi.la") }
+        _ = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "korean", comicSource: source)
+        requests = await source.queries
+        XCTAssertEqual(requests.last?.language, "japanese")
+        XCTAssertEqual(requests.last?.sort, .month)
+        XCTAssertTrue(requests.last?.text.contains("tag:watercolor") ?? false)
+    }
+}
+private struct SortingTasteSource: BooruProviding {
+    var networkError = false
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        if query.contains("order:score") || query.contains("sort:score") {
+            if networkError { throw URLError(.notConnectedToInternet) }
+            throw BooruError.unavailable(422)
+        }
+        return .init(posts: [BooruFixtureSource.post(201, server: server, tags: ["scenery"])], hasMore: false)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+private actor CapturingComicTasteSource: ContentProviding {
+    var queries: [GalleryQuery] = []
+    func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch { queries.append(query); return .init(ids: [], hasMore: false) }
+    func gallery(_ id: Int64) async throws -> NativeGallery { throw ContentError.invalidResponse }
+    func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data { throw ContentError.invalidResponse }
+}
+
+extension TasteFeedTests {
+    @MainActor func testIncludedTagsAreIndependentForSitesWithTheSameEngine() async throws {
+        let env = AppEnvironment.preview()
+        let sites = ["a", "b"].map { BooruServer(id: $0, name: $0, baseURL: URL(string: "https://\($0).booru.org")!, engine: .oldGelbooru) }
+        for site in sites { try env.booru.saveServer(site) }
+        env.taste.change { control in
+            control.setPreferences(.init(includedTags: ["watercolor"]), source: sites[0].canonicalAddress)
+            control.setPreferences(.init(includedTags: ["oil_painting"]), source: sites[1].canonicalAddress)
+        }
+        let source = RequiredTagTasteSource()
+        let tags = sites.map { TasteTag(source: $0.canonicalAddress, name: "taste_" + $0.id, general: 5) }
+        let snapshot = TasteSnapshot(tags: tags, saves: 10, opens: 0, searches: 0, activity: [:], digest: "same-engine", period: nil)
+        let result = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, sourceAddresses: sites.map(\.canonicalAddress))
+        XCTAssertEqual(result.items.count, 2)
+        let queries = await source.queries
+        XCTAssertTrue(queries["a"]?.contains("watercolor") ?? false)
+        XCTAssertFalse(queries["a"]?.contains("oil_painting") ?? true)
+        XCTAssertTrue(queries["b"]?.contains("oil_painting") ?? false)
+        XCTAssertFalse(queries["b"]?.contains("watercolor") ?? true)
+        XCTAssertEqual(result.cursor.pages.count, 2)
+        XCTAssertTrue(result.items.allSatisfy { $0.item.source == $0.reason.source })
+    }
+    func testSilentlyIgnoredPopularitySortIsRejected() async throws {
+        do {
+            _ = try await BooruSortValidation.posts(source: RequiredTagTasteSource(), server: BooruServer.presets[0], query: "scenery", page: 0, sort: .popular)
+            XCTFail("Ascending scores cannot satisfy descending popularity")
+        } catch { XCTAssertTrue(error is UnsupportedBooruSort) }
+    }
+}
+private actor RequiredTagTasteSource: BooruProviding {
+    var queries: [String: String] = [:]
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        queries[server.id] = query
+        let tags = query.split(separator: " ").map(String.init)
+        var first = BooruFixtureSource.post(201, server: server, tags: tags); first.score = 1
+        if query.contains("order:score") {
+            var second = BooruFixtureSource.post(202, server: server, tags: tags); second.score = 20
+            return .init(posts: [first, second], hasMore: false)
+        }
+        return .init(posts: [first], hasMore: false)
+    }
     func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
     func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
     func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }

@@ -1,5 +1,5 @@
 Number Memo Privacy Policy
-Updated: October 8, 2026
+Updated: October 9, 2026
 
 NextLine develops Number Memo. Contact: contact@nextline.work · https://nextline.work
 
@@ -27,9 +27,9 @@ If you email us or use Discord, you choose what information to send. Content rep
 Policy changes
 We will update this policy when the app’s data practices change. The current policy is available inside the app and in the project’s public repository.
 
-Taste analysis and on-device AI
+Smart recommendations and visual similarity
 Taste analysis is enabled by default. It records search-tag context, save and removal events, and opened-work metadata used only as a comparison sample. Image and comic profiles are separate. Existing saved works may initialize general preferences. Deliberate saves from recommendations also contribute preference evidence; recommendation views alone do not. Technical and management tags are excluded from preference scoring. Analysis records and validated reports are retained until you delete them, separately from search-history retention. If search-history recording is disabled, separate search events are not recorded; context at the moment of saving can still classify preference evidence.
 
-AI uses Apple's on-device Foundation Models when available. The model receives anonymous temporary identifiers and precomputed statistics, not tag names, titles, images, website addresses, or the identifier mapping. Unsupported devices and generation failures use statistical explanations. We do not send analysis to a developer-operated AI service. Recommendation searches send the selected search tags to the connected content websites, subject to those websites' policies.
+Smart recommendations use statistical calculations on your device, independently for each server address. No generative model is used. Required tags and language filters are chosen explicitly in Settings. Recommendation searches send selected tags to the connected content websites. Similar-style search compares saved works using Apple Vision feature prints extracted from thumbnails. These derived fingerprints stay in the local database and are not included in iCloud library sync; another device computes its own copies. Similarity includes composition, colors and subjects as well as visual style.
 
-When both library sync and analysis sync are enabled, analysis data is stored in a separate area of your iCloud Drive using its existing protection. End-to-end encryption of iCloud Drive depends on your Apple Advanced Data Protection settings. You can stop analysis or AI explanations in Settings. The analysis stop setting reaches other devices when they next sync; offline devices cannot receive it immediately. Deleting analysis data preserves your library, removes app-managed analysis records and reports as devices synchronize, and prevents old records from being merged back. Deletion may remain pending without iCloud access. Existing saved works are not automatically analyzed again after deletion. Copies outside the app and Apple's backups/version history are managed separately.
+When both library sync and analysis sync are enabled, analysis data is stored in a separate area of your iCloud Drive using its existing protection. End-to-end encryption of iCloud Drive depends on your Apple Advanced Data Protection settings. You can stop analysis in Settings. The analysis stop setting reaches other devices when they next sync; offline devices cannot receive it immediately. Deleting analysis data preserves your library, removes app-managed analysis records and reports as devices synchronize, and prevents old records from being merged back. Deletion may remain pending without iCloud access. Existing saved works are not automatically analyzed again after deletion. Copies outside the app and Apple's backups/version history are managed separately.

@@ -10,10 +10,22 @@ final class TasteController {
     let booru: TasteStore
     let cloud = TasteSyncCoordinator()
     let imageFeed = TasteFeedState()
+    private var serverFeeds: [String: TasteFeedState] = [:]
     let comicFeed = TasteFeedState()
     var monthlyRecaps: [TasteMode: Date] = [:]
     var dismissedRecaps: [TasteMode: String] = [:]
     func feed(_ mode: TasteMode) -> TasteFeedState { mode == .booru ? imageFeed : comicFeed }
+    func feed(_ mode: TasteMode, source: String) -> TasteFeedState {
+        guard mode == .booru else { return comicFeed }
+        if let feed = serverFeeds[source] { return feed }
+        let feed = TasteFeedState(source: source); serverFeeds[source] = feed; return feed
+    }
+    func feed(_ mode: TasteMode, sources: [String]) -> TasteFeedState {
+        guard mode == .booru else { return comicFeed }
+        let key = sources.sorted().joined(separator: "\n")
+        if let feed = serverFeeds[key] { return feed }
+        let feed = TasteFeedState(sources: sources); serverFeeds[key] = feed; return feed
+    }
     private let cache = TasteAnalysisCache()
     private let library: AppDatabase
     private let images: BooruStore
@@ -46,12 +58,16 @@ final class TasteController {
         do {
             try comics.setControl(next, remote: remote); try booru.setControl(next, remote: remote)
             if next.epoch != control.epoch || !next.enabled {
-                imageFeed.clear(); comicFeed.clear(); monthlyRecaps = [:]
+                imageFeed.clear(); comicFeed.clear(); serverFeeds.values.forEach { $0.clear() }; monthlyRecaps = [:]
             }
             for mode in [TasteMode.booru, .comics] {
                 if next.analysisExcluded(mode) != control.analysisExcluded(mode) || next.excluded != control.excluded {
                     feed(mode).applyExclusions(next, mode: mode)
                 }
+            }
+            if next.sourceAnalysisExclusions != control.sourceAnalysisExclusions || next.analysisExclusions != control.analysisExclusions || next.excluded != control.excluded {
+                for feed in serverFeeds.values { feed.applyExclusions(next, mode: .booru) }
+                comicFeed.applyExclusions(next, mode: .comics)
             }
             control = next; revision += 1
             Task { await cache.invalidate() }
@@ -68,7 +84,7 @@ final class TasteController {
                 try TasteStore.put(fresh, key: "control", db: db)
             }
         }
-        imageFeed.clear(); comicFeed.clear(); monthlyRecaps = [:]; dismissedRecaps = [:]
+        imageFeed.clear(); comicFeed.clear(); serverFeeds.values.forEach { $0.clear() }; monthlyRecaps = [:]; dismissedRecaps = [:]
         control = fresh; revision += 1; awaitCacheInvalidation()
     }
     private func awaitCacheInvalidation() { Task { await cache.invalidate() } }
@@ -112,11 +128,9 @@ final class TasteController {
                     guard !snapshot.tags.isEmpty else { continue }
                     let cached = try store(mode).report(digest: snapshot.digest, language: L10n.language, epoch: captured.epoch)
                     if cached?.isValid(for: snapshot) == true { continue }
-                    // Preparing archives must not spin up the model in the background.
-                    var statistical = captured; statistical.aiEnabled = false
-                    let report = await OnDeviceInsightService.report(snapshot: snapshot, control: statistical, language: L10n.language)
+                    let report = await StatisticalInsightService.report(snapshot: snapshot, control: captured, language: L10n.language)
                     try Task.checkCancellation()
-                    guard control.enabled, control.epoch == captured.epoch, control.aiEnabled == captured.aiEnabled else { return }
+                    guard control.enabled, control.epoch == captured.epoch else { return }
                     try store(mode).saveReport(report)
                 } catch is CancellationError { return }
                 catch { self.error = L10n.text("Unable to update taste analysis.") }

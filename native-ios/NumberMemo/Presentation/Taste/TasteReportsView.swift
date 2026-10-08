@@ -40,7 +40,6 @@ struct TasteReportsView: View {
                                                 VStack(alignment: .leading, spacing: 10) {
                                                     Text(TastePresentation.name(tag.name)).font(.headline)
                                                     Text(TastePresentation.explanation(insight, tag: tag, snapshot: snapshot)).font(.subheadline).foregroundStyle(.secondary)
-                                                    if report.generatedByAI { Label(L10n.text("On-device AI insights"), systemImage: "apple.intelligence").font(.caption).foregroundStyle(.secondary) }
                                                 }
                                             }
                                         }.buttonStyle(.plain)
@@ -76,7 +75,7 @@ struct TasteReportsView: View {
         VStack(spacing: 12) {
             TabView(selection: card) {
                 recapCard(0, colors: [.indigo, .purple]) {
-                    Image(systemName: "apple.intelligence").font(.system(size: 42)).accessibilityHidden(true)
+                    Image(systemName: "sparkles").font(.system(size: 42)).accessibilityHidden(true)
                     Text(L10n.text("A month of discoveries")).font(.largeTitle.bold())
                     Text(snapshot.saves.formatted()).font(.system(size: 84, weight: .bold, design: .rounded)).minimumScaleFactor(0.5).lineLimit(1)
                     Text(L10n.text("Newly saved works")).font(.title2)
@@ -162,9 +161,9 @@ struct TasteReportsView: View {
             loaded[key] = (result, nil)
             let control = env.taste.control
             let cached = try env.taste.store(mode).report(digest: result.digest, language: L10n.language, epoch: control.epoch)
-            if let cached, cached.isValid(for: result), cached.generatedByAI && control.aiEnabled { report = cached }
+            if let cached, cached.isValid(for: result), true { report = cached }
             else {
-                let generated = await OnDeviceInsightService.report(snapshot: result, control: control, language: L10n.language)
+                let generated = await StatisticalInsightService.report(snapshot: result, control: control, language: L10n.language)
                 try Task.checkCancellation()
                 guard env.taste.control == control else { return }
                 report = generated; try env.taste.store(mode).saveReport(generated)
@@ -185,7 +184,7 @@ struct TasteRecapBanner: View {
         HStack(spacing: 8) {
             Button(action: open) {
                 HStack(spacing: 12) {
-                    Image(systemName: "apple.intelligence").font(.title2)
+                    Image(systemName: "sparkles").font(.title2)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(L10n.text("Your monthly recap is ready")).font(.subheadline.bold())
                         Text(date, format: .dateTime.year().month(.wide)).font(.caption)

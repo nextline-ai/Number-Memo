@@ -159,6 +159,10 @@ struct BooruMediaView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> WKWebView {
+        // SwiftUI can replace the UIKit view while retaining its coordinator.
+        // A cached key describes the old web view, not the new empty document.
+        context.coordinator.key = ""
+        context.coordinator.ready = false
         let config = WKWebViewConfiguration()
         config.websiteDataStore = BooruBrowserSession.dataStore(for: server)
         config.allowsInlineMediaPlayback = true
@@ -173,6 +177,7 @@ struct BooruMediaView: UIViewRepresentable {
         view.scrollView.showsVerticalScrollIndicator = false
         view.scrollView.showsHorizontalScrollIndicator = false
         view.accessibilityIdentifier = "booru.media"
+        context.coordinator.observeLifecycle(of: view)
         return view
     }
     func updateUIView(_ view: WKWebView, context: Context) {
@@ -199,10 +204,15 @@ struct BooruMediaView: UIViewRepresentable {
         } else { coordinator.updateNotes(view) }
         if coordinator.active != active {
             coordinator.active = active
-            view.evaluateJavaScript(active ? "window.resumePlayback?.()" : "window.pausePlayback?.()", completionHandler: nil)
+            if active { coordinator.resume() }
+            else { view.evaluateJavaScript("window.pausePlayback?.()", completionHandler: nil) }
         }
     }
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+        NotificationCenter.default.removeObserver(coordinator)
+        coordinator.view = nil
+        coordinator.key = ""; coordinator.ready = false
+        view.navigationDelegate = nil
         view.stopLoading()
         coordinator.resources.cancel()
         view.configuration.userContentController.removeScriptMessageHandler(forName: "media")
@@ -238,6 +248,7 @@ struct BooruMediaView: UIViewRepresentable {
         .note span{background:#202020dd;padding:2px 5px;font:12px -apple-system;border-radius:4px}
         </style></head><body><div id="canvas">\(media)<div id="notes"></div></div>
         <script nonce="\(nonce)">
+        window.numberMemoDocumentID='\(identifier)';
         const media=document.getElementById('media');
         const send=value=>window.webkit.messageHandlers.media.postMessage({...value,documentID:'\(identifier)'});
         const fit=()=>{const w=media.naturalWidth||media.videoWidth||\(max(post.width, 1));const h=media.naturalHeight||media.videoHeight||\(max(post.height, 1));
@@ -347,6 +358,26 @@ struct BooruMediaView: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        weak var view: WKWebView?
+        func observeLifecycle(of view: WKWebView) {
+            self.view = view
+            NotificationCenter.default.addObserver(self, selector: #selector(resume), name: UIApplication.didBecomeActiveNotification, object: nil)
+        }
+        @objc func resume() {
+            guard let view, !document.isEmpty else { return }
+            let expected = documentID
+            // Validate the document as well as playback: WebKit may suspend a
+            // pending page transition while the app is in the background.
+            view.evaluateJavaScript("window.numberMemoDocumentID === '\(expected)'") { [weak self, weak view] value, _ in
+                guard let self, let view, self.view === view, self.documentID == expected else { return }
+                if value as? Bool == true {
+                    view.evaluateJavaScript("window.resumePlayback?.()", completionHandler: nil)
+                } else {
+                    self.ready = false
+                    view.loadHTMLString(self.document, baseURL: self.baseURL)
+                }
+            }
+        }
         let resources = BooruImageResourceHandler()
         var key = ""
         var ready = false
@@ -398,8 +429,14 @@ struct BooruMediaView: UIViewRepresentable {
             default: break
             }
         }
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { ready = true; updateNotes(webView) }
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onStatus?("error") }
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            ready = true; updateNotes(webView)
+            webView.evaluateJavaScript(active ? "window.resumePlayback?.()" : "window.pausePlayback?.()", completionHandler: nil)
+        }
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            guard (error as NSError).code != NSURLErrorCancelled else { return }
+            onStatus?("error")
+        }
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
             ready = false; onStatus?("loading")
             webView.loadHTMLString(document, baseURL: baseURL)

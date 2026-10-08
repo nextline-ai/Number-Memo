@@ -128,22 +128,16 @@ struct BooruPoolsView: View {
 struct BooruSavedServersView: View {
     let source: any BooruProviding
     @Environment(BooruStore.self) private var store
-    @State private var serverID = ""
-    private var server: BooruServer? { store.servers.first { $0.id == serverID } ?? store.selectedServer }
     var body: some View {
         Group {
-            if let server { BooruSavedView(server: server, source: source).id(server.id) }
-            else { ContentUnavailableView(L10n.text("Add a Server"), systemImage: "server.rack") }
-        }.toolbar { ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                ForEach(store.servers) { item in
-                    Button { serverID = item.id } label: {
-                        Label(item.name, systemImage: item.id == server?.id ? "checkmark" : "server.rack")
-                    }
+            if store.selectedServers.isEmpty { BooruNoSelectionView() }
+            else if store.selectedServers.count == 1, let server = store.selectedServer { BooruSavedView(server: server, source: source).id(server.id) }
+            else {
+                List(store.selectedServers) { server in
+                    NavigationLink { BooruSavedView(server: server, source: source) } label: { Label(server.displayName, systemImage: "server.rack") }
                 }
-            } label: { Image(systemName: "server.rack").frame(width: 32, height: 32) }
-                .accessibilityLabel(server?.name ?? L10n.text("Server"))
-        } }
+            }
+        }.toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }
     }
 }
 
@@ -151,7 +145,7 @@ struct BooruPoolServersView: View {
     let source: any BooruProviding
     @Environment(BooruStore.self) private var store
     var body: some View {
-        List(store.servers) { server in
+        List(store.selectedServers) { server in
             NavigationLink { BooruPoolsView(server: server, source: source) } label: {
                 Label(server.displayName, systemImage: "server.rack")
             }
@@ -162,8 +156,6 @@ struct BooruPoolServersView: View {
 /// Comics browsing falls back to ordered image pools until a comics site is connected.
 struct ComicsPoolsView: View {
     @Environment(BooruStore.self) private var store
-    @State private var serverID = ""
-    private var server: BooruServer? { store.servers.first { $0.id == serverID } ?? store.selectedServer }
     private var source: any BooruProviding {
         #if DEBUG
         if BooruUITestSupport.enabled { return BooruUITestSupport.source }
@@ -172,19 +164,9 @@ struct ComicsPoolsView: View {
     }
     var body: some View {
         Group {
-            if let server { BooruPoolsView(server: server, source: source, comicsMode: true).id(server.id) }
-        }.toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(store.servers) { item in
-                        Button { serverID = item.id } label: {
-                            Label(item.name, systemImage: item.id == server?.id ? "checkmark" : "server.rack")
-                        }
-                    }
-                } label: { Image(systemName: "server.rack").frame(width: 32, height: 32) }
-                    .accessibilityLabel(server?.name ?? L10n.text("Server"))
-                    .accessibilityIdentifier("comics.poolServer")
-            }
-        }
+            if store.selectedServers.isEmpty { BooruNoSelectionView() }
+            else if store.selectedServers.count == 1, let server = store.selectedServer { BooruPoolsView(server: server, source: source, comicsMode: true).id(server.id) }
+            else { BooruPoolServersView(source: source) }
+        }.toolbar { ToolbarItem(placement: .topBarTrailing) { BooruServerMenu() } }
     }
 }

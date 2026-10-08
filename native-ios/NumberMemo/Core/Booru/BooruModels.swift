@@ -303,3 +303,31 @@ extension BooruServer {
         return host == "safebooru.org" || host == "www.safebooru.org" || host == "safebooru.donmai.us"
     }
 }
+
+struct UnsupportedBooruSort: Error {}
+enum BooruSortValidation {
+    private static func isSortRejection(_ error: Error) -> Bool {
+        guard let error = error as? BooruError else { return false }
+        switch error { case .unsupported, .unavailable(400), .unavailable(422): return true; default: return false }
+    }
+    static func posts(source: any BooruProviding, server: BooruServer, query: String, page: Int, sort: BooruSort) async throws -> BooruBatch {
+        guard sort == .popular else { return try await source.posts(server: server, query: query, page: page) }
+        let sorted: BooruBatch
+        do { sorted = try await source.posts(server: server, query: sort.query(query, engine: server.engine), page: page) }
+        catch {
+            try Task.checkCancellation()
+            guard isSortRejection(error) else { throw error }
+            // A successful identical query without the sort operator establishes
+            // that the rejected condition was the sort, not an offline server.
+            if let baseline = try? await source.posts(server: server, query: query, page: page), !baseline.posts.isEmpty { throw UnsupportedBooruSort() }
+            throw error
+        }
+        if sorted.posts.isEmpty && page == 0 {
+            let baseline = try await source.posts(server: server, query: query, page: page)
+            if !baseline.posts.isEmpty { throw UnsupportedBooruSort() }
+        }
+        let scores = sorted.posts.map(\.score)
+        if Set(scores).count > 1 && zip(scores, scores.dropFirst()).contains(where: { $0 < $1 }) { throw UnsupportedBooruSort() }
+        return sorted
+    }
+}

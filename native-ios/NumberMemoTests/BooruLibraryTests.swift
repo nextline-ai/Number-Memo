@@ -95,8 +95,10 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(restored.folderID(for: first), "unsorted")
         XCTAssertTrue(restored.isFavorite(first))
         try restored.toggleServer(a)
-        try restored.toggleServer(b) // The last active server cannot be deselected.
-        XCTAssertEqual(restored.selectedServerIDs, [b.id])
+        try restored.toggleServer(b)
+        XCTAssertTrue(restored.selectedServerIDs.isEmpty)
+        try restored.reload()
+        XCTAssertTrue(restored.selectedServerIDs.isEmpty)
     }
 
     func testLegacyFavoritesAndSingleSelectionMigrate() throws {
@@ -253,14 +255,17 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertTrue(loader.didLoad)
     }
 
-    func testSavedLibraryIgnoresExploreSelectionAndDefaultsToSiteFolders() throws {
+    func testSavedLibraryUsesSharedServerSelectionAndDefaultsToSiteFolders() throws {
         let store = try BooruStore()
         let a = BooruServer.presets[0], b = BooruServer.presets[1]
         try store.saveServer(a); try store.saveServer(b)
         let first = BooruFixtureSource.post(1, server: a), second = BooruFixtureSource.post(2, server: b)
         try store.toggleFavorite(first); try store.saveFavorite(second)
         try store.setSelectedServers([a.id])
-        XCTAssertEqual(Set(store.visibleFavorites().map(\.id)), Set([first.id, second.id]))
+        XCTAssertEqual(store.visibleFavorites().map(\.id), [first.id])
+        try store.setSelectedServers([])
+        XCTAssertTrue(store.visibleFavorites().isEmpty)
+        XCTAssertEqual(store.favorites(serverIDs: [a.id, b.id]).count, 2)
         XCTAssertEqual(store.folderID(for: first), "site:" + a.canonicalAddress)
         XCTAssertEqual(store.folderID(for: second), "site:" + b.canonicalAddress)
         try store.setBlacklist("id:1", serverID: a.id)

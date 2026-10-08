@@ -9,6 +9,7 @@ public struct WorksGridView: View {
     public let artist: String?
 
     @State private var works: [Work] = []
+    @State private var similarity: VisualSimilaritySeed?
     @State private var selecting = false
     @State private var selection = Set<Int64>()
     @State private var confirmingDelete = false
@@ -97,6 +98,7 @@ public struct WorksGridView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(isPushed)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .sheet(item: $similarity) { VisualSimilarityView(seed: $0) }
         .sheet(item: Binding(
             get: { selectedDetailGalleryId.map { IdentifiableInt64(id: $0) } },
             set: { selectedDetailGalleryId = $0?.id }
@@ -304,6 +306,7 @@ public struct WorksGridView: View {
 
     @ViewBuilder
     private func workContextMenu(for work: Work) -> some View {
+        Button(L10n.text("Find works with a similar art style"), systemImage: "photo.on.rectangle.angled") { similarity = .init(work: work) }
         Menu {
             Button {
                 workPendingMoveToNewFolder = work

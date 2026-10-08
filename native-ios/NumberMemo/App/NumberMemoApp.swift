@@ -9,6 +9,7 @@ final class PrivacyCoverManager {
     static let shared = PrivacyCoverManager()
     private var covers: [ObjectIdentifier: UIView] = [:]
     private var generation = 0
+    private var cleanup: Task<Void, Never>?
 
     init() {}
 
@@ -19,6 +20,7 @@ final class PrivacyCoverManager {
     }
 
     func show(in windows: [UIWindow]) {
+        cleanup?.cancel(); cleanup = nil
         generation += 1
         // Attach to the actual app windows: their contents are what UIKit snapshots.
         UIView.performWithoutAnimation {
@@ -44,6 +46,7 @@ final class PrivacyCoverManager {
                 cover.clipsToBounds = true
                 cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
                 cover.isUserInteractionEnabled = true
+                cover.accessibilityElementsHidden = false
                 cover.accessibilityIdentifier = "privacy.cover"
                 window.addSubview(cover)
                 covers[key] = cover
@@ -53,19 +56,28 @@ final class PrivacyCoverManager {
     }
 
     func hide() {
+        generation += 1
         let current = generation
+        cleanup?.cancel()
         let reduced = UIAccessibility.isReduceMotionEnabled
-        for (key, cover) in covers {
-            UIView.animate(withDuration: reduced ? 0.15 : 0.45, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
-                if reduced { cover.alpha = 0 }
-                else { cover.transform = CGAffineTransform(translationX: 0, y: -cover.bounds.height) }
-            } completion: { [weak self] finished in
-                guard let self, finished, self.generation == current, self.covers[key] === cover else { return }
-                cover.removeFromSuperview()
-                self.covers.removeValue(forKey: key)
+        for cover in covers.values {
+            // The return animation must never intercept the resumed viewer.
+            cover.isUserInteractionEnabled = false
+            cover.accessibilityElementsHidden = true
+            UIView.animate(withDuration: reduced ? 0.15 : 0.35, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction]) {
+                cover.alpha = 0
             }
         }
+        // UIKit can interrupt the animation without completing it when a modal
+        // viewer resumes. Cleanup is independent of the completion's finished flag.
+        cleanup = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
+            guard let self, self.generation == current else { return }
+            for cover in self.covers.values { cover.removeFromSuperview() }
+            self.covers.removeAll(); self.cleanup = nil
+        }
     }
+
 }
 
 #else
@@ -209,7 +221,7 @@ struct NumberMemoApp: App {
                 }
             }
             .onChange(of: scenePhase, initial: true) { _, phase in
-                if phase == .active { env.pruneSearchHistory() }
+                if phase == .active { PrivacyCoverManager.shared.hide(); env.pruneSearchHistory() }
                 guard !isContentUITest, phase == .background, env.sync.enabled else { return }
                 let taskID = UIApplication.shared.beginBackgroundTask(withName: "Save library to iCloud", expirationHandler: nil)
                 Task { await env.sync.synchronize(env: env); if taskID != .invalid { UIApplication.shared.endBackgroundTask(taskID) } }

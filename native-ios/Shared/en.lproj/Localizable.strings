@@ -642,7 +642,6 @@
 "Selected" = "Selected";
 
 /* Local taste analysis */
-"AI Recommendations" = "AI Recommendations";
 "Taste Analysis" = "Taste Analysis";
 "Recommendations" = "For You";
 "Weekly" = "Weekly";
@@ -653,7 +652,6 @@
 "Taste analysis is paused on your devices." = "Taste analysis is paused on your devices.";
 "Enable Taste Analysis" = "Enable Taste Analysis";
 "Preparing your insights…" = "Preparing your insights…";
-"Discover your taste" = "Discover your taste";
 "Search and save works to build your taste profile. Technical and management tags are excluded." = "Search and save works to build your taste profile. Technical and management tags are excluded.";
 "Patterns describe your activity in this app. They are suggestions, not conclusions about you." = "Patterns describe your activity in this app. They are suggestions, not conclusions about you.";
 "Evidence comes from distinct saved works. Opening a work alone does not add preference points." = "Evidence comes from distinct saved works. Opening a work alone does not add preference points.";
@@ -663,7 +661,6 @@
 "Comparison sample" = "Comparison sample";
 "Previous period" = "Previous period";
 "Saved works over time" = "Saved works over time";
-"On-device AI insights" = "On-device AI insights";
 "Statistical insights" = "Statistical insights";
 "You searched for this tag and saved %@ works with it." = "You searched for this tag and saved %@ works with it.";
 "You saved %@ works with this tag without searching for it, across %@ sessions." = "You saved %@ works with this tag without searching for it, across %@ sessions.";
@@ -686,16 +683,12 @@
 "New works for you" = "New works for you";
 "Recommendation searches send the selected tags to your connected websites. Your taste profile is not sent." = "Recommendation searches send the selected tags to your connected websites. Your taste profile is not sent.";
 "Unable to update taste analysis." = "Unable to update taste analysis.";
-"On-device AI available" = "On-device AI available";
-"Enable Apple Intelligence for AI insights." = "Enable Apple Intelligence for AI insights.";
-"The on-device model is not ready yet." = "The on-device model is not ready yet.";
 "Statistical insights are available on this device." = "Statistical insights are available on this device.";
 "iCloud deletion pending" = "iCloud deletion pending";
 "Downloading analysis history…" = "Downloading analysis history…";
 "Analysis sync is off" = "Analysis sync is off";
 "Some analysis files could not be read." = "Some analysis files could not be read.";
 "Analysis synced" = "Analysis synced";
-"On-device AI explanations" = "On-device AI explanations";
 "Search context and saved works build your profile. Opened works only provide a comparison sample. Technical and management tags are excluded." = "Search context and saved works build your profile. Opened works only provide a comparison sample. Technical and management tags are excluded.";
 "Sync analysis with iCloud" = "Sync analysis with iCloud";
 "Analysis time zone" = "Analysis time zone";
@@ -708,14 +701,12 @@
 "Deletes activity, preference evidence, and reports. Your saved works remain. Existing works will not be automatically analyzed again." = "Deletes activity, preference evidence, and reports. Your saved works remain. Existing works will not be automatically analyzed again.";
 "Taste Analysis Settings" = "Taste Analysis Settings";
 "Delete all analysis data?" = "Delete all analysis data?";
-"Taste analysis is on. Search context and saved works reveal patterns, and analysis records stay in your iCloud until you delete them. AI runs on your device without receiving tag names. You can turn this off in Settings at any time." = "Taste analysis is on. Search context and saved works reveal patterns, and analysis records stay in your iCloud until you delete them. AI runs on your device without receiving tag names. You can turn this off in Settings at any time.";
 "Date" = "Date";
 
 "Recommendations and insights shaped by what you save." = "Recommendations and insights shaped by what you save.";
 
 "How recommendations work" = "How recommendations work";
 
-"AI analyzes anonymous statistics on this device. Analysis records are kept until you delete them and sync through iCloud when enabled. You can change these options in Settings." = "AI analyzes anonymous statistics on this device. Analysis records are kept until you delete them and sync through iCloud when enabled. You can change these options in Settings.";
 
 "Your taste" = "Your taste";
 
@@ -826,14 +817,10 @@
 "Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available." = "Excluded tags are removed from taste evidence immediately. Your current works stay in place; refresh to find new recommendations. Original tags and search filters stay available.";
 "You chose and saved %@ works associated with this tag." = "You chose and saved %@ works associated with this tag.";
 "Private by design, processed on your device" = "Private by design, processed on your device";
-"AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model." = "AI runs on this device. It receives only temporary identifiers and statistics, never your original tags, searches, images or titles. AI requests are not sent to a cloud model.";
 "When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website." = "When enabled, iCloud sync uses iCloud Drive encryption. Recommendation searches send selected tags to the connected content website.";
-"AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available." = "AI results are reused, with up to 3 generations in any 5-minute window. No waiting is required between allowed generations. AI pauses in Low Power Mode or in the background. Statistical recommendations remain available.";
 "Turn off taste analysis?" = "Turn off taste analysis?";
-"Turn off on-device AI explanations?" = "Turn off on-device AI explanations?";
 "Keep Enabled" = "Keep Enabled";
 "New taste evidence, recommendations and reports will pause. Existing analysis and saved works are kept. Your other devices apply this choice after syncing." = "New taste evidence, recommendations and reports will pause. Existing analysis and saved works are kept. Your other devices apply this choice after syncing.";
-"New AI explanations will pause. Your statistics and recommendations will continue to work without AI." = "New AI explanations will pause. Your statistics and recommendations will continue to work without AI.";
 "For videos, tap with two fingers to open the quick menu. Playback controls remain available." = "For videos, tap with two fingers to open the quick menu. Playback controls remain available.";
 "Tap with two fingers for the video menu" = "Tap with two fingers for the video menu";
 "Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here." = "Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here.";
@@ -842,3 +829,23 @@
 "Thumbnail" = "Thumbnail";
 "Thumbnail unavailable" = "Thumbnail unavailable";
 "Thumbnail loaded" = "Thumbnail loaded";
+
+"Smart" = "Smart";
+"Smart Recommendations" = "Smart Recommendations";
+"Recommended" = "Recommended";
+"Recommendation filters" = "Recommendation filters";
+"Default included tag" = "Default included tag";
+"Default included tags" = "Default included tags";
+"Only this server uses these filters. All included tags must match. No language is required unless you choose one. Changes apply when you refresh recommendations." = "Only this server uses these filters. All included tags must match. No language is required unless you choose one. Changes apply when you refresh recommendations.";
+"This server does not support that sort. Your previous sort has been restored." = "This server does not support that sort. Your previous sort has been restored.";
+"Recommendations are calculated on your device from your choices. Analysis records sync through iCloud when enabled and remain until you delete them." = "Recommendations are calculated on your device from your choices. Analysis records sync through iCloud when enabled and remain until you delete them.";
+"Find works with a similar art style" = "Find works with a similar art style";
+"Similar art styles" = "Similar art styles";
+"Find similar art styles in your saved works. Visual similarity also reflects composition, colors and subjects. Images and fingerprints stay on this device." = "Find similar art styles in your saved works. Visual similarity also reflects composition, colors and subjects. Images and fingerprints stay on this device.";
+"Preparing saved thumbnails: %@ / %@" = "Preparing saved thumbnails: %@ / %@";
+"Load this work's thumbnail and try again." = "Load this work's thumbnail and try again.";
+"No similar saved works yet" = "No similar saved works yet";
+"Some saved thumbnails could not be read. Available works are shown." = "Some saved thumbnails could not be read. Available works are shown.";
+
+"No servers selected" = "No servers selected";
+"Choose servers using the server button above. Your saved works are kept." = "Choose servers using the server button above. Your saved works are kept.";

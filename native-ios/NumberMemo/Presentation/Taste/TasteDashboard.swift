@@ -12,14 +12,26 @@ struct TasteDashboard: View {
     @State private var saveFeedback: WorkSaveFeedback?
     @State private var opened: TasteRecommendation?
     @State private var detail: TasteTag?
-    private var feed: TasteFeedState { env.taste.feed(mode) }
+    private var sources: [String] { mode == .comics ? ["https://hitomi.la"] : env.booru.selectedServers.map(\.canonicalAddress) }
+    private var source: String { sources.first ?? "" }
+    private var feed: TasteFeedState { env.taste.feed(mode, sources: sources) }
     private var columns: [GridItem] { WorkGridLayout.columns(typeSize.isAccessibilitySize ? 1 : env.gridColumns(for: mode == .booru ? .booru : .hitomi)) }
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 heading
-                if !env.taste.control.enabled { paused }
+                if sources.count <= 1 && !sources.isEmpty { RecommendationFilters(mode: mode, source: source, onChange: refresh) }
+                else if mode == .booru {
+                    ForEach(env.booru.selectedServers) { server in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(server.displayName).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            RecommendationFilters(mode: mode, source: server.canonicalAddress, onChange: refresh)
+                        }
+                    }
+                }
+                if sources.isEmpty { BooruNoSelectionView() }
+                else if !env.taste.control.enabled { paused }
                 else {
                     if let failure = feed.error { message(failure, icon: "wifi.exclamationmark", action: "Try Again", perform: refresh) }
                     if let snapshot = feed.snapshot {
@@ -45,15 +57,16 @@ struct TasteDashboard: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 4) {
-                    NavigationLink { TasteSettingsView(mode: mode) } label: { Image(systemName: "slider.horizontal.3").frame(width: 36, height: 44) }.accessibilityLabel(L10n.text("Settings"))
-                    Button(action: refresh) { Image(systemName: "arrow.clockwise").frame(width: 36, height: 44) }
+                AppToolbarActions {
+                    if mode == .booru { BooruServerMenu(compact: true) }
+                    NavigationLink { TasteSettingsView(mode: mode, source: source) } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel(L10n.text("Settings"))
+                    Button(action: refresh) { Image(systemName: "arrow.clockwise") }
                         .disabled(feed.loading || !env.taste.control.enabled)
                         .accessibilityLabel(L10n.text("Refresh recommendations")).accessibilityIdentifier("taste.refresh")
                 }
             }
             if isRoot {
-                ToolbarItem(placement: .topBarLeading) { LiquidGlassTitleCapsule("AI") }
+                ToolbarItem(placement: .topBarLeading) { LiquidGlassTitleCapsule(L10n.text("Smart")) }
                 ToolbarItem(placement: .principal) { AppModeSwitch() }
             }
         }
@@ -62,7 +75,9 @@ struct TasteDashboard: View {
             let observation = ValueObservation.tracking { db in Set(try Int64.fetchAll(db, sql: "SELECT gallery_id FROM works")) }
             do { for try await ids in observation.values(in: env.database.dbWriter) { bookmarks = ids } } catch { }
         }
+        .transientMessage(Binding(get: { feed.sortMessage }, set: { feed.sortMessage = $0 }))
         .workSaveFeedback($saveFeedback, identifier: "taste.saveStatus")
+        .onChange(of: sources) { _, _ in feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) }
         .onAppear { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) }
         .onChange(of: env.taste.control.enabled) { _, enabled in if enabled { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) } }
         .refreshable { refresh(); await feed.waitForRefresh() }
@@ -72,7 +87,7 @@ struct TasteDashboard: View {
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(L10n.text("AI Recommendations")).font(.largeTitle.bold())
+            Text(L10n.text("Smart Recommendations")).font(.largeTitle.bold())
             Text(L10n.text("Inspired by what you love. Made for your next discovery.")).font(.subheadline).foregroundStyle(.secondary)
         }.padding(.vertical, 4)
     }
@@ -113,7 +128,6 @@ struct TasteDashboard: View {
                 }.foregroundStyle(TastePresentation.accent)
                 Text(TastePresentation.name(tag.name)).font(.title2.bold()).foregroundStyle(.primary)
                 Text(TastePresentation.explanation(insight, tag: tag, snapshot: snapshot)).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                if report.generatedByAI { Label(L10n.text("On-device AI insights"), systemImage: "apple.intelligence").font(.caption2).foregroundStyle(.secondary) }
             }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
                 .background(LinearGradient(colors: [TastePresentation.accent.opacity(0.12), Color(uiColor: .secondarySystemGroupedBackground)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
                 .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(TastePresentation.accent.opacity(0.13), lineWidth: 1))
@@ -174,8 +188,7 @@ struct TasteDashboard: View {
         VStack(alignment: .leading, spacing: 12) {
             DisclosureGroup(L10n.text("About your recommendations")) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(OnDeviceInsightService.availabilityMessage)
-                    Text(L10n.text("AI analyzes anonymous statistics on this device. Analysis records are kept until you delete them and sync through iCloud when enabled. You can change these options in Settings."))
+                    Text(L10n.text("Recommendations are calculated on your device from your choices. Analysis records sync through iCloud when enabled and remain until you delete them."))
                     Text(L10n.text("Recommendation searches send the selected tags to your connected websites. Your taste profile is not sent."))
                 }.padding(.top, 8)
             }.font(.footnote).foregroundStyle(.secondary).tint(.secondary)

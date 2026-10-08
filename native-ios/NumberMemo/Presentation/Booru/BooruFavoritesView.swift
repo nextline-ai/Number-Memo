@@ -17,6 +17,8 @@ struct BooruFavoritesView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if store.selectedServers.isEmpty { BooruNoSelectionView() }
+                else {
                 NavigationLink { BooruFolderContentsView(source: source) } label: {
                     HStack(spacing: 14) {
                         Image(systemName: "square.grid.2x2.fill").font(.title2).foregroundStyle(.tint)
@@ -41,13 +43,15 @@ struct BooruFavoritesView: View {
                             }
                     }
                 }
+                }
             }.padding(16)
         }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
-            HStack(spacing: 16) {
+            AppToolbarActions {
+                BooruServerMenu(compact: true)
                 Button { creating = true } label: { Image(systemName: "folder.badge.plus").font(.system(size: 17, weight: .medium)) }
                     .accessibilityLabel(L10n.text("Create Folder")).accessibilityIdentifier("booru.createFolder")
-            }.padding(.horizontal, 8)
+            }
         } }
         .booruCreateFolderAlert(isPresented: $creating, name: $newFolderName)
         .sheet(isPresented: $reordering) { FolderOrderView(booru: true) }
@@ -141,7 +145,8 @@ struct BooruFolderContentsView: View {
         .navigationTitle(store.folders().first(where: { $0.id == folderID })?.displayName ?? L10n.text("All Favorites"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
-            HStack(spacing: 16) {
+            HStack(spacing: 4) {
+                BooruServerMenu()
                 if selecting {
                     Button { selection = Set(posts.map(\.id)) } label: { Image(systemName: "checkmark.circle.fill") }.accessibilityLabel(L10n.text("Select All"))
                     Menu {
@@ -248,7 +253,7 @@ private extension View {
 extension BooruStore {
     func visibleFavorites(folderID: String? = nil, query: String = "") -> [BooruPost] {
         let filters = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, BooruBlacklist(blacklist(serverID: $0.id))) })
-        return favorites(serverIDs: servers.map(\.id), folderID: folderID).filter {
+        return favorites(serverIDs: selectedServers.map(\.id), folderID: folderID).filter {
             !(filters[$0.serverID]?.contains($0) ?? false) && (query.isEmpty || $0.tags.joined(separator: " ").localizedCaseInsensitiveContains(query) || String($0.postID).contains(query))
         }
     }

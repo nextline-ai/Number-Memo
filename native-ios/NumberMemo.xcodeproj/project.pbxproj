@@ -80,7 +80,7 @@
 		A0227014EE42FD43E2769582 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0D758D11EBEE724973FC43F /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A0F169C6BB893FB451AF32A7 /* LibrarySyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F4737CDB76989ABF03A465 /* LibrarySyncTests.swift */; };
 		A44973D3E3DC1CA4DF985E73 /* BooruBackupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A824088835743E484646A8 /* BooruBackupTests.swift */; };
-		A6A9ED07C1AF12F03A8D9E43 /* NumberMemo/Core/Taste/OnDeviceInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 956E2BBEF83BD873518CDFB8 /* NumberMemo/Core/Taste/OnDeviceInsightService.swift */; };
+		A6A9ED07C1AF12F03A8D9E43 /* NumberMemo/Core/Taste/StatisticalInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 956E2BBEF83BD873518CDFB8 /* NumberMemo/Core/Taste/StatisticalInsightService.swift */; };
 		A7211E7AAC00D94630FC6920 /* NativeContentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D83FD8E5311C82AD8D9AE1 /* NativeContentUITests.swift */; };
 		A8DEA1F1E17A02BB561A1CD2 /* NumberMemo/Core/Taste/TasteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D4B0A3B25EB92FE1EB817A6 /* NumberMemo/Core/Taste/TasteStore.swift */; };
 		A98D1BE5CD53F4CFE2AF73A7 /* AppDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A015BE1F0830B18B98744C46 /* AppDatabase.swift */; };
@@ -99,7 +99,6 @@
 		C420D8F8D9CE80CA52F7AFA6 /* ArtistsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4BD4BDDD588FC16CD4528 /* ArtistsListView.swift */; };
 		C4E563AAFF6C1AF00B6FF425 /* BooruRevisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF1291AD1D0E2E2F74F73C0F /* BooruRevisionTests.swift */; };
 		C8F1A6D98F620768DCC716E0 /* NumberMemo/Core/Taste/TasteController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 936F2460280A29C6924501D6 /* NumberMemo/Core/Taste/TasteController.swift */; };
-		C987D722C4872C5766CD63C9 /* NumberMemo/Core/Taste/InsightGenerationBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E8EA0D529C453B726B0B4C5 /* NumberMemo/Core/Taste/InsightGenerationBudget.swift */; };
 		C9DBD7867A1DC1FF4D4072BC /* BooruTestMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2713B3C152DDB66FAF0703B6 /* BooruTestMedia.swift */; };
 		CA3ED56268C7F1914E6C3189 /* BooruMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC026010A751FA4ECEC32C58 /* BooruMediaView.swift */; };
 		CC08E7E012785A05D48EACE4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 390ED38C727DD30011EF7FBE /* PrivacyInfo.xcprivacy */; };
@@ -129,6 +128,8 @@
 		FEC8BF3EE45161425F4F0A2A /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F36E537BD5CCBBECC0C7D91 /* AppStorage.swift */; };
 		ED48F37CF6CE5A5B8A98FBA5 /* BooruThumbnailDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B9952F64D57C1AFCE5169C /* BooruThumbnailDiskCache.swift */; };
 		7C6BF65F09115D54F402C28F /* BooruThumbnailCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9519E282D3CE6AC9232B7609 /* BooruThumbnailCacheTests.swift */; };
+		ACF09107ABCD100000000001 /* VisualSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF09107ABCD200000000001 /* VisualSimilarity.swift */; };
+		ACF09107ABCD100000000002 /* VisualSimilarityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF09107ABCD200000000002 /* VisualSimilarityView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -200,7 +201,6 @@
 		3A1C14EBB331C745654EA7FB /* BooruBrowserSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruBrowserSession.swift; sourceTree = "<group>"; };
 		3A5EFD7523ECEC99D902F3E8 /* ModeAppearanceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModeAppearanceSettings.swift; sourceTree = "<group>"; };
 		3E787CBAAE755DAE79AB33E9 /* AppModeSwitch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModeSwitch.swift; sourceTree = "<group>"; };
-		3E8EA0D529C453B726B0B4C5 /* NumberMemo/Core/Taste/InsightGenerationBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/InsightGenerationBudget.swift; sourceTree = SOURCE_ROOT; };
 		3F1F9E769A14ACF6FD24623C /* ChargingSplashAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargingSplashAnimationView.swift; sourceTree = "<group>"; };
 		40C7B7E6E50ACC442C7E4B8D /* NumberMemoTests/TasteFeedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemoTests/TasteFeedTests.swift; sourceTree = SOURCE_ROOT; };
 		40D4E140C517DE74300D02DE /* NumberMemo/Core/Taste/TasteSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/TasteSyncCoordinator.swift; sourceTree = SOURCE_ROOT; };
@@ -239,7 +239,7 @@
 		8EFDA2AA361D3555687C162C /* DeveloperInfoSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperInfoSection.swift; sourceTree = "<group>"; };
 		936F2460280A29C6924501D6 /* NumberMemo/Core/Taste/TasteController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/TasteController.swift; sourceTree = SOURCE_ROOT; };
 		950F4BA3B7F26293633599D9 /* NumberMemo/Core/Taste/RecommendationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/RecommendationService.swift; sourceTree = SOURCE_ROOT; };
-		956E2BBEF83BD873518CDFB8 /* NumberMemo/Core/Taste/OnDeviceInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/OnDeviceInsightService.swift; sourceTree = SOURCE_ROOT; };
+		956E2BBEF83BD873518CDFB8 /* NumberMemo/Core/Taste/StatisticalInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/StatisticalInsightService.swift; sourceTree = SOURCE_ROOT; };
 		976351FAE534D42BB200A330 /* SettingsSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSections.swift; sourceTree = "<group>"; };
 		97F12694F41487A0764537DB /* ja */ = {isa = PBXFileReference; lastKnownFileType = text; name = ja; path = ja.lproj/PrivacyPolicy.txt; sourceTree = "<group>"; };
 		9AEDCCFA40FADE8988D665C3 /* BooruLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruLibraryTests.swift; sourceTree = "<group>"; };
@@ -300,6 +300,8 @@
 		FD0BE0B2FD246C3895D96DBC /* HitomiContentSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitomiContentSource.swift; sourceTree = "<group>"; };
 		D2B9952F64D57C1AFCE5169C /* BooruThumbnailDiskCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Core/Booru/BooruThumbnailDiskCache.swift"; sourceTree = SOURCE_ROOT; };
 		9519E282D3CE6AC9232B7609 /* BooruThumbnailCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemoTests/BooruThumbnailCacheTests.swift"; sourceTree = SOURCE_ROOT; };
+		ACF09107ABCD200000000001 /* VisualSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/VisualSimilarity.swift; sourceTree = SOURCE_ROOT; };
+		ACF09107ABCD200000000002 /* VisualSimilarityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Presentation/Works/VisualSimilarityView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -516,12 +518,13 @@
 				476981CA28D46033DFBFAD4C /* TasteFeedState.swift */,
 				1CB10B9419E82DDA13D5A697 /* TasteModels.swift */,
 				E1F450A9F3F304A6EC4DB763 /* TasteLibraryIntegration.swift */,
-				956E2BBEF83BD873518CDFB8 /* OnDeviceInsightService.swift */,
+				956E2BBEF83BD873518CDFB8 /* StatisticalInsightService.swift */,
+				ACF09107ABCD200000000002 /* VisualSimilarityView.swift */,
+				ACF09107ABCD200000000001 /* VisualSimilarity.swift */,
 				936F2460280A29C6924501D6 /* TasteController.swift */,
 				950F4BA3B7F26293633599D9 /* RecommendationService.swift */,
 				40D4E140C517DE74300D02DE /* TasteSyncCoordinator.swift */,
 				F6EACD056993026672F5B647 /* TasteAnalyzer.swift */,
-				3E8EA0D529C453B726B0B4C5 /* InsightGenerationBudget.swift */,
 				2D4B0A3B25EB92FE1EB817A6 /* TasteStore.swift */,
 				D2B9952F64D57C1AFCE5169C /* BooruThumbnailDiskCache.swift */,
 				DAFB6A5CB9259D10CE5EE14B /* Acknowledgments.txt */,
@@ -863,7 +866,9 @@
 				8251D5F60C29EEC6C8F01098 /* NumberMemo/Core/Taste/TasteSyncCoordinator.swift in Sources */,
 				D0267FFFB0700CE2ACB0B3EE /* NumberMemo/Core/Taste/RecommendationService.swift in Sources */,
 				C8F1A6D98F620768DCC716E0 /* NumberMemo/Core/Taste/TasteController.swift in Sources */,
-				A6A9ED07C1AF12F03A8D9E43 /* NumberMemo/Core/Taste/OnDeviceInsightService.swift in Sources */,
+				A6A9ED07C1AF12F03A8D9E43 /* NumberMemo/Core/Taste/StatisticalInsightService.swift in Sources */,
+				ACF09107ABCD100000000001 /* VisualSimilarity.swift in Sources */,
+				ACF09107ABCD100000000002 /* VisualSimilarityView.swift in Sources */,
 				71E70C9FFAF7BCA8DA8126A6 /* NumberMemo/Core/Taste/TasteLibraryIntegration.swift in Sources */,
 				59FB9F6DA9DE8216A44D3A09 /* NumberMemo/Core/Taste/TasteModels.swift in Sources */,
 				0A60DD485C141F30C5BAB21D /* NumberMemo/Presentation/Taste/TasteDashboard.swift in Sources */,
@@ -874,7 +879,6 @@
 				9C61B7BCFCDEC137733E48A0 /* NumberMemo/Core/Taste/TasteFeedState.swift in Sources */,
 				FD7611A37574F7AC7C09923D /* NumberMemo/Presentation/Taste/TasteReportsView.swift in Sources */,
 				C1E5189D7A00147BD0FAB49C /* NumberMemo/Presentation/Taste/TasteAnalysisExclusionsView.swift in Sources */,
-				C987D722C4872C5766CD63C9 /* NumberMemo/Core/Taste/InsightGenerationBudget.swift in Sources */,
 				ED48F37CF6CE5A5B8A98FBA5 /* BooruThumbnailDiskCache.swift in Sources */,
 				188562DB426D15EB017C17B8 /* AppEnvironment.swift in Sources */,
 				6CC5BC0591E6E4E727404246 /* AppModeSwitch.swift in Sources */,
