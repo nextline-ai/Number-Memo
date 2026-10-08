@@ -13,6 +13,7 @@ struct RecommendationCursor: Sendable {
     var pages: [String: Int] = [:]
     var finished: Set<String> = []
     var fingerprints: [String: String] = [:]
+    var pendingPosts: [String: [BooruPost]] = [:]
     var hasMore = true
 }
 struct TasteRecommendations: Sendable {
@@ -66,7 +67,7 @@ struct RecommendationService {
     }
     @MainActor
     static func load(mode: TasteMode, snapshot: TasteSnapshot, report: TasteReport?, env: AppEnvironment, language: String,
-                     booruSource: any BooruProviding = BooruClient.shared, comicSource: any ContentProviding = HitomiContentSource.shared, sourceAddress: String? = nil, sourceAddresses: [String]? = nil, preferencesOverride: [String: RecommendationPreferences]? = nil, cursor: RecommendationCursor = .init(), excluding: Set<String> = [], shuffled: Bool = false, seedOffset: Int = 0, requestTimeout: TimeInterval = 20) async throws -> TasteRecommendations {
+                     booruSource: any BooruProviding = BooruClient.shared, comicSource: any ContentProviding = HitomiContentSource.shared, sourceAddress: String? = nil, sourceAddresses: [String]? = nil, preferencesOverride: [String: RecommendationPreferences]? = nil, cursor: RecommendationCursor = .init(), excluding: Set<String> = [], shuffled: Bool = false, seedOffset: Int = 0, requestTimeout: TimeInterval = 35) async throws -> TasteRecommendations {
         guard env.taste.control.enabled else { return .init() }
         func settings(for source: String) -> RecommendationPreferences {
             if let value = preferencesOverride?[source] { return value }
@@ -110,39 +111,60 @@ struct RecommendationService {
                     activeSeeds.formUnion(scoped.map(\.key))
                     group.addTask { @MainActor in
                         var result = TasteRecommendations(); result.cursor = cursor
+                        result.cursor.pendingPosts = cursor.pendingPosts.filter { $0.key.hasPrefix(server.id + "|") }
+                        var detailFailures = false
+                        let started = Date()
                         do {
-                            result = try await RecommendationDeadline.run(seconds: requestTimeout) {
-                                var result = TasteRecommendations(); result.cursor = cursor
-                                for (seed, key) in scoped where !cursor.finished.contains(key) {
-                                    try Task.checkCancellation()
+                            for (seed, key) in scoped where !cursor.finished.contains(key) || !(cursor.pendingPosts[key] ?? []).isEmpty {
+                                try Task.checkCancellation()
+                                var candidates = cursor.pendingPosts[key] ?? []
+                                if candidates.isEmpty {
                                     let page = cursor.pages[key, default: 0]
                                     let query = ([seed.name] + preferences.includedTags).joined(separator: " ")
                                     let sort: BooruSort = preferences.sort == .week ? .popular : .latest
-                                    let batch = try await BooruSortValidation.posts(source: booruSource, server: server, query: rating.query(query, server: server), page: page, sort: sort)
+                                    // Give each listing the same document-loading allowance as Explore.
+                                    // A slow detail page must not discard a successful listing.
+                                    let batch = try await RecommendationDeadline.run(seconds: requestTimeout) {
+                                        try await BooruSortValidation.posts(source: booruSource, server: server, query: rating.query(query, server: server), page: page, sort: sort)
+                                    }
                                     let fingerprint = batch.posts.map(\.id).joined(separator: ",")
                                     if !batch.hasMore || batch.posts.isEmpty || cursor.fingerprints[key] == fingerprint { result.cursor.finished.insert(key) }
                                     result.cursor.fingerprints[key] = fingerprint
                                     result.cursor.pages[key] = page + 1
-                                    var hydrated = 0
-                                    for var post in batch.posts where !saved.contains(post.id) {
-                                        try Task.checkCancellation()
-                                        // Public galleries can omit tags/rating. Validate details before ranking;
-                                        // never relax rating/blacklist or borrow a different server's profile.
-                                        if server.engine.usesGelbooruPages && (!post.tags.contains(seed.name) || rating != .all && post.rating.isEmpty) {
-                                            guard hydrated < 8 else { continue }
-                                            hydrated += 1
-                                            guard let details = try? await booruSource.details(server: server, post: post) else { continue }
-                                            post = details
-                                        }
-                                        guard !blacklist.contains(post), ratingAllows(rating, post: post, server: server) else { continue }
-                                        let item = TasteItem(source: server.canonicalAddress, id: post.postID, tags: post.tags, metadata: post.metadataTags ?? [])
-                                        guard item.eligibleTags.contains(seed.name), !excluding.contains(item.key), preferences.includedTags.allSatisfy({ Set(post.tags.map(TasteTagPolicy.normalize)).contains($0) }) else { continue }
-                                        let ignored = Set(item.eligibleTags.filter { !control.allows($0, source: item.source, mode: mode) }.map(TasteControl.normalizeExclusion))
-                                        result.items.append(.init(item: item, post: post, gallery: nil, reason: seed, score: score(item, tags: tags, ignoring: ignored), rankingTags: Set(item.eligibleTags).filter { !ignored.contains(TasteControl.normalizeExclusion($0)) }))
-                                    }
+                                    candidates = batch.posts
                                 }
-                                return result
+                                var deferred: [BooruPost] = []
+                                let detailStart = Date(), detailBudget = min(12, requestTimeout)
+                                var hydrated = 0
+                                for var post in candidates where !saved.contains(post.id) {
+                                    try Task.checkCancellation()
+                                    guard !excluding.contains(server.canonicalAddress + "#" + String(post.postID)) else { continue }
+                                    let names = Set(post.tags.map(TasteTagPolicy.normalize))
+                                    let needsDetails = !names.contains(seed.name) || !preferences.includedTags.allSatisfy(names.contains) || rating != .all && post.rating.isEmpty
+                                    if server.engine.usesGelbooruPages && needsDetails {
+                                        let remaining = detailBudget - Date().timeIntervalSince(detailStart)
+                                        guard hydrated < 4, remaining > 0 else { deferred.append(post); continue }
+                                        hydrated += 1
+                                        let unresolved = post
+                                        do {
+                                            post = try await RecommendationDeadline.run(seconds: min(6, remaining)) {
+                                                try await booruSource.details(server: server, post: unresolved)
+                                            }
+                                        } catch is CancellationError { throw CancellationError() }
+                                        catch { detailFailures = true; continue }
+                                    }
+                                    guard !blacklist.contains(post), ratingAllows(rating, post: post, server: server) else { continue }
+                                    let item = TasteItem(source: server.canonicalAddress, id: post.postID, tags: post.tags, metadata: post.metadataTags ?? [])
+                                    guard item.eligibleTags.contains(seed.name), preferences.includedTags.allSatisfy(Set(post.tags.map(TasteTagPolicy.normalize)).contains) else { continue }
+                                    let ignored = Set(item.eligibleTags.filter { !control.allows($0, source: item.source, mode: mode) }.map(TasteControl.normalizeExclusion))
+                                    result.items.append(.init(item: item, post: post, gallery: nil, reason: seed, score: score(item, tags: tags, ignoring: ignored), rankingTags: Set(item.eligibleTags).filter { !ignored.contains(TasteControl.normalizeExclusion($0)) }))
+                                }
+                                // Resume unresolved candidates before fetching another page, even
+                                // when this was the website's last page. Never silently skip them.
+                                result.cursor.pendingPosts[key] = deferred
+                                if Date().timeIntervalSince(started) >= requestTimeout { break }
                             }
+                            if detailFailures && result.items.isEmpty { result.failures = [server.displayName] }
                         } catch is UnsupportedBooruSort { result.unsupportedSort = true; result.unsupportedSources.insert(server.canonicalAddress) }
                         catch { result.failures = [server.displayName] }
                         return result
@@ -156,6 +178,7 @@ struct RecommendationService {
                     // Only each task's changed keys are merged; unrelated cursors remain intact.
                     for (key, page) in result.cursor.pages where page != cursor.pages[key] { output.cursor.pages[key] = page }
                     for (key, value) in result.cursor.fingerprints where value != cursor.fingerprints[key] { output.cursor.fingerprints[key] = value }
+                    for (key, posts) in result.cursor.pendingPosts { output.cursor.pendingPosts[key] = posts }
                     output.cursor.finished.formUnion(result.cursor.finished)
                 }
             }
@@ -198,7 +221,7 @@ struct RecommendationService {
                 catch { if !output.failures.contains("hitomi.la") { output.failures.append("hitomi.la") } }
             }
         }
-        output.cursor.hasMore = !activeSeeds.subtracting(output.cursor.finished).isEmpty
+        output.cursor.hasMore = activeSeeds.contains { !output.cursor.finished.contains($0) || !(output.cursor.pendingPosts[$0] ?? []).isEmpty }
         let grouped = Dictionary(grouping: output.items, by: { $0.item.source })
         // Interleave independent server decks; never compare unrelated tag profiles.
         let decks = grouped.keys.sorted().map { address -> [TasteRecommendation] in

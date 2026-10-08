@@ -252,7 +252,7 @@ struct BooruMediaView: UIViewRepresentable {
         const media=document.getElementById('media');
         const send=value=>window.webkit.messageHandlers.media.postMessage({...value,documentID:'\(identifier)'});
         const fit=()=>{const w=media.naturalWidth||media.videoWidth||\(max(post.width, 1));const h=media.naturalHeight||media.videoHeight||\(max(post.height, 1));
-          const scale=Math.min(innerWidth/w,innerHeight/h);const canvas=document.getElementById('canvas');canvas.style.width=(w*scale)+'px';canvas.style.height=(h*scale)+'px';};
+          const scale=Math.min(document.body.clientWidth/w,document.body.clientHeight/h);const canvas=document.getElementById('canvas');canvas.style.width=(w*scale)+'px';canvas.style.height=(h*scale)+'px';};
         let retries=0;
         media.addEventListener('error',()=>{
           if(retries>=2){send({status:'error'});return;}
@@ -286,16 +286,23 @@ struct BooruMediaView: UIViewRepresentable {
         window.addEventListener('resize',fit);fit();
         let start=null,holdTimer=null,tapTimer=null,lastTap=0,held=false,lastTouchAt=0;
         const zoom=()=>window.visualViewport?.scale||1;
-        const viewport=()=>{const r=media.getBoundingClientRect(),v=window.visualViewport;
-          if(!r.width||!r.height)return;
-          const left=v?.offsetLeft||0,top=v?.offsetTop||0,right=left+(v?.width||innerWidth),bottom=top+(v?.height||innerHeight);
-          const x=Math.max(0,Math.min(1,(left-r.left)/r.width)),y=Math.max(0,Math.min(1,(top-r.top)/r.height));
-          send({viewport:{x:x,y:y,w:Math.max(0,Math.min(1,(right-r.left)/r.width)-x),h:Math.max(0,Math.min(1,(bottom-r.top)/r.height)-y)}});
+        const viewport=()=>{
+          // WebKit's boundingClientRect already includes the visual viewport pan.
+          // Use document coordinates throughout, avoiding a second pan offset.
+          let imageLeft=0,imageTop=0,node=media;
+          while(node){imageLeft+=node.offsetLeft;imageTop+=node.offsetTop;node=node.offsetParent;}
+          const width=media.clientWidth,height=media.clientHeight,v=window.visualViewport;
+          if(!width||!height)return;
+          const left=v?.pageLeft??window.scrollX,top=v?.pageTop??window.scrollY;
+          const right=left+(v?.width||innerWidth),bottom=top+(v?.height||innerHeight);
+          const x=Math.max(0,Math.min(1,(left-imageLeft)/width)),y=Math.max(0,Math.min(1,(top-imageTop)/height));
+          send({viewport:{x:x,y:y,w:Math.max(0,Math.min(1,(right-imageLeft)/width)-x),h:Math.max(0,Math.min(1,(bottom-imageTop)/height)-y)}});
         };
         media.addEventListener('load',viewport);
         window.visualViewport?.addEventListener('resize',()=>{send({scale:zoom()});viewport();});
         window.visualViewport?.addEventListener('scroll',viewport);
         window.addEventListener('scroll',viewport);
+        window.addEventListener('resize',viewport);
         const cancelHold=()=>{clearTimeout(holdTimer);holdTimer=null;};
         document.addEventListener('touchstart',e=>{
           lastTouchAt=Date.now();cancelHold();held=false;

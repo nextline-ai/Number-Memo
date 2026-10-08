@@ -3,6 +3,64 @@ import WebKit
 @testable import NumberMemo
 
 @MainActor final class MediaInputTests: XCTestCase {
+    func testZoomedTranslationUsesExactlyTheVisibleImageRegion() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 400, height: 800)
+        let controller = UIViewController()
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let recorder = MediaRecorder()
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(recorder, name: "media")
+        defer { config.userContentController.removeScriptMessageHandler(forName: "media") }
+        let web = WKWebView(frame: window.bounds, configuration: config)
+        web.scrollView.contentInsetAdjustmentBehavior = .never
+        controller.view.addSubview(web)
+        web.navigationDelegate = recorder
+        for dimensions in [CGSize(width: 800, height: 1600), CGSize(width: 1600, height: 800)] {
+            web.scrollView.setZoomScale(1, animated: false)
+            let loaded = expectation(description: "Geometry document loaded")
+            recorder.loaded = { loaded.fulfill() }
+            let svg = "<svg xmlns='http://www.w3.org/2000/svg' width='\(Int(dimensions.width))' height='\(Int(dimensions.height))'><rect width='100%' height='100%' fill='white'/></svg>"
+            let url = try XCTUnwrap(URL(string: "data:image/svg+xml;base64," + Data(svg.utf8).base64EncodedString()))
+            web.loadHTMLString(BooruMediaView.document(post: BooruFixtureSource.post(101, server: BooruServer.presets[0]), url: url), baseURL: nil)
+            await fulfillment(of: [loaded], timeout: 10)
+            try await Task.sleep(for: .milliseconds(200))
+            web.scrollView.setZoomScale(2.5, animated: false)
+            try await Task.sleep(for: .milliseconds(200))
+            // A resize callback while enlarged must not fit the image to the
+            // smaller visual viewport and shrink the underlying canvas again.
+            _ = try await web.evaluateJavaScript("window.dispatchEvent(new Event('resize'))")
+            for offset in [CGPoint(x: 120, y: 240), CGPoint(x: 580, y: 1100)] {
+                web.scrollView.setContentOffset(offset, animated: false)
+                try await Task.sleep(for: .milliseconds(200))
+                let rect = try XCTUnwrap(recorder.viewport)
+                let size = web.bounds.size, scale = web.scrollView.zoomScale
+                let fit = min(size.width / dimensions.width, size.height / dimensions.height)
+                let imageSize = CGSize(width: dimensions.width * fit, height: dimensions.height * fit)
+                let origin = CGPoint(x: (size.width - imageSize.width) / 2, y: (size.height - imageSize.height) / 2)
+                let expected = CGRect(x: (web.scrollView.contentOffset.x / scale - origin.x) / imageSize.width,
+                                      y: (web.scrollView.contentOffset.y / scale - origin.y) / imageSize.height,
+                                      width: size.width / scale / imageSize.width,
+                                      height: size.height / scale / imageSize.height).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+                XCTAssertEqual(rect.minX, expected.minX, accuracy: 0.015)
+                XCTAssertEqual(rect.minY, expected.minY, accuracy: 0.015)
+                XCTAssertEqual(rect.width, expected.width, accuracy: 0.015)
+                XCTAssertEqual(rect.height, expected.height, accuracy: 0.015)
+            }
+            web.scrollView.setZoomScale(1, animated: false)
+            web.scrollView.setContentOffset(.zero, animated: false)
+            try await Task.sleep(for: .milliseconds(200))
+            let fitRect = try XCTUnwrap(recorder.viewport)
+            XCTAssertEqual(fitRect.minX, 0, accuracy: 0.015)
+            XCTAssertEqual(fitRect.minY, 0, accuracy: 0.015)
+            XCTAssertEqual(fitRect.width, 1, accuracy: 0.015)
+            XCTAssertEqual(fitRect.height, 1, accuracy: 0.015)
+        }
+    }
+
     func testResumeRecoversTheCurrentDocumentAfterAnInterruptedTransition() async throws {
         let coordinator = BooruMediaView.Coordinator()
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
@@ -124,7 +182,9 @@ import WebKit
 @MainActor private final class MediaRecorder: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
     var gestures: [[String: Any]] = []
     var loaded: (() -> Void)?
+    var viewport: CGRect?
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if let value = message.body as? [String: Any], let r = value["viewport"] as? [String: Double], let x = r["x"], let y = r["y"], let w = r["w"], let h = r["h"] { viewport = CGRect(x: x, y: y, width: w, height: h) }
         if let value = message.body as? [String: Any], value["gesture"] != nil { gestures.append(value) }
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { loaded?(); loaded = nil }

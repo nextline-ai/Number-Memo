@@ -115,6 +115,34 @@ final class TasteFeedTests: XCTestCase {
         XCTAssertEqual(result.failures, [servers[1].displayName])
         XCTAssertFalse(result.cursor.pages.keys.contains { $0.hasPrefix(servers[1].id + "|") })
     }
+    @MainActor func testHTMLLastPageResumesUnresolvedCandidatesWithoutRefetching() async throws {
+        let env = AppEnvironment.preview()
+        let server = BooruServer(id: "legacy", name: "Legacy", baseURL: URL(string: "https://legacy.booru.org")!, engine: .oldGelbooru)
+        try env.booru.saveServer(server); try env.booru.select(server)
+        let snapshot = TasteSnapshot(tags: [TasteTag(source: server.canonicalAddress, name: "scenery", general: 5)], saves: 5, opens: 0, searches: 0, activity: [:], digest: "legacy", period: nil)
+        let source = LegacyDetailTasteSource()
+        let first = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source)
+        XCTAssertEqual(first.items.count, 4)
+        XCTAssertTrue(first.cursor.hasMore)
+        let second = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, cursor: first.cursor, excluding: Set(first.items.map(\.id)))
+        XCTAssertEqual(second.items.count, 3)
+        XCTAssertFalse(second.cursor.hasMore)
+        XCTAssertEqual(Set((first.items + second.items).map(\.item.id)).count, 7)
+        let listings = await source.listings
+        XCTAssertEqual(listings, 1)
+    }
+    @MainActor func testSlowHTMLDetailPreservesReadyCandidatesAndPagination() async throws {
+        let env = AppEnvironment.preview()
+        let server = BooruServer(id: "legacy", name: "Legacy", baseURL: URL(string: "https://legacy.booru.org")!, engine: .oldGelbooru)
+        try env.booru.saveServer(server); try env.booru.select(server)
+        let snapshot = TasteSnapshot(tags: [TasteTag(source: server.canonicalAddress, name: "scenery", general: 5)], saves: 5, opens: 0, searches: 0, activity: [:], digest: "legacy", period: nil)
+        let source = LegacyDetailTasteSource(slowDetail: true)
+        let result = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, requestTimeout: 0.1)
+        XCTAssertEqual(result.items.map(\.item.id), [900])
+        XCTAssertTrue(result.failures.isEmpty)
+        XCTAssertTrue(result.cursor.hasMore)
+        XCTAssertEqual(result.cursor.pendingPosts.values.flatMap { $0 }.count, 5)
+    }
     func testExclusionsMatchWhitespaceWithoutRemovingOtherNamespaces() {
         let control = TasteControl()
         for tag in ["female:solo female", "female:solo_female", " FEMALE : solo\u{00a0}female ", "female:solo__female", "female:solo\tfemale"] {
@@ -415,6 +443,26 @@ private actor RequiredTagTasteSource: BooruProviding {
             return .init(posts: [first, second], hasMore: false)
         }
         return .init(posts: [first], hasMore: false)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+
+private actor LegacyDetailTasteSource: BooruProviding {
+    var listings = 0
+    let slowDetail: Bool
+    init(slowDetail: Bool = false) { self.slowDetail = slowDetail }
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        listings += 1
+        return .init(posts: (900...906).map { id in
+            BooruFixtureSource.post(Int64(id), server: server, tags: slowDetail && id == 900 ? ["scenery"] : [])
+        }, hasMore: false)
+    }
+    func details(server: BooruServer, post: BooruPost) async throws -> BooruPost {
+        if slowDetail { try await Task.sleep(for: .seconds(2)) }
+        return BooruFixtureSource.post(post.postID, server: server, tags: ["scenery"])
     }
     func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
     func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }

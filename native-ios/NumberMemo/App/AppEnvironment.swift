@@ -32,6 +32,7 @@ public final class AppEnvironment: @unchecked Sendable {
     public let coverQueueState: CoverQueueState
     public let violetImporter: VioletImportService
     let booru: BooruStore
+    let modeSwitchMotion = AppModeSwitchMotion()
 
     var mode: AppMode {
         didSet { browserPreferences.set(mode.rawValue, forKey: "content_mode") }

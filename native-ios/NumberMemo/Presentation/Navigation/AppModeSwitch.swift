@@ -4,10 +4,16 @@ import SwiftUI
 struct AppToolbarActions<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
-        HStack(spacing: 16) { content }
+        HStack(spacing: 8) { content }
             .font(.system(size: 17, weight: .medium))
             .padding(.horizontal, 8)
     }
+}
+
+/// Retained navigation trees share the same thumb animation when modes change.
+@Observable final class AppModeSwitchMotion {
+    var position: CGFloat?
+    var target: AppMode?
 }
 
 /// The same compact switch occupies the title area of every root navigation bar.
@@ -16,11 +22,12 @@ struct AppModeSwitch: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// A tutorial can preview the switch without changing the active library.
     var previewMode: Binding<AppMode>? = nil
-    @State private var thumbPosition: CGFloat?
+    @State private var previewMotion = AppModeSwitchMotion()
     @State private var dragOrigin: CGFloat?
     @GestureState private var dragging = false
     private var activeMode: AppMode { previewMode?.wrappedValue ?? env.mode }
     private var current: AppMode { activeMode }
+    private var motion: AppModeSwitchMotion { previewMode == nil ? env.modeSwitchMotion : previewMotion }
     var body: some View {
         Button { change(current == .hitomi ? .booru : .hitomi) } label: {
             HStack(spacing: 2) {
@@ -30,7 +37,7 @@ struct AppModeSwitch: View {
             .background(alignment: .leading) {
                 Capsule().fill(.white)
                     .frame(width: 42, height: 38)
-                    .offset(x: thumbPosition ?? position(current))
+                    .offset(x: motion.position ?? position(current))
             }
             .padding(3)
             .contentShape(Capsule())
@@ -42,8 +49,8 @@ struct AppModeSwitch: View {
             .onChanged { value in
                 var transaction = Transaction(); transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    if dragOrigin == nil { dragOrigin = thumbPosition ?? position(current) }
-                    thumbPosition = min(44, max(0, (dragOrigin ?? position(current)) + value.translation.width))
+                    if dragOrigin == nil { dragOrigin = motion.position ?? position(current) }
+                    motion.position = min(44, max(0, (dragOrigin ?? position(current)) + value.translation.width))
                 }
             }
             .onEnded { value in
@@ -61,12 +68,13 @@ struct AppModeSwitch: View {
         }
         .onChange(of: activeMode) { _, mode in
             dragOrigin = nil
-            var transaction = Transaction(); transaction.disablesAnimations = true
-            withTransaction(transaction) { thumbPosition = position(mode) }
+            if motion.target != mode { settle(mode) }
+        }
+        .onAppear {
+            if motion.position == nil { motion.position = position(current); motion.target = current }
         }
         .onDisappear {
             dragOrigin = nil
-            thumbPosition = nil
         }
         .accessibilityLabel(L10n.text("Switch Modes"))
         .accessibilityValue(current.title)
@@ -83,13 +91,15 @@ struct AppModeSwitch: View {
     private func change(_ mode: AppMode) {
         // The shared selection is authoritative immediately. A disappearing
         // toolbar must never commit an older selection from an animation callback.
+        settle(mode)
         if let previewMode { previewMode.wrappedValue = mode }
         else { env.mode = mode }
-        settle(mode)
     }
     private func settle(_ mode: AppMode) {
+        if motion.position == nil { motion.position = position(current) }
+        motion.target = mode
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
-            thumbPosition = position(mode)
+            motion.position = position(mode)
         }
     }
 }

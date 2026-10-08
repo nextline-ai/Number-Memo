@@ -94,7 +94,12 @@ final class BooruUITests: XCTestCase {
         // The multiselect menu stays open so several servers can be changed together.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.55)).tap()
         XCTAssertTrue(element(app, "booru.noSelection").waitForExistence(timeout: 5))
-        for title in ["Saved", "Tags", "Smart"] {
+        app.tabBars.buttons["Saved"].tap()
+        XCTAssertTrue(element(app, "booru.allFavorites").waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "booru.noSelection").exists)
+        element(app, "booru.allFavorites").tap()
+        XCTAssertTrue(element(app, "booru.post.108").waitForExistence(timeout: 5))
+        for title in ["Tags", "Smart"] {
             app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).firstMatch.tap()
             XCTAssertTrue(element(app, "booru.server").waitForExistence(timeout: 5))
             XCTAssertTrue(element(app, "booru.noSelection").waitForExistence(timeout: 5))

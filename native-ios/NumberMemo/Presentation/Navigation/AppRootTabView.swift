@@ -141,9 +141,20 @@ private struct RetainedModeContainer: UIViewControllerRepresentable {
 private final class RetainedModeController: UIViewController {
     private var hosts: [AppMode: UIHostingController<AnyView>] = [:]
     private var selected: AppMode = .booru
+    private var transition: UIViewPropertyAnimator?
+    private var transitionSnapshot: UIView?
     override var childForStatusBarHidden: UIViewController? { hosts[selected] }
     override var childForStatusBarStyle: UIViewController? { hosts[selected] }
     func update(mode: AppMode, hitomi: AnyView, booru: AnyView) {
+        let changed = selected != mode
+        var snapshot: UIView?
+        if changed {
+            transition?.stopAnimation(true); transition = nil
+            transitionSnapshot?.removeFromSuperview(); transitionSnapshot = nil
+            if !UIAccessibility.isReduceMotionEnabled, let previous = hosts[selected], view.window != nil {
+                snapshot = previous.view.snapshotView(afterScreenUpdates: false)
+            }
+        }
         selected = mode
         if hosts[mode] == nil {
             let host = UIHostingController(rootView: mode == .hitomi ? hitomi : booru)
@@ -165,6 +176,19 @@ private final class RetainedModeController: UIViewController {
             host.view.isHidden = key != mode
             host.view.accessibilityElementsHidden = key != mode
             host.view.isUserInteractionEnabled = key == mode
+        }
+        if let snapshot {
+            snapshot.frame = view.bounds
+            snapshot.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            snapshot.isUserInteractionEnabled = false
+            snapshot.accessibilityElementsHidden = true
+            view.addSubview(snapshot); transitionSnapshot = snapshot
+            let fade = UIViewPropertyAnimator(duration: 0.18, curve: .easeOut) { snapshot.alpha = 0 }
+            fade.addCompletion { [weak self, weak snapshot] _ in
+                snapshot?.removeFromSuperview()
+                if self?.transitionSnapshot === snapshot { self?.transitionSnapshot = nil; self?.transition = nil }
+            }
+            transition = fade; fade.startAnimation()
         }
         setNeedsStatusBarAppearanceUpdate()
     }

@@ -137,9 +137,9 @@ public struct WorksGridView: View {
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 0) {
+                AppToolbarActions {
                     Button { selecting.toggle(); selection.removeAll() } label: { Image(systemName: selecting ? "xmark" : "checkmark.circle") }
-                        .frame(width: 40, height: 32).accessibilityLabel(L10n.text(selecting ? "Done" : "Select")).accessibilityIdentifier("works.select")
+                        .frame(height: 32).accessibilityLabel(L10n.text(selecting ? "Done" : "Select")).accessibilityIdentifier("works.select")
                     if selecting {
                         Menu {
                             Button(L10n.text("Select All")) { selection = Set(works.map(\.galleryId)) }
@@ -151,8 +151,8 @@ public struct WorksGridView: View {
                                     } catch { showToast(error.localizedDescription) }
                                 }
                             }
-                        } label: { Image(systemName: "folder") }.frame(width: 40, height: 32).accessibilityLabel(L10n.text("Move to Another Folder"))
-                        Button(role: .destructive) { confirmingDelete = true } label: { Image(systemName: "trash") }.frame(width: 40, height: 32).disabled(selection.isEmpty)
+                        } label: { Image(systemName: "folder") }.frame(height: 32).accessibilityLabel(L10n.text("Move to Another Folder"))
+                        Button(role: .destructive) { confirmingDelete = true } label: { Image(systemName: "trash") }.frame(height: 32).disabled(selection.isEmpty)
                     } else {
                     Menu {
                         Button(L10n.text("Jump to Top"), systemImage: "arrow.up.to.line") { isSearchFocused = false; proxy.scrollTo("works.top", anchor: .top) }
@@ -162,14 +162,14 @@ public struct WorksGridView: View {
                         }
                         Button(L10n.text("Jump to Saved Month"), systemImage: "calendar") { isSearchFocused = false; showJumpSheet = true }
                     } label: { Image(systemName: "arrow.up.arrow.down") }
-                    .frame(width: 40, height: 32)
+                    .frame(height: 32)
                     .disabled(works.isEmpty).accessibilityLabel(L10n.text("Quick Jump")).accessibilityIdentifier("works.jump")
                     Button {
                         showAddSheet = true
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .frame(width: 40, height: 32)
+                    .frame(height: 32)
                     .accessibilityIdentifier("works.add")
                     }
                 }
