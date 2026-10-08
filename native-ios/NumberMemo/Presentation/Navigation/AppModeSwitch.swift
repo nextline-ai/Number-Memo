@@ -16,31 +16,33 @@ struct AppModeSwitch: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// A tutorial can preview the switch without changing the active library.
     var previewMode: Binding<AppMode>? = nil
-    @State private var selection: AppMode?
     @State private var thumbPosition: CGFloat?
     @State private var dragOrigin: CGFloat?
-    @State private var transitionID = UUID()
     @GestureState private var dragging = false
     private var activeMode: AppMode { previewMode?.wrappedValue ?? env.mode }
-    private var current: AppMode { selection ?? activeMode }
+    private var current: AppMode { activeMode }
     var body: some View {
-        HStack(spacing: 2) {
-            mode(.hitomi, icon: "book")
-            mode(.booru, icon: "photo")
+        Button { change(current == .hitomi ? .booru : .hitomi) } label: {
+            HStack(spacing: 2) {
+                mode(.hitomi, icon: "book")
+                mode(.booru, icon: "photo")
+            }
+            .background(alignment: .leading) {
+                Capsule().fill(.white)
+                    .frame(width: 42, height: 38)
+                    .offset(x: thumbPosition ?? position(current))
+            }
+            .padding(3)
+            .contentShape(Capsule())
         }
-        .background(alignment: .leading) {
-            Capsule().fill(.white)
-                .frame(width: 42, height: 38)
-                .offset(x: thumbPosition ?? position(current))
-        }
-        .padding(3)
+        .buttonStyle(.plain)
         .glassCapsule(isInteractive: true)
-        .highPriorityGesture(DragGesture(minimumDistance: 5)
+        .highPriorityGesture(DragGesture(minimumDistance: 12)
             .updating($dragging) { _, state, _ in state = true }
             .onChanged { value in
                 var transaction = Transaction(); transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    if dragOrigin == nil { dragOrigin = thumbPosition ?? position(current); transitionID = UUID() }
+                    if dragOrigin == nil { dragOrigin = thumbPosition ?? position(current) }
                     thumbPosition = min(44, max(0, (dragOrigin ?? position(current)) + value.translation.width))
                 }
             }
@@ -54,41 +56,40 @@ struct AppModeSwitch: View {
             DispatchQueue.main.async {
                 // Cancellation has no onEnded callback. Keep the absolute thumb
                 // position until it can settle, rather than resetting a translation.
-                if !dragging && dragOrigin != nil { dragOrigin = nil; change(activeMode) }
+                if !dragging && dragOrigin != nil { dragOrigin = nil; settle(activeMode) }
             }
         }
         .onChange(of: activeMode) { _, mode in
+            dragOrigin = nil
             var transaction = Transaction(); transaction.disablesAnimations = true
-            withTransaction(transaction) { selection = mode; thumbPosition = position(mode) }
+            withTransaction(transaction) { thumbPosition = position(mode) }
         }
-        .accessibilityElement(children: .contain)
+        .onDisappear {
+            dragOrigin = nil
+            thumbPosition = nil
+        }
+        .accessibilityLabel(L10n.text("Switch Modes"))
+        .accessibilityValue(current.title)
         .accessibilityIdentifier("app.mode")
     }
     private func mode(_ mode: AppMode, icon: String) -> some View {
-        Button { change(mode) } label: {
-            Image(systemName: current == mode ? icon + ".fill" : icon)
-                .font(.system(size: 16, weight: .semibold))
-                .frame(width: 42, height: 38)
-                .foregroundStyle(current == mode ? Color.black : Color.secondary)
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("app.mode." + mode.rawValue)
-        .accessibilityLabel(mode.title)
-        .accessibilityAddTraits(current == mode ? [.isSelected] : [])
+        Image(systemName: current == mode ? icon + ".fill" : icon)
+            .font(.system(size: 16, weight: .semibold))
+            .frame(width: 42, height: 38)
+            .foregroundStyle(current == mode ? Color.black : Color.secondary)
+            .accessibilityHidden(true)
     }
     private func position(_ mode: AppMode) -> CGFloat { mode == .hitomi ? 0 : 44 }
     private func change(_ mode: AppMode) {
-        let token = UUID(); transitionID = token
-        // One absolute position drives both dragging and settling. GestureState
-        // resetting at finger-up must not send the thumb back to its old segment.
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.22), completionCriteria: .logicallyComplete) {
-            selection = mode
+        // The shared selection is authoritative immediately. A disappearing
+        // toolbar must never commit an older selection from an animation callback.
+        if let previewMode { previewMode.wrappedValue = mode }
+        else { env.mode = mode }
+        settle(mode)
+    }
+    private func settle(_ mode: AppMode) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
             thumbPosition = position(mode)
-        } completion: {
-            guard transitionID == token else { return }
-            if let previewMode { previewMode.wrappedValue = mode }
-            else { env.mode = mode }
         }
     }
 }

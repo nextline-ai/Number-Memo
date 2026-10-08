@@ -144,7 +144,6 @@ private final class RetainedModeController: UIViewController {
     override var childForStatusBarHidden: UIViewController? { hosts[selected] }
     override var childForStatusBarStyle: UIViewController? { hosts[selected] }
     func update(mode: AppMode, hitomi: AnyView, booru: AnyView) {
-        let changed = selected != mode && hosts[selected] != nil
         selected = mode
         if hosts[mode] == nil {
             let host = UIHostingController(rootView: mode == .hitomi ? hitomi : booru)
@@ -160,14 +159,12 @@ private final class RetainedModeController: UIViewController {
             host.didMove(toParent: self)
             hosts[mode] = host
         }
-        if changed && !UIAccessibility.isReduceMotionEnabled {
-            UIView.transition(with: view, duration: 0.2, options: [.transitionCrossDissolve, .allowUserInteraction, .beginFromCurrentState]) {
-                for (key, host) in self.hosts { host.view.isHidden = key != mode }
-            }
-        }
+        // Keep the selected toolbar live immediately. Cross-dissolving this
+        // whole container snapshots its controls and interferes with rapid input.
         for (key, host) in hosts {
             host.view.isHidden = key != mode
             host.view.accessibilityElementsHidden = key != mode
+            host.view.isUserInteractionEnabled = key == mode
         }
         setNeedsStatusBarAppearanceUpdate()
     }

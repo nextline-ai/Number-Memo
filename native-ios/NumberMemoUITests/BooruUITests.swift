@@ -10,6 +10,24 @@ final class BooruUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
+    private func modeTitles(_ mode: String) -> [String] {
+        mode == "hitomi" ? ["Comics Mode", "만화 모드", "漫画モード"] : ["Image Mode", "이미지 모드", "画像モード"]
+    }
+    private func assertMode(_ app: XCUIApplication, _ mode: String) {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value IN %@", modeTitles(mode)), object: element(app, "app.mode"))
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
+    }
+    private func selectMode(_ app: XCUIApplication, _ mode: String) {
+        let control = element(app, "app.mode")
+        if !modeTitles(mode).contains(control.value as? String ?? "") { control.tap() }
+        assertMode(app, mode)
+    }
+    private func dragMode(_ app: XCUIApplication, to mode: String) {
+        let control = element(app, "app.mode")
+        let start = mode == "hitomi" ? 0.75 : 0.25
+        control.coordinate(withNormalizedOffset: CGVector(dx: start, dy: 0.5)).press(forDuration: 0.05,
+            thenDragTo: control.coordinate(withNormalizedOffset: CGVector(dx: 1 - start, dy: 0.5)))
+    }
     private func launch(extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--booru-ui-test", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + extra
@@ -206,9 +224,9 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["The tags that defined your month"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Done"].isHittable)
         capture(app, "Monthly recap taste cards")
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(app.staticTexts["A month of discoveries"].waitForExistence(timeout: 5))
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         XCTAssertTrue(app.staticTexts["The tags that defined your month"].waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
         XCTAssertFalse(element(app, "taste.recap.open").exists)
@@ -235,7 +253,7 @@ final class BooruUITests: XCTestCase {
     func testLegacySoloExclusionFiltersActualSoleTagInComicRecommendations() {
         let app = launch(extra: ["--taste-ui-rich", "--taste-sole-exclusion-test"])
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         let card = firstTasteCard(app), id = card.identifier
         element(app, "taste.evidence").tap()
         XCTAssertTrue(app.staticTexts["female:sample"].waitForExistence(timeout: 5))
@@ -277,6 +295,32 @@ final class BooruUITests: XCTestCase {
         capture(app, "Excluded evidence removed without refreshing works")
     }
 
+    func testRepeatedModeSwitchingKeepsSelectionAndFeed() {
+        let app = launch(extra: ["--taste-ui-rich"])
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
+        let imageID = firstTasteCard(app).identifier
+        var comicID: String?
+        // Include the seam, padding, edges, and the already selected icon.
+        let points: [CGVector] = [.init(dx: 0.5, dy: 0.5), .init(dx: 0.05, dy: 0.5),
+                                 .init(dx: 0.5, dy: 0.08), .init(dx: 0.95, dy: 0.5),
+                                 .init(dx: 0.75, dy: 0.5), .init(dx: 0.25, dy: 0.5)]
+        for (index, point) in points.enumerated() {
+            let control = element(app, "app.mode")
+            control.coordinate(withNormalizedOffset: point).tap()
+            let target = index.isMultiple(of: 2) ? "hitomi" : "booru"
+            assertMode(app, target)
+            let card = firstTasteCard(app).identifier
+            if target == "hitomi" {
+                XCTAssertTrue(card.contains("900000"))
+                if let comicID { XCTAssertEqual(card, comicID) } else { comicID = card }
+            } else { XCTAssertEqual(card, imageID) }
+        }
+        dragMode(app, to: "hitomi"); assertMode(app, "hitomi")
+        dragMode(app, to: "booru"); assertMode(app, "booru")
+        XCTAssertEqual(firstTasteCard(app).identifier, imageID)
+        capture(app, "Whole-capsule tapping and repeated mode switching")
+    }
+
     func testTasteComicCardsAndModeRetention() {
         let app = launch(extra: ["--taste-ui-rich"])
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Smart")).firstMatch.tap()
@@ -291,7 +335,7 @@ final class BooruUITests: XCTestCase {
         app.swipeUp()
         let imageAnchor = firstTasteCard(app)
         let imageAnchorID = imageAnchor.identifier, imageY = imageAnchor.frame.minY
-        element(app, "app.mode.booru").press(forDuration: 0.05, thenDragTo: element(app, "app.mode.hitomi"))
+        dragMode(app, to: "hitomi")
         let comic = firstTasteCard(app)
         XCTAssertTrue(comic.identifier.contains("900000"))
         comic.press(forDuration: 0.7)
@@ -322,11 +366,11 @@ final class BooruUITests: XCTestCase {
         app.swipeUp()
         let comicAnchor = firstTasteCard(app)
         let comicAnchorID = comicAnchor.identifier, comicY = comicAnchor.frame.minY
-        element(app, "app.mode.hitomi").press(forDuration: 0.05, thenDragTo: element(app, "app.mode.booru"))
+        dragMode(app, to: "booru")
         XCTAssertTrue(element(app, imageAnchorID).waitForExistence(timeout: 5))
         XCTAssertEqual(element(app, imageAnchorID).frame.minY, imageY, accuracy: 10)
         XCTAssertTrue(element(app, imageID).exists)
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(element(app, comicAnchorID).waitForExistence(timeout: 5))
         XCTAssertEqual(element(app, comicAnchorID).frame.minY, comicY, accuracy: 10)
         capture(app, "Comic feed retained after mode switch")
@@ -352,7 +396,7 @@ final class BooruUITests: XCTestCase {
         let app = launch()
         app.tabBars.buttons["More"].tap()
         for mode in ["booru", "hitomi"] {
-            if mode == "hitomi" { element(app, "app.mode.hitomi").tap() }
+            if mode == "hitomi" { selectMode(app, "hitomi") }
             XCTAssertTrue(element(app, "settings.gridColumns").waitForExistence(timeout: 5))
             capture(app, mode + " settings overview")
             reveal(app, mode == "booru" ? "booru.readerSettings" : "settings.reader").tap()
@@ -393,16 +437,16 @@ final class BooruUITests: XCTestCase {
         search.tap(); search.typeText("scenery mountain\n")
         element(app, "booru.more").tap()
         XCTAssertTrue(element(app, "booru.post.103").waitForExistence(timeout: 5))
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
         XCTAssertTrue(element(app, "content.search").waitForExistence(timeout: 5))
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
         XCTAssertEqual(search.value as? String, "scenery mountain")
         XCTAssertTrue(element(app, "booru.post.103").exists)
-        app.tabBars.buttons["Tags"].tap(); element(app, "app.mode.hitomi").tap()
+        app.tabBars.buttons["Tags"].tap(); selectMode(app, "hitomi")
         XCTAssertTrue(app.tabBars.buttons["Artists"].isSelected)
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         XCTAssertTrue(app.tabBars.buttons["Tags"].isSelected)
         capture(app, "Mode switch preserves corresponding tab")
     }
@@ -513,11 +557,11 @@ final class BooruUITests: XCTestCase {
         element(app, "booru.allFavorites").tap()
         XCTAssertTrue(card.waitForExistence(timeout: 5), "Saved works remain visible regardless of the selected exploration server")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(app.tabBars.buttons["Saved"].waitForExistence(timeout: 5))
         XCTAssertFalse(card.exists)
         capture(app, "Hitomi mode remains separate")
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         app.tabBars.buttons["Saved"].tap()
         element(app, "booru.allFavorites").tap()
         XCTAssertTrue(card.waitForExistence(timeout: 5))
@@ -689,7 +733,7 @@ final class BooruUITests: XCTestCase {
         media.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.45)).press(forDuration: 0.05, thenDragTo: media.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.85)))
         expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: state); waitForExpectations(timeout: 5)
         XCTAssertTrue(first.waitForExistence(timeout: 5))
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         app.tabBars.buttons["Settings"].tap()
         app.swipeUp()
         app.buttons["Reader Settings"].tap()
@@ -710,7 +754,7 @@ final class BooruUITests: XCTestCase {
             XCTAssertEqual(mode.frame.height, 44, accuracy: 2)
             capture(app, "Korean Booru tab \(index)")
         }
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         for index in 0..<4 {
             app.tabBars.buttons.element(boundBy: index).tap()
             let mode = element(app, "app.mode")
@@ -746,7 +790,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "developer.logo").exists)
         XCTAssertTrue(reveal(app, "developer.community").isHittable)
         capture(app, "Booru developer and community")
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(reveal(app, "developer.website").isHittable)
         XCTAssertTrue(element(app, "developer.logo").exists)
@@ -795,7 +839,7 @@ final class BooruUITests: XCTestCase {
 
     func testFolderNamePromptsAlignAndResetAcrossModes() {
         let app = launch()
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         app.tabBars.buttons["Settings"].tap()
         element(app, "settings.onboarding").tap()
         XCTAssertTrue(element(app, "onboarding.addServer").waitForExistence(timeout: 10))
@@ -871,7 +915,7 @@ final class BooruUITests: XCTestCase {
         let app = launch(extra: ["--folder-edit-test"])
         app.tabBars.buttons["Saved"].tap()
         for mode in ["booru", "hitomi"] {
-            if mode == "hitomi" { element(app, "app.mode.hitomi").tap() }
+            if mode == "hitomi" { selectMode(app, "hitomi") }
             element(app, mode + ".createFolder").tap()
             let input = element(app, mode == "booru" ? "booru.folderName" : "folder.name")
             XCTAssertTrue(input.waitForExistence(timeout: 5)); input.tap(); input.typeText("Before Rename")
@@ -913,7 +957,7 @@ final class BooruUITests: XCTestCase {
         app.tabBars.buttons["More"].tap()
         XCTAssertTrue(element(app, "settings.gridColumns").buttons["3"].isSelected)
         element(app, "settings.gridColumns").buttons["4"].tap()
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         app.tabBars.buttons["Settings"].tap()
         for _ in 0..<4 {
             if element(app, "hitomi.defaultTagsSettings").exists && element(app, "hitomi.defaultTagsSettings").isHittable { break }
@@ -926,7 +970,7 @@ final class BooruUITests: XCTestCase {
         excluded.tap(); excluded.typeText("tag:spoilers")
         capture(app, "Hitomi default search tags")
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         app.tabBars.buttons["More"].tap()
         XCTAssertTrue(element(app, "settings.gridColumns").buttons["4"].isSelected)
     }
@@ -962,18 +1006,18 @@ final class BooruUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.tutorial").waitForExistence(timeout: 5))
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(app.staticTexts["Comics Mode"].waitForExistence(timeout: 5))
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         capture(app, "Unified onboarding switch tutorial")
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(app.tabBars.buttons["More"].waitForExistence(timeout: 5))
         XCTAssertFalse(element(app, "comics.enterAddress").exists)
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(element(app, "comics.enterAddress").waitForExistence(timeout: 5))
         capture(app, "Comics requires explicit website setup")
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         XCTAssertTrue(app.tabBars.buttons["More"].waitForExistence(timeout: 5))
     }
 
@@ -982,7 +1026,7 @@ final class BooruUITests: XCTestCase {
         app.launchArguments = ["--booru-ui-test", "--comics-setup-test", "-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
         app.launch()
         app.tabBars.buttons["탐색"].tap()
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(element(app, "booru.pool.77").waitForExistence(timeout: 5))
         XCTAssertTrue(element(app, "comics.enterAddress").isHittable)
         XCTAssertTrue(element(app, "comics.importViolet").isHittable)
@@ -999,7 +1043,7 @@ final class BooruUITests: XCTestCase {
 
     func testDisconnectedComicsCanUseLocalFoldersBeforeConnectingReader() {
         let app = launch(extra: ["--comics-setup-test", "--no-sites-test", "--comics-local-library-test"])
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         app.tabBars.buttons["Saved"].tap()
         XCTAssertTrue(element(app, "hitomi.createFolder").isEnabled)
         let folder = app.staticTexts["Offline library"]
@@ -1014,7 +1058,7 @@ final class BooruUITests: XCTestCase {
 
     func testDisconnectedComicsKeepsTabsAndOffersVioletImport() {
         let app = launch(extra: ["--comics-setup-test", "--no-sites-test"])
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(element(app, "comics.enterAddress").waitForExistence(timeout: 5))
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
         element(app, "comics.importViolet").tap()
@@ -1029,7 +1073,7 @@ final class BooruUITests: XCTestCase {
 
     func testComicsShowsImagePoolsUntilComicsWebsiteIsConnected() {
         let app = launch(extra: ["--comics-setup-test"])
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(element(app, "comics.connectionCard").waitForExistence(timeout: 5))
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
         let pool = element(app, "booru.pool.77")
@@ -1053,7 +1097,7 @@ final class BooruUITests: XCTestCase {
 
     func testComicsConnectionGateAndInvalidAddress() {
         let app = launch(extra: ["--comics-setup-test"])
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(element(app, "comics.enterAddress").waitForExistence(timeout: 5))
         element(app, "comics.enterAddress").tap()
         let input = element(app, "comics.address")
@@ -1067,9 +1111,9 @@ final class BooruUITests: XCTestCase {
         element(app, "comics.connect").tap()
         XCTAssertTrue(app.tabBars.buttons["Explore"].waitForExistence(timeout: 5))
         XCTAssertFalse(element(app, "comics.enterAddress").exists)
-        element(app, "app.mode.booru").tap()
+        selectMode(app, "booru")
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
     }
 
@@ -1104,7 +1148,7 @@ final class BooruUITests: XCTestCase {
         capture(app, "Concise onboarding mode tutorial")
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "booru.setupAddress").waitForExistence(timeout: 5))
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         XCTAssertTrue(app.tabBars.buttons["설정"].waitForExistence(timeout: 5))
         XCTAssertFalse(element(app, "comics.enterAddress").exists)
     }
@@ -1274,7 +1318,7 @@ final class BooruUITests: XCTestCase {
         capture(app, "Korean replay onboarding")
         // A settings replay remains dismissible without changing the user's library.
         app.buttons["완료"].tap()
-        element(app, "app.mode.hitomi").tap()
+        selectMode(app, "hitomi")
         app.tabBars.buttons["설정"].tap()
         element(app, "settings.translationLanguage").tap()
         XCTAssertTrue(element(app, "translation.language.system").waitForExistence(timeout: 5))
