@@ -11,7 +11,20 @@ actor MangaContentSource: ContentProviding {
     private var suggestionCache: [String: ([TagSuggestion], Date)] = [:]
     private var searchCache: (GalleryQuery, [Int64], Date)?
 
-    init(transport: ContentTransport = .shared) { self.transport = transport }
+    private final class NativeGalleryBox {
+        let gallery: NativeGallery
+        init(_ gallery: NativeGallery) { self.gallery = gallery }
+    }
+    private let galleryCache = NSCache<NSNumber, NativeGalleryBox>()
+
+    init(transport: ContentTransport = .shared) {
+        self.transport = transport
+        galleryCache.countLimit = 512
+    }
+
+    nonisolated func cachedGallery(_ id: Int64) -> NativeGallery? {
+        galleryCache.object(forKey: id as NSNumber)?.gallery
+    }
 
     func suggestions(for token: String) async throws -> [TagSuggestion] {
         guard let context = TagCompletionContext(token) else { return [] }
@@ -47,10 +60,15 @@ actor MangaContentSource: ContentProviding {
 
     func gallery(_ id: Int64) async throws -> NativeGallery {
         guard id > 0 else { throw ContentError.invalidQuery }
-        if let (value, date) = documents[id], Date().timeIntervalSince(date) < 600 { return value }
+        if let cached = galleryCache.object(forKey: id as NSNumber)?.gallery { return cached }
+        if let (value, date) = documents[id], Date().timeIntervalSince(date) < 600 {
+            galleryCache.setObject(NativeGalleryBox(value), forKey: id as NSNumber)
+            return value
+        }
         let (data, _) = try await transport.get(url("galleries/\(id).js"), limit: 4_000_000, galleryID: id)
         let document = try NativeGallery.parse(data, id: id)
-        if documents.count >= 64, let oldest = documents.min(by: { $0.value.1 < $1.value.1 })?.key {
+        galleryCache.setObject(NativeGalleryBox(document), forKey: id as NSNumber)
+        if documents.count >= 256, let oldest = documents.min(by: { $0.value.1 < $1.value.1 })?.key {
             documents.removeValue(forKey: oldest)
         }
         documents[id] = (document, Date())

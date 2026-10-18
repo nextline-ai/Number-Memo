@@ -229,9 +229,9 @@
 "Tap Left" = "왼쪽 탭";
 "Tap Right" = "오른쪽 탭";
 "Tap center → Translate" = "가운데 탭 → 번역";
-"Tap either side to turn pages. Tap the center for the quick menu, or hold it to bookmark." = "좌우를 탭해 넘기고, 가운데를 탭해 퀵 메뉴를 여세요. 가운데를 길게 누르면 북마크합니다.";
+"Tap either side to turn pages. Tap the center for the quick menu, or hold anywhere to bookmark." = "좌우를 탭해 넘기고, 가운데를 탭해 퀵 메뉴를 여세요. 화면 아무 곳이나 길게 누르면 북마크합니다.";
 "Tap the Sides to Turn Pages" = "화면 좌우 탭으로 넘기기";
-"Tap the center: quick menu\nHold the center: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page" = "가운데 탭: 퀵 메뉴\n가운데 길게 누르기: 북마크\n두 번 탭 또는 두 손가락: 확대 · 확대 중 드래그: 이미지 이동\n퀵 메뉴의 페이지 번호: 원하는 페이지로 이동";
+"Tap the center: quick menu\nHold anywhere: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page" = "가운데 탭: 퀵 메뉴\n화면 아무 곳이나 길게 누르기: 북마크\n두 번 탭 또는 두 손가락: 확대 · 확대 중 드래그: 이미지 이동\n퀵 메뉴의 페이지 번호: 원하는 페이지로 이동";
 "Tap the star (★) beside an artist on the work details screen to add them." = "작품 상세 화면에서 작가 이름 옆의 별표(★)를 눌러 등록할 수 있습니다";
 "Taps" = "탭";
 "Task Status" = "작업 상태";
@@ -389,7 +389,7 @@
 "Clear History?" = "검색 기록을 삭제할까요?";
 "Saved to Favorites" = "좋아요를 표시했습니다";
 "Share" = "공유";
-"Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close" = "중앙 탭: 빠른 메뉴\n중앙 길게 누르기: 즐겨찾기\n가장자리 탭 또는 스와이프: 이미지 이동\n두 번 탭 또는 핀치: 확대·축소\n기본 배율에서 아래로 스와이프: 닫기";
+"Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close" = "중앙 탭: 빠른 메뉴\n화면 아무 곳이나 길게 누르기: 즐겨찾기\n가장자리 탭 또는 스와이프: 이미지 이동\n두 번 탭 또는 핀치: 확대·축소\n기본 배율에서 아래로 스와이프: 닫기";
 "The network connection was interrupted. Retry or check another network if the website also fails to open." = "네트워크 연결이 끊겼습니다. 다시 시도하고, 웹사이트도 열리지 않으면 다른 네트워크에서 확인하세요.";
 
 "Appearance and reader preferences are saved separately for each mode." = "화면과 뷰어 설정은 모드별로 따로 저장됩니다.";
@@ -444,7 +444,7 @@
 "Move your folders and works from Violet. You can also start with an empty library." = "Violet의 폴더와 작품을 가져오세요. 빈 보관함으로 시작해도 됩니다.";
 "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata." = "파일 앱에서 Violet 폴더를 열어 보관함은 user.db, 메타데이터는 data.db를 선택하세요.";
 
-"Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" = "중앙 탭: 빠른 메뉴\n중앙 길게 누르기: 즐겨찾기\n가장자리 탭·스와이프: 이미지 이동\n두 번 탭·핀치: 확대\n번역: 현재 보이는 영역을 Apple 이미지 번역으로 보기\n기본 배율에서 아래로 스와이프: 닫기";
+"Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" = "중앙 탭: 빠른 메뉴\n화면 아무 곳이나 길게 누르기: 즐겨찾기\n가장자리 탭·스와이프: 이미지 이동\n두 번 탭·핀치: 확대\n번역: 현재 보이는 영역을 Apple 이미지 번역으로 보기\n기본 배율에서 아래로 스와이프: 닫기";
 
 "Saved" = "저장";
 "Popular" = "인기순";

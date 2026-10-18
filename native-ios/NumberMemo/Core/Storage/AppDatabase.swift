@@ -319,19 +319,23 @@ public final class AppDatabase: Sendable {
     public func folderPreviews(limitPerFolder: Int = 4) throws -> [Int64: [Work]] {
         try dbWriter.read { db in
             let sql = """
-            SELECT fw.folder_id, w.*
-            FROM folder_works fw
-            INNER JOIN works w ON w.id = fw.work_id
-            ORDER BY COALESCE(NULLIF(w.bookmarked_at, ''), fw.added_at) DESC, w.id DESC
+            WITH ranked AS (
+                SELECT fw.folder_id, w.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY fw.folder_id
+                           ORDER BY COALESCE(NULLIF(w.bookmarked_at, ''), fw.added_at) DESC, w.id DESC
+                       ) AS rn
+                FROM folder_works fw
+                INNER JOIN works w ON w.id = fw.work_id
+            )
+            SELECT * FROM ranked WHERE rn <= ?
             """
-            let rows = try Row.fetchAll(db, sql: sql)
+            let rows = try Row.fetchAll(db, sql: sql, arguments: [limitPerFolder])
             var result: [Int64: [Work]] = [:]
             for row in rows {
                 let folderId: Int64 = row["folder_id"]
-                if (result[folderId]?.count ?? 0) < limitPerFolder {
-                    let work = try Work(row: row)
-                    result[folderId, default: []].append(work)
-                }
+                let work = try Work(row: row)
+                result[folderId, default: []].append(work)
             }
             return result
         }
@@ -465,16 +469,36 @@ public final class AppDatabase: Sendable {
             """
             var works = try Work.fetchAll(db, sql: sql, arguments: StatementArguments(arguments))
 
-            // Fetch attached folders
-            for i in works.indices {
-                if let workId = works[i].id {
-                    let folderSql = """
-                    SELECT f.* FROM folders f
-                    INNER JOIN folder_works fw ON fw.folder_id = f.id
-                    WHERE fw.work_id = ?
-                    ORDER BY f.sort_order ASC
-                    """
-                    works[i].folders = try Folder.fetchAll(db, sql: folderSql, arguments: [workId])
+            // Fetch attached folders in a single batch query to avoid N+1 queries
+            let workIds = works.compactMap(\.id)
+            if !workIds.isEmpty {
+                let placeholders = workIds.map { _ in "?" }.joined(separator: ",")
+                let folderSql = """
+                SELECT fw.work_id, f.* FROM folders f
+                INNER JOIN folder_works fw ON fw.folder_id = f.id
+                WHERE fw.work_id IN (\(placeholders))
+                ORDER BY f.sort_order ASC, f.id ASC
+                """
+                let rows = try Row.fetchAll(db, sql: folderSql, arguments: StatementArguments(workIds))
+                var foldersByWorkId: [Int64: [Folder]] = [:]
+                for row in rows {
+                    let workId: Int64 = row["work_id"]
+                    let folder = Folder(
+                        id: row["id"],
+                        name: row["name"],
+                        description: row["description"],
+                        color: row["color"],
+                        sortOrder: row["sort_order"],
+                        createdAt: row["created_at"],
+                        violetGroupId: row["violet_group_id"],
+                        workCount: 0
+                    )
+                    foldersByWorkId[workId, default: []].append(folder)
+                }
+                for i in works.indices {
+                    if let workId = works[i].id {
+                        works[i].folders = foldersByWorkId[workId] ?? []
+                    }
                 }
             }
 
@@ -691,6 +715,9 @@ public final class AppDatabase: Sendable {
                     arguments: [status, galleryId]
                 )
             }
+        }
+        if let path {
+            LocalThumbnailCache.shared.invalidate(path: path)
         }
         if status == "ready", let path {
             let store = VisualFingerprintStore(database: dbWriter)

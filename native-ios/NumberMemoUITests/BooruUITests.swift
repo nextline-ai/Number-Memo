@@ -440,7 +440,9 @@ final class BooruUITests: XCTestCase {
         let app = launch()
         let search = element(app, "booru.search")
         search.tap(); search.typeText("scenery mountain\n")
-        element(app, "booru.more").tap()
+        // Pagination starts when its sentinel appears; a fast response can remove
+        // the transient Load More button before automation tries to tap it.
+        app.swipeUp()
         XCTAssertTrue(element(app, "booru.post.103").waitForExistence(timeout: 5))
         selectMode(app, "manga")
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
@@ -604,7 +606,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(suggestion.waitForExistence(timeout: 5))
         suggestion.tap()
         XCTAssertEqual(search.value as? String, "scenery ")
-        app.keyboards.buttons["Search"].tap()
+        search.typeText("\n")
         XCTAssertTrue(element(app, "booru.post.101").waitForExistence(timeout: 5))
         app.swipeUp()
         XCTAssertTrue(element(app, "booru.post.103").waitForExistence(timeout: 5))
@@ -702,6 +704,23 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "booru.close").waitForExistence(timeout: 5))
         element(app, "booru.close").tap()
         XCTAssertTrue(gif.waitForExistence(timeout: 5))
+    }
+
+    func testViewerFavoritesAtBothScreenEdgesWithoutChangingImage() {
+        let app = launch()
+        let first = element(app, "booru.post.101")
+        XCTAssertTrue(first.waitForExistence(timeout: 10)); first.tap()
+        let media = element(app, "booru.media"), state = element(app, "booru.viewerState")
+        XCTAssertTrue(state.waitForExistence(timeout: 10))
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == 'ready'"), object: element(app, "booru.mediaStatus"))
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
+        for (x, label) in [(0.06, "Remove Favorite"), (0.94, "Add Favorite")] {
+            media.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.65)).press(forDuration: 0.8)
+            XCTAssertEqual(state.label, "101:fit")
+            openMenu(app)
+            XCTAssertEqual(element(app, "booru.favorite").label, label)
+            element(app, "booru.menuClose").tap()
+        }
     }
 
     func testViewerGesturesAndIndependentSettings() {

@@ -196,8 +196,8 @@ private struct GalleryFeedView: View {
     init(artist: String? = nil, initialQuery: String = "", source: any ContentProviding, images: PageImageStore, navigate: @escaping (ContentRoute) -> Void) {
         self.artist = artist
         self.source = source
-        _loader = State(initialValue: GalleryFeedLoader(source: source))
         self.images = images
+        _loader = State(initialValue: GalleryFeedLoader(source: source, images: images))
         self.navigate = navigate
         _query = State(initialValue: GalleryQuery(language: artist == nil && initialQuery.isEmpty ? L10n.contentLanguage : "all", artist: artist, text: initialQuery))
         _searchText = State(initialValue: initialQuery)
@@ -228,13 +228,20 @@ private struct GalleryFeedView: View {
                 }.accessibilityIdentifier("content.sort")
                 }
                 LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 16) {
-                    ForEach(loader.ids, id: \.self) { id in
-                        GalleryGridCard(id: id, isBookmarked: bookmarkedIDs.contains(id), source: source, images: images, open: { navigate(.discoveredGallery(id, discovery)) }) { gallery in
+                    let prefetchThresholdIndex = max(0, loader.ids.count - max(16, env.gridColumns * 6))
+                    ForEach(Array(loader.ids.enumerated()), id: \.element) { index, id in
+                        GalleryGridCard(id: id, preview: loader.previews[id], isBookmarked: bookmarkedIDs.contains(id), source: source, images: images, open: { navigate(.discoveredGallery(id, discovery)) }) { gallery in
                             saveFeedback = .perform { try ContentBookmarkAction.toggle(id: id, gallery: gallery, env: env, images: images, context: discovery) }
+                        }
+                        .onAppear {
+                            loader.prioritizeCovers(startingAt: index, count: max(12, env.gridColumns * 4))
+                            if index >= prefetchThresholdIndex && loader.hasMore && !loader.loading {
+                                loader.load(effectiveQuery, reset: false)
+                            }
                         }
                     }
                 }.accessibilityIdentifier("content.grid")
-                if loader.loading { ProgressView(L10n.text("Loading")) }
+                if loader.loading { ProgressView(L10n.text("Loading")).accessibilityIdentifier("content.loading") }
                 else if let error = loader.error { ContentFailureView(message: error) { loader.retry(effectiveQuery) } }
                 else if loader.ids.isEmpty { ContentUnavailableView.search(text: query.text) }
                 else if loader.hasMore {
@@ -371,12 +378,21 @@ private struct GalleryFeedView: View {
 private struct GalleryGridCard: View {
     let id: Int64
     let isBookmarked: Bool
-    let source: any ContentProviding
-    let images: PageImageStore
     let open: () -> Void
     let bookmark: (NativeGallery?) -> Void
-    @State private var gallery: NativeGallery?
-    @State private var image: UIImage?
+    private let suppliedPreview: GalleryFeedPreview?
+    @State private var preview: GalleryFeedPreview
+    private var gallery: NativeGallery? { preview.gallery }
+    private var image: UIImage? { preview.image }
+
+    init(id: Int64, preview: GalleryFeedPreview?, isBookmarked: Bool, source: any ContentProviding, images: PageImageStore, open: @escaping () -> Void, bookmark: @escaping (NativeGallery?) -> Void) {
+        self.id = id
+        self.isBookmarked = isBookmarked
+        self.suppliedPreview = preview
+        self.open = open
+        self.bookmark = bookmark
+        _preview = State(initialValue: preview ?? GalleryFeedPreview(id: id, source: source, images: images))
+    }
 
     var body: some View {
         GalleryCardLayout(title: gallery?.title ?? L10n.text("Work %@", String(describing: id)), artists: gallery?.artists.joined(separator: ", ") ?? "", language: gallery?.language ?? "") {
@@ -399,13 +415,9 @@ private struct GalleryGridCard: View {
         .accessibilityValue(isBookmarked ? L10n.text("Bookmarked") : L10n.text("Not bookmarked"))
         .accessibilityAction { open() }
         .accessibilityAction(named: WorkSaveResult.actionTitle(saved: isBookmarked, mode: .comics)) { bookmark(gallery) }
-        .task(id: id) {
-            do {
-                let value = try await source.gallery(id)
-                try Task.checkCancellation()
-                gallery = value
-                if let page = value.pages.first { image = try await images.load(page, galleryID: id, thumbnail: true) }
-            } catch { /* The detail screen provides an explicit retry. */ }
+        .task(id: suppliedPreview.map(ObjectIdentifier.init)) {
+            if let suppliedPreview { preview = suppliedPreview }
+            await preview.load()
         }
     }
 }
@@ -487,11 +499,61 @@ private struct RemoteGalleryView: View {
     }
 }
 
-/// Owns requests independently of SwiftUI's short-lived refresh task. Replace data only after success.
+/// One observable cover per card: prefetch and visible cells share the same request and updates.
+@MainActor @Observable
+final class GalleryFeedPreview {
+    let id: Int64
+    private(set) var gallery: NativeGallery?
+    private(set) var image: UIImage?
+    @ObservationIgnored private let source: any ContentProviding
+    @ObservationIgnored private let images: PageImageStore
+    @ObservationIgnored private var request: Task<Void, Never>?
+    @ObservationIgnored private var cancelled = false
+
+    init(id: Int64, source: any ContentProviding, images: PageImageStore) {
+        self.id = id
+        self.source = source
+        self.images = images
+        gallery = source.cachedGallery(id)
+        image = gallery?.pages.first.flatMap { images.cachedImage(hash: $0.hash, thumbnail: true) }
+    }
+
+    func load() async {
+        guard !cancelled else { return }
+        if let request { await request.value; return }
+        guard image == nil else { return }
+        let request = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let gallery: NativeGallery
+                if let cached = self.gallery { gallery = cached }
+                else { gallery = try await source.gallery(id) }
+                try Task.checkCancellation()
+                self.gallery = gallery
+                if let page = gallery.pages.first {
+                    let image = try await images.load(page, galleryID: id, thumbnail: true)
+                    try Task.checkCancellation()
+                    self.image = image
+                }
+            } catch { /* Keep metadata usable when a cover fails; detail provides an explicit retry. */ }
+        }
+        self.request = request
+        await request.value
+    }
+
+    func cancel() { cancelled = true; request?.cancel() }
+}
+
+/// Pagination completes as soon as IDs arrive. Cover prefetch never holds up the next page.
 @MainActor @Observable
 final class GalleryFeedLoader {
     private let source: any ContentProviding
+    private let images: PageImageStore?
     private var task: Task<Void, Never>?
+    private(set) var previews: [Int64: GalleryFeedPreview] = [:]
+    @ObservationIgnored private var prefetchTask: Task<Void, Never>?
+    @ObservationIgnored private var prefetchQueue: [Int64] = []
+    @ObservationIgnored private var prefetchGeneration = UUID()
     private var generation = UUID()
     private var nextOffset = 0
     private var currentQuery: GalleryQuery?
@@ -501,13 +563,63 @@ final class GalleryFeedLoader {
     private(set) var hasMore = false
     private(set) var error: String?
 
-    init(source: any ContentProviding) { self.source = source }
+    init(source: any ContentProviding, images: PageImageStore? = nil) {
+        self.source = source
+        self.images = images
+    }
+
+    /// Move the approaching rows ahead of distant covers. Visible cells can also join a request directly.
+    func prioritizeCovers(startingAt index: Int, count: Int) {
+        guard ids.indices.contains(index), count > 0 else { return }
+        let upcoming = Array(ids[index..<min(ids.count, index + count)])
+        let priority = Set(upcoming)
+        prefetchQueue = upcoming.filter { previews[$0] != nil } + prefetchQueue.filter { !priority.contains($0) }
+        startPrefetch()
+    }
+
+    private func startPrefetch() {
+        guard prefetchTask == nil, !prefetchQueue.isEmpty else { return }
+        let token = prefetchGeneration
+        prefetchTask = Task(priority: .utility) { [weak self] in
+            await withTaskGroup(of: Void.self) { group in
+                for _ in 0..<4 {
+                    group.addTask { [weak self] in
+                        while !Task.isCancelled, let preview = await self?.nextPreview() {
+                            await preview.load()
+                        }
+                    }
+                }
+            }
+            guard let self, self.prefetchGeneration == token else { return }
+            self.prefetchTask = nil
+            if !self.prefetchQueue.isEmpty { self.startPrefetch() }
+        }
+    }
+
+    private func nextPreview() -> GalleryFeedPreview? {
+        while !prefetchQueue.isEmpty {
+            let id = prefetchQueue.removeFirst()
+            if let preview = previews[id], preview.image == nil { return preview }
+        }
+        return nil
+    }
+
+    private func stopPrefetch(cancelCovers: Bool) {
+        prefetchTask?.cancel()
+        prefetchTask = nil
+        prefetchQueue.removeAll()
+        prefetchGeneration = UUID()
+        if cancelCovers { for preview in previews.values { preview.cancel() } }
+    }
 
     @discardableResult func load(_ query: GalleryQuery, reset: Bool) -> Task<Void, Never> {
         if !reset, loading, currentQuery == query, let task { return task }
         task?.cancel()
         let changedQuery = currentQuery != query
-        if changedQuery { ids = []; nextOffset = 0; hasMore = false }
+        if changedQuery {
+            stopPrefetch(cancelCovers: true)
+            ids = []; nextOffset = 0; hasMore = false; previews.removeAll()
+        }
         currentQuery = query
         let reset = reset || changedQuery
         lastReset = reset
@@ -524,9 +636,19 @@ final class GalleryFeedLoader {
                 guard let self, self.generation == token else { return }
                 var seen = Set(reset ? [] : self.ids)
                 let incoming = batch.ids.filter { seen.insert($0).inserted }
-                self.ids = (reset ? [] : self.ids) + incoming
+                let updatedIDs = (reset ? [] : self.ids) + incoming
+                if reset { self.stopPrefetch(cancelCovers: false) }
+                // Retain only three pages of covers; lazy cells own any older covers still on screen.
+                let retained = Set(updatedIDs.suffix(72))
+                self.previews = (reset ? [:] : self.previews).filter { retained.contains($0.key) }
+                if let images = self.images {
+                    for id in incoming { self.previews[id] = GalleryFeedPreview(id: id, source: source, images: images) }
+                }
+                self.ids = updatedIDs
                 self.nextOffset = offset + batch.ids.count
                 self.hasMore = batch.hasMore && !batch.ids.isEmpty && (reset || !incoming.isEmpty)
+                self.prefetchQueue = self.prefetchQueue.filter { retained.contains($0) } + incoming
+                self.startPrefetch()
             } catch {
                 if !Task.isCancelled, let self, self.generation == token { self.error = ContentError.message(error) }
             }
@@ -538,5 +660,8 @@ final class GalleryFeedLoader {
 
     @discardableResult func retry(_ query: GalleryQuery) -> Task<Void, Never> { load(query, reset: lastReset) }
 
-    func cancel() { task?.cancel(); generation = UUID(); loading = false }
+    func cancel() {
+        task?.cancel(); generation = UUID(); loading = false
+        stopPrefetch(cancelCovers: true)
+    }
 }

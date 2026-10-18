@@ -7,15 +7,24 @@ struct ReaderPageView: View {
     let tap: (CGFloat) -> Void
     let bookmark: () -> Void
     var viewport: (CGRect, CGFloat) -> Void = { _, _ in }
-    var bookmarkRange: ClosedRange<CGFloat> = 0.3...0.7
     @State private var image: UIImage?
     @State private var error: String?
     @State private var retry = 0
 
+    init(page: GalleryPage, galleryID: Int64, images: PageImageStore, tap: @escaping (CGFloat) -> Void, bookmark: @escaping () -> Void, viewport: @escaping (CGRect, CGFloat) -> Void = { _, _ in }) {
+        self.page = page
+        self.galleryID = galleryID
+        self.images = images
+        self.tap = tap
+        self.bookmark = bookmark
+        self.viewport = viewport
+        _image = State(initialValue: images.cachedImage(hash: page.hash, thumbnail: false))
+    }
+
     var body: some View {
         Group {
             if let shown = image {
-                ZoomablePageView(image: shown, tap: tap, bookmark: bookmark, viewport: viewport, bookmarkRange: bookmarkRange)
+                ZoomablePageView(image: shown, tap: tap, bookmark: bookmark, viewport: viewport)
             } else {
                 GeometryReader { geometry in
                     Group {
@@ -43,13 +52,11 @@ struct ZoomablePageView: UIViewRepresentable {
     let tap: (CGFloat) -> Void
     let bookmark: () -> Void
     var viewport: (CGRect, CGFloat) -> Void = { _, _ in }
-    var bookmarkRange: ClosedRange<CGFloat> = 0.3...0.7
     func makeUIView(context: Context) -> PageScrollView { PageScrollView() }
     func updateUIView(_ view: PageScrollView, context: Context) {
         view.tap = tap
         view.bookmark = bookmark
         view.viewport = viewport
-        view.bookmarkRange = bookmarkRange
         view.update(image: image)
     }
 }
@@ -59,7 +66,6 @@ final class PageScrollView: UIScrollView, UIScrollViewDelegate {
     var tap: (CGFloat) -> Void = { _ in }
     var bookmark: () -> Void = {}
     var viewport: (CGRect, CGFloat) -> Void = { _, _ in }
-    var bookmarkRange: ClosedRange<CGFloat> = 0.3...0.7
     private var previousSize = CGSize.zero
     var geometryChanged: () -> Void = {}
     var usesExternalGestures = false
@@ -202,8 +208,7 @@ final class PageScrollView: UIScrollView, UIScrollViewDelegate {
         tap(zoomScale > 1.01 ? 0.5 : (gesture.location(in: self).x - bounds.minX) / max(1, bounds.width))
     }
     @objc private func held(_ gesture: UILongPressGestureRecognizer) {
-        let x = (gesture.location(in: self).x - bounds.minX) / max(1, bounds.width)
-        if gesture.state == .began, bookmarkRange.contains(x) { bookmark() }
+        if gesture.state == .began { bookmark() }
     }
     @objc private func doubleTapped(_ gesture: UITapGestureRecognizer) {
         if zoomScale > 1.1 { setZoomScale(1, animated: true) }
@@ -232,8 +237,7 @@ struct ReaderSpreadView: View {
                 ReaderPageView(page: gallery.pages[index], galleryID: gallery.id, images: images,
                                tap: { x in
                                    tap((CGFloat(slot) + x) / CGFloat(indices.count))
-                               }, bookmark: bookmark, viewport: { rect, scale in viewport(index, rect, scale) },
-                               bookmarkRange: (0.3 * CGFloat(indices.count) - CGFloat(slot))...(0.7 * CGFloat(indices.count) - CGFloat(slot)))
+                               }, bookmark: bookmark, viewport: { rect, scale in viewport(index, rect, scale) })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -298,7 +302,12 @@ struct ReaderPager: UIViewControllerRepresentable {
         func adjacent(_ controller: UIViewController, offset: Int) -> UIViewController? {
             guard let current = controller as? PageController else { return nil }
             let next = current.index + offset * parent.count * (parent.rtl && !parent.vertical ? -1 : 1)
-            return parent.gallery.pages.indices.contains(next) ? page(next) : nil
+            guard parent.gallery.pages.indices.contains(next) else { return nil }
+            Task { [weak self] in
+                guard let self else { return }
+                await self.parent.images.prefetch(self.parent.gallery, current: next, count: 3, visibleCount: self.parent.count)
+            }
+            return page(next)
         }
         func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? { adjacent(viewController, offset: -1) }
         func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? { adjacent(viewController, offset: 1) }
@@ -332,6 +341,11 @@ struct ReaderContinuousView: View {
                                          tap: tap, bookmark: bookmark, viewport: viewport)
                             .frame(height: geometry.size.width / CGFloat(indices.count) * ratio)
                             .id(index)
+                            .onAppear {
+                                Task {
+                                    await images.prefetch(gallery, current: index, count: 5, visibleCount: count)
+                                }
+                            }
                     }
                 }.scrollTargetLayout()
             }

@@ -41,10 +41,15 @@ import WebKit
                 let fit = min(size.width / dimensions.width, size.height / dimensions.height)
                 let imageSize = CGSize(width: dimensions.width * fit, height: dimensions.height * fit)
                 let origin = CGPoint(x: (size.width - imageSize.width) / 2, y: (size.height - imageSize.height) / 2)
-                let expected = CGRect(x: (web.scrollView.contentOffset.x / scale - origin.x) / imageSize.width,
-                                      y: (web.scrollView.contentOffset.y / scale - origin.y) / imageSize.height,
-                                      width: size.width / scale / imageSize.width,
-                                      height: size.height / scale / imageSize.height).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+                let rawX = (web.scrollView.contentOffset.x / scale - origin.x) / imageSize.width
+                let rawY = (web.scrollView.contentOffset.y / scale - origin.y) / imageSize.height
+                let rawW = size.width / scale / imageSize.width
+                let rawH = size.height / scale / imageSize.height
+                let expX = max(0, min(1, rawX))
+                let expY = max(0, min(1, rawY))
+                let expW = max(0, min(1, rawX + rawW) - expX)
+                let expH = max(0, min(1, rawY + rawH) - expY)
+                let expected = CGRect(x: expX, y: expY, width: expW, height: expH)
                 XCTAssertEqual(rect.minX, expected.minX, accuracy: 0.015)
                 XCTAssertEqual(rect.minY, expected.minY, accuracy: 0.015)
                 XCTAssertEqual(rect.width, expected.width, accuracy: 0.015)

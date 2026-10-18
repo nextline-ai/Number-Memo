@@ -64,12 +64,12 @@ public actor CoverQueueActor {
 
             repeat {
                 kickAgain = false
-                while !isPaused {
+                while !isPaused && !Task.isCancelled {
                     let batch = try database.worksNeedingFill(limit: 6, exclude: attempted)
                     if batch.isEmpty { break }
 
                     for work in batch {
-                        if isPaused { break }
+                        if isPaused || Task.isCancelled { break }
                         attempted.insert(work.galleryId)
 
                         do {

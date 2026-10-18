@@ -58,7 +58,7 @@ public struct WorksGridView: View {
                         .padding(.top, 40)
                     } else {
                         LazyVGrid(columns: columns, spacing: 16) {
-                            ForEach(works) { work in
+                            ForEach(Array(works.enumerated()), id: \.element.id) { index, work in
                                 WorkCardView(work: work)
                                     .id(work.galleryId)
                                     .accessibilityIdentifier("works.card.\(work.galleryId)")
@@ -73,6 +73,13 @@ public struct WorksGridView: View {
                                     }
                                     .contextMenu {
                                         workContextMenu(for: work)
+                                    }
+                                    .onAppear {
+                                        let lookaheadEnd = min(works.count, index + 16)
+                                        if index + 1 < lookaheadEnd {
+                                            let paths = works[(index + 1)..<lookaheadEnd].compactMap(\.thumbPath)
+                                            LocalThumbnailCache.shared.prefetch(paths: paths)
+                                        }
                                     }
                             }
                         }
@@ -269,6 +276,7 @@ public struct WorksGridView: View {
                 artist: artist
             )
             self.allFolders = (try? env.database.listFolders()) ?? []
+            LocalThumbnailCache.shared.prefetch(paths: self.works.prefix(16).compactMap(\.thumbPath))
         } catch {
             self.works = []
         }

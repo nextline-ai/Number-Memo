@@ -229,9 +229,9 @@
 "Tap Left" = "Tap Left";
 "Tap Right" = "Tap Right";
 "Tap center → Translate" = "Tap center → Translate";
-"Tap either side to turn pages. Tap the center for the quick menu, or hold it to bookmark." = "Tap either side to turn pages. Tap the center for the quick menu, or hold it to bookmark.";
+"Tap either side to turn pages. Tap the center for the quick menu, or hold anywhere to bookmark." = "Tap either side to turn pages. Tap the center for the quick menu, or hold anywhere to bookmark.";
 "Tap the Sides to Turn Pages" = "Tap the Sides to Turn Pages";
-"Tap the center: quick menu\nHold the center: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page" = "Tap the center: quick menu\nHold the center: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page";
+"Tap the center: quick menu\nHold anywhere: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page" = "Tap the center: quick menu\nHold anywhere: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page";
 "Tap the star (★) beside an artist on the work details screen to add them." = "Tap the star (★) beside an artist on the work details screen to add them.";
 "Taps" = "Taps";
 "Task Status" = "Task Status";
@@ -389,7 +389,7 @@
 "Clear History?" = "Clear History?";
 "Saved to Favorites" = "Saved to Favorites";
 "Share" = "Share";
-"Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close" = "Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close";
+"Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close" = "Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close";
 "The network connection was interrupted. Retry or check another network if the website also fails to open." = "The network connection was interrupted. Retry or check another network if the website also fails to open.";
 
 "Appearance and reader preferences are saved separately for each mode." = "Appearance and reader preferences are saved separately for each mode.";
@@ -444,7 +444,7 @@
 "Move your folders and works from Violet. You can also start with an empty library." = "Move your folders and works from Violet. You can also start with an empty library.";
 "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata." = "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata.";
 
-"Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" = "Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close";
+"Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" = "Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close";
 
 "Saved" = "Saved";
 "Popular" = "Popular";

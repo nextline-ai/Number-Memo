@@ -81,6 +81,15 @@ struct TasteArtwork: View {
     @Environment(AppEnvironment.self) private var env
     @State private var cover: UIImage?
     @State private var failed = false
+
+    init(post: BooruPost? = nil, gallery: NativeGallery? = nil) {
+        self.post = post
+        self.gallery = gallery
+        if let gallery, let page = gallery.pages.first {
+            _cover = State(initialValue: TasteSources.images.cachedImage(hash: page.hash, thumbnail: true))
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -96,6 +105,10 @@ struct TasteArtwork: View {
         .accessibilityHidden(true)
         .task(id: gallery?.id) {
             guard let gallery, let page = gallery.pages.first else { return }
+            if cover == nil, let cached = TasteSources.images.cachedImage(hash: page.hash, thumbnail: true) {
+                cover = cached
+                return
+            }
             do { cover = try await TasteSources.images.load(page, galleryID: gallery.id, thumbnail: true) }
             catch { if !Task.isCancelled { failed = true } }
         }

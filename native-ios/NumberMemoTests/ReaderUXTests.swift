@@ -168,6 +168,146 @@ final class ReaderUXTests: XCTestCase {
         XCTAssertNil(loader.error)
     }
 
+    @MainActor private func feedSource(blocked: Set<Int64> = [], failedMetadata: Set<Int64> = [], failedImages: Set<Int64> = []) -> PreparedFeedSource {
+        let data = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 12)).pngData { context in
+            UIColor.blue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 8, height: 12))
+        }
+        return PreparedFeedSource(data: data, blocked: blocked, failedMetadata: failedMetadata, failedImages: failedImages)
+    }
+
+    @MainActor private func loadCovers(_ loader: GalleryFeedLoader) async {
+        for id in loader.ids { await loader.previews[id]?.load() }
+    }
+
+    @MainActor func testFeedPublishesImmediatelyWhileOneCoverRemainsBlocked() async throws {
+        let source = feedSource(blocked: [1])
+        let store = PageImageStore(source: source)
+        let loader = GalleryFeedLoader(source: source, images: store)
+        await loader.load(GalleryQuery(), reset: true).value
+        await source.waitForImage(1)
+        XCTAssertEqual(loader.ids, Array(1...24).map(Int64.init))
+        XCTAssertFalse(loader.loading, "A blocked cover must never keep pagination loading")
+        XCTAssertNotNil(loader.previews[1]?.gallery, "Metadata should appear before its slow cover")
+        XCTAssertNil(loader.previews[1]?.image)
+        await loader.previews[2]?.load()
+        XCTAssertNotNil(loader.previews[2]?.image, "Other cards must complete independently")
+        await source.release(1)
+        await loadCovers(loader)
+        for id in loader.ids {
+            let preview = try XCTUnwrap(loader.previews[id])
+            let gallery = try XCTUnwrap(preview.gallery)
+            let image = try XCTUnwrap(preview.image)
+            XCTAssertEqual(gallery.id, id)
+            XCTAssertTrue(image === store.cachedImage(hash: gallery.pages[0].hash, thumbnail: true))
+        }
+    }
+
+    @MainActor func testFeedAppendDoesNotWaitForCoversAndCoalescesRequests() async {
+        let source = feedSource(blocked: [25])
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        await loadCovers(loader)
+        let firstImage = loader.previews[1]?.image
+        let request = loader.load(GalleryQuery(), reset: false)
+        let duplicate = loader.load(GalleryQuery(), reset: false)
+        await request.value
+        await duplicate.value
+        await source.waitForImage(25)
+        XCTAssertEqual(loader.ids, Array(1...48).map(Int64.init))
+        XCTAssertFalse(loader.loading)
+        XCTAssertTrue(loader.previews[1]?.image === firstImage)
+        XCTAssertNil(loader.previews[25]?.image)
+        await loader.previews[26]?.load()
+        XCTAssertNotNil(loader.previews[26]?.image)
+        await source.release(25)
+        await loadCovers(loader)
+        let offsets = await source.offsets
+        XCTAssertEqual(offsets, [0, 24])
+        let requests = await source.imageRequests
+        XCTAssertEqual(requests.count, 48)
+        XCTAssertEqual(Set(requests).count, 48, "Visible cells and prefetch must share each cover request")
+    }
+
+    @MainActor func testAllPrefetchWorkersBlockedStillAllowsNextPage() async {
+        let source = feedSource(blocked: [1, 2, 3, 4])
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        for id: Int64 in 1...4 { await source.waitForImage(id) }
+        let requests = await source.imageRequests
+        XCTAssertEqual(Set(requests), [1, 2, 3, 4])
+        let concurrency = await source.maximumActiveImages
+        XCTAssertEqual(concurrency, 4)
+        await loader.load(GalleryQuery(), reset: false).value
+        XCTAssertEqual(loader.ids, Array(1...48).map(Int64.init))
+        XCTAssertFalse(loader.loading)
+        // A visible cell can bypass the blocked speculative queue.
+        await loader.previews[25]?.load()
+        XCTAssertNotNil(loader.previews[25]?.image)
+        for id: Int64 in 1...4 { await source.release(id) }
+        await loadCovers(loader)
+    }
+
+    @MainActor func testPrefetchPrioritizesApproachingRowsOverDistantCovers() async {
+        let source = feedSource(blocked: [1, 2, 3, 4])
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        for id: Int64 in 1...4 { await source.waitForImage(id) }
+        loader.prioritizeCovers(startingAt: 20, count: 4)
+        await source.release(1)
+        await source.waitForImage(21)
+        let requests = await source.imageRequests
+        XCTAssertEqual(requests.dropFirst(4).first, 21)
+        for id: Int64 in 2...4 { await source.release(id) }
+        await loadCovers(loader)
+    }
+
+    @MainActor func testFilterChangeCancelsOldCoversWithoutDelayingNewResults() async {
+        let source = feedSource(blocked: [1])
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        await source.waitForImage(1)
+        let previous = loader.previews[1]
+        await loader.load(GalleryQuery(language: "english"), reset: true).value
+        XCTAssertEqual(loader.ids, Array(1001...1024).map(Int64.init))
+        XCTAssertEqual(Set(loader.previews.keys), Set(loader.ids))
+        XCTAssertFalse(loader.loading)
+        await loadCovers(loader)
+        await source.release(1)
+        await previous?.load()
+        XCTAssertNil(previous?.image)
+        XCTAssertTrue(loader.ids.allSatisfy { loader.previews[$0]?.image != nil })
+        XCTAssertNil(loader.error)
+    }
+
+    @MainActor func testUnavailableCoverDoesNotBlockOtherPreparedCards() async {
+        let source = feedSource(failedMetadata: [3], failedImages: [5])
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        await loadCovers(loader)
+        XCTAssertEqual(loader.ids, Array(1...24).map(Int64.init))
+        XCTAssertNil(loader.previews[3]?.gallery)
+        XCTAssertNotNil(loader.previews[5]?.gallery)
+        XCTAssertNil(loader.previews[5]?.image)
+        XCTAssertTrue(loader.ids.filter { $0 != 3 && $0 != 5 }.allSatisfy { loader.previews[$0]?.image != nil })
+        XCTAssertFalse(loader.loading)
+        XCTAssertNil(loader.error)
+    }
+
+    @MainActor func testFeedPinsOnlyRecentCoversDuringLongScroll() async {
+        let source = feedSource()
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        await loadCovers(loader)
+        while loader.hasMore {
+            await loader.load(GalleryQuery(), reset: false).value
+            await loadCovers(loader)
+        }
+        XCTAssertEqual(loader.ids, Array(1...108).map(Int64.init))
+        XCTAssertEqual(Set(loader.previews.keys), Set(loader.ids.suffix(72)))
+        XCTAssertTrue(loader.previews.values.allSatisfy { $0.image != nil })
+    }
+
     func testConcurrentLoadsShareDownloadAndDecodedImage() async throws {
         let source = CountingContentSource()
         let gallery = try await source.gallery(1)
@@ -284,4 +424,58 @@ private actor RefreshContentSource: ContentProviding {
     }
     func gallery(_ id: Int64) async throws -> NativeGallery { try await FixtureContentSource().gallery(id) }
     func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data { Data() }
+}
+
+/// A gated cover request makes publication order deterministic without timing assertions or network access.
+private actor PreparedFeedSource: ContentProviding {
+    let data: Data
+    var blocked: Set<Int64>
+    let failedMetadata: Set<Int64>
+    let failedImages: Set<Int64>
+    private var gates: [Int64: CheckedContinuation<Void, Never>] = [:]
+    private var observers: [Int64: CheckedContinuation<Void, Never>] = [:]
+    private var activeImages = 0
+    private(set) var maximumActiveImages = 0
+    private(set) var imageRequests: [Int64] = []
+    private(set) var offsets: [Int] = []
+
+    init(data: Data, blocked: Set<Int64>, failedMetadata: Set<Int64>, failedImages: Set<Int64>) {
+        self.data = data; self.blocked = blocked
+        self.failedMetadata = failedMetadata; self.failedImages = failedImages
+    }
+
+    func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch {
+        offsets.append(offset)
+        let end = min(108, offset + count)
+        let base = query.language == "english" ? 1001 : 1
+        return GalleryBatch(ids: (offset..<end).map { Int64(base + $0) }, hasMore: end < 108)
+    }
+
+    func gallery(_ id: Int64) async throws -> NativeGallery {
+        if failedMetadata.contains(id) { throw ContentError.unavailable(404) }
+        let page = GalleryPage(hash: String(format: "%064llx", id), name: "cover.png", width: 8, height: 12, hasAVIF: false)
+        return NativeGallery(id: id, title: "Work \(id)", artists: [], language: "korean", type: "manga", tags: [], pages: [page])
+    }
+
+    func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data {
+        imageRequests.append(galleryID)
+        activeImages += 1
+        maximumActiveImages = max(maximumActiveImages, activeImages)
+        defer { activeImages -= 1 }
+        observers.removeValue(forKey: galleryID)?.resume()
+        if blocked.contains(galleryID) { await withCheckedContinuation { gates[galleryID] = $0 } }
+        try Task.checkCancellation()
+        if failedImages.contains(galleryID) { throw URLError(.timedOut) }
+        return data
+    }
+
+    func waitForImage(_ id: Int64) async {
+        if imageRequests.contains(id) { return }
+        await withCheckedContinuation { observers[id] = $0 }
+    }
+
+    func release(_ id: Int64) {
+        blocked.remove(id)
+        gates.removeValue(forKey: id)?.resume()
+    }
 }

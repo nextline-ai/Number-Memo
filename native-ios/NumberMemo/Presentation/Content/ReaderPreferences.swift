@@ -125,7 +125,7 @@ struct ReaderSettingsView: View {
                 Section(L10n.text("Gesture Guide")) {
                     if booru { Text(L10n.text("For videos, tap with two fingers to open the quick menu. Playback controls remain available.")).font(.subheadline).foregroundStyle(.secondary) }
                     if !booru { Button(L10n.text("Reader Guide")) { showHelp = true }.accessibilityIdentifier("reader.settings.help") }
-                    Text(L10n.text(booru ? "Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" : "Tap the center: quick menu\nHold the center: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page"))
+                    Text(L10n.text(booru ? "Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" : "Tap the center: quick menu\nHold anywhere: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page"))
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
             }
@@ -148,7 +148,7 @@ struct ReaderHelpView: View {
     @State private var step = 0
     private let titles = [L10n.text("Read with Taps"), L10n.text("Zoom and Translate"), L10n.text("Exit the Work")]
     private let descriptions = [
-        L10n.text("Tap either side to turn pages. Tap the center for the quick menu, or hold it to bookmark."),
+        L10n.text("Tap either side to turn pages. Tap the center for the quick menu, or hold anywhere to bookmark."),
         L10n.text("Double tap or pinch to zoom. Drag to position the area you want, then choose Translate in the quick menu."),
         L10n.text("At the original zoom level, swipe down to exit. While zoomed, dragging only moves the image. You can also exit from the quick menu.")
     ]

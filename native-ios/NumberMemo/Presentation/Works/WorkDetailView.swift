@@ -307,7 +307,7 @@ public struct WorkDetailView: View {
 
     private var savedCover: UIImage? {
         guard let work, work.thumbStatus == "ready", let path = work.thumbPath else { return nil }
-        return UIImage(contentsOfFile: path)
+        return LocalThumbnailCache.shared.image(forPath: path)
     }
 
     private func loadData() {

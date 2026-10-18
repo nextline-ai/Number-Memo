@@ -130,7 +130,7 @@ struct BooruPostView: View {
             }
             .task(id: "\(post.id):\(posts.count):\(loadOriginal)") { await preloadNeighbors() }
             .onChange(of: post.id, initial: true) { _, _ in
-                if index >= posts.count - 3 { requestMore() }
+                if index >= posts.count - 5 { requestMore() }
             }
             .sheet(isPresented: $filing) { BooruFolderPicker(post: post).environment(\.discoveryContext, activeDiscovery) }
             .sheet(isPresented: $readerSettings) { ReaderSettingsView(booru: true) }
@@ -375,6 +375,7 @@ struct BooruPostView: View {
             if delta > 0, loadMore != nil, hasMorePages { wantsNext = true; requestMore() }
             return
         }
+        if next >= posts.count - 4 { requestMore() }
         wantsNext = false
         viewport = CGRect(x: 0, y: 0, width: 1, height: 1); translation = nil
         post = posts[next]; original = loadOriginal; mediaStatus = "loading"; zoomed = false; notes = []
@@ -405,8 +406,11 @@ struct BooruPostView: View {
         #if DEBUG
         if BooruUITestSupport.enabled { return }
         #endif
-        // Preload exactly two each way. Encoded-byte cache deduplicates in-flight/cached loads.
-        for offset in [1, -1, 2, -2] {
+        // Give foreground media a brief moment to initiate its request first
+        try? await Task.sleep(for: .milliseconds(50))
+        guard !Task.isCancelled else { return }
+        // Preload next 3 posts forward first, then 1 backward. Encoded-byte cache deduplicates in-flight/cached loads.
+        for offset in [1, 2, 3, -1] {
             guard !Task.isCancelled else { return }
             let next = index + offset
             guard posts.indices.contains(next) else { continue }

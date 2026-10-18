@@ -146,6 +146,11 @@ protocol ContentProviding: Sendable {
     func gallery(_ id: Int64) async throws -> NativeGallery
     func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch
     func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data
+    func cachedGallery(_ id: Int64) -> NativeGallery?
+}
+
+extension ContentProviding {
+    func cachedGallery(_ id: Int64) -> NativeGallery? { nil }
 }
 
 enum ContentRoute: Hashable {

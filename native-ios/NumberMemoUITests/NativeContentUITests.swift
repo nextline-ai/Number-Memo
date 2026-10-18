@@ -137,6 +137,17 @@ final class NativeContentUITests: XCTestCase {
         element(app, "reader.settings.done").tap()
     }
 
+    func testReaderBookmarksAtBothScreenEdgesWithoutTurningPages() {
+        let app = launchReader()
+        for x in [0.06, 0.94] {
+            app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.65)).press(forDuration: 0.8)
+            XCTAssertTrue(element(app, "reader.toast").waitForExistence(timeout: 3))
+            menu(app)
+            XCTAssertEqual(element(app, "reader.position").label, "페이지 1 / 3")
+            element(app, "reader.menu.close").tap()
+        }
+    }
+
     func testImmersiveReaderGesturesPreviewAndBookmark() {
         let app = launchReader()
         XCTAssertEqual(app.navigationBars.count, 0)
@@ -434,9 +445,41 @@ final class NativeContentUITests: XCTestCase {
         capture(app, "Explore completed tag search")
     }
 
-    func testWorkDetailsSheetKeepsLayoutWhileCoverLoadsAndDismissesDownward() {
+    func testSlowThumbnailDoesNotHoldFeedLoading() {
         let app = XCUIApplication()
         app.launchArguments = ["--native-content-ui-test", "--slow-detail-cover-test", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let card = element(app, "content.gallery.900000001")
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "The list must not wait for the 20-second cover response")
+        XCTAssertTrue(element(app, "content.loading").waitForNonExistence(timeout: 5))
+        let metadata = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "네이티브 읽기 테스트"), object: card)
+        XCTAssertEqual(XCTWaiter.wait(for: [metadata], timeout: 5), .completed)
+        card.tap()
+        XCTAssertTrue(element(app, "content.read").waitForExistence(timeout: 5), "Slow covers must not prevent opening a work")
+    }
+
+    func testExplorePreparedCardsAcrossInfiniteScroll() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--native-content-ui-test", "--native-content-long-feed", "-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+        app.launch()
+        XCTAssertTrue(element(app, "content.gallery.900000001").waitForExistence(timeout: 10))
+        let nextPage = element(app, "content.gallery.900000025")
+        for _ in 0..<18 {
+            if nextPage.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(nextPage.isHittable)
+        for card in app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "content.gallery.")).allElementsBoundByIndex where card.isHittable {
+            XCTAssertTrue(card.label.contains("네이티브 읽기 테스트"), "A visible card must already have its prepared metadata and cover")
+        }
+        capture(app, "Explore prepared thumbnails beyond the first page")
+        nextPage.tap()
+        XCTAssertTrue(element(app, "content.read").waitForExistence(timeout: 5))
+    }
+
+    func testPreparedExploreCoverKeepsDetailLayoutAndDismissesDownward() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--native-content-ui-test", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let card = element(app, "content.gallery.900000001")
         XCTAssertTrue(card.waitForExistence(timeout: 15))
@@ -444,21 +487,19 @@ final class NativeContentUITests: XCTestCase {
         card.tap()
         let read = element(app, "content.read"), cover = element(app, "content.detail.cover"), title = element(app, "content.detail.title")
         XCTAssertTrue(read.waitForExistence(timeout: 10))
-        XCTAssertEqual(cover.value as? String, "Loading")
+        let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Thumbnail loaded"), object: cover)
+        XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 5), .completed)
         let coverFrame = cover.frame, titleY = title.frame.minY, readY = read.frame.minY
         XCTAssertEqual(coverFrame.height, 300, accuracy: 1)
-        capture(app, "Work details with reserved thumbnail placeholder")
-        let loaded = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Thumbnail loaded"), object: cover)
-        XCTAssertEqual(XCTWaiter.wait(for: [loaded], timeout: 25), .completed)
-        XCTAssertEqual(cover.frame.height, coverFrame.height, accuracy: 1)
-        XCTAssertEqual(title.frame.minY, titleY, accuracy: 1)
-        XCTAssertEqual(read.frame.minY, readY, accuracy: 1)
-        capture(app, "Work details after thumbnail load without layout shift")
+        capture(app, "Work details using the prepared Explore thumbnail")
         read.tap()
         XCTAssertTrue(element(app, "reader.exitHandle").waitForExistence(timeout: 5))
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)))
         XCTAssertTrue(element(app, "reader.exitHandle").waitForNonExistence(timeout: 5))
         XCTAssertTrue(read.isHittable)
+        XCTAssertEqual(cover.frame.height, coverFrame.height, accuracy: 1)
+        XCTAssertEqual(title.frame.minY, titleY, accuracy: 1)
+        XCTAssertEqual(read.frame.minY, readY, accuracy: 1)
         // Dismiss from the content, including after returning from the immersive reader.
         cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)))
         XCTAssertTrue(read.waitForNonExistence(timeout: 5))

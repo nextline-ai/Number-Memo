@@ -22,7 +22,31 @@ actor BooruThumbnailCache {
     init(directory: URL = BooruThumbnailDiskCache.defaultDirectory, diskCapacity: Int = 256 * 1024 * 1024,
          loadData: (@Sendable (URL, BooruServer) async throws -> Data)? = nil) {
         disk = .init(directory: directory, capacity: diskCapacity); self.loadData = loadData
-        cache.totalCostLimit = 32 * 1024 * 1024
+        cache.totalCostLimit = 128 * 1024 * 1024
+        cache.countLimit = 256
+    }
+    nonisolated func cachedImage(url: URL, server: BooruServer) -> UIImage? {
+        let key = server.canonicalAddress + ":" + server.id + ":" + url.absoluteString as NSString
+        return cache.object(forKey: key)
+    }
+    nonisolated func prefetch(_ items: [(URL, BooruServer)]) {
+        guard !items.isEmpty else { return }
+        Task.detached(priority: .userInitiated) {
+            await withTaskGroup(of: Void.self) { group in
+                var iterator = items.makeIterator()
+                for _ in 0..<4 {
+                    if let (url, server) = iterator.next() {
+                        group.addTask { _ = try? await self.image(url: url, server: server) }
+                    }
+                }
+                while await group.next() != nil {
+                    if Task.isCancelled { group.cancelAll(); break }
+                    if let (url, server) = iterator.next() {
+                        group.addTask { _ = try? await self.image(url: url, server: server) }
+                    }
+                }
+            }
+        }
     }
     private func cacheKey(_ url: URL, _ server: BooruServer) -> String { server.canonicalAddress + ":" + server.id + ":" + url.absoluteString }
     func translationImage(post: BooruPost, server: BooruServer, rect: CGRect) async throws -> UIImage {
@@ -102,6 +126,15 @@ struct BooruThumbnail: View {
     @State private var failed = false
     @State private var retry = 0
     @SwiftUI.AppStorage("booru.fitThumbnails", store: ReaderPreferences.booruDefaults) private var fitThumbnails = false
+
+    init(post: BooruPost, server: BooruServer) {
+        self.post = post
+        self.server = server
+        if let url = post.previewURL ?? post.sampleURL {
+            _image = State(initialValue: BooruThumbnailCache.shared.cachedImage(url: url, server: server))
+        }
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -115,7 +148,7 @@ struct BooruThumbnail: View {
             }
         }.allowsHitTesting(false).onReceive(NotificationCenter.default.publisher(for: .booruClientValidated)) { if $0.object as? String == server.id { retry += 1 } }
         .task(id: "\(post.id):\(post.previewURL?.absoluteString ?? post.sampleURL?.absoluteString ?? ""):\(retry)") {
-            image = nil; failed = false
+            if image == nil { failed = false }
             #if DEBUG
             if isFixture {
                 // Exercise the same image rendering path as real wide thumbnails.
@@ -127,6 +160,10 @@ struct BooruThumbnail: View {
             }
             #endif
             guard !isFixture, let url = post.previewURL ?? post.sampleURL else { failed = true; return }
+            if image == nil, let cached = BooruThumbnailCache.shared.cachedImage(url: url, server: server) {
+                image = cached
+                return
+            }
             do { image = try await BooruThumbnailCache.shared.image(url: url, server: server) }
             catch { if !Task.isCancelled { failed = true } }
         }
@@ -310,7 +347,7 @@ struct BooruMediaView: UIViewRepresentable {
           const t=e.touches[0],video=!!e.target.closest('video');
           if(video&&t.clientY>media.getBoundingClientRect().bottom-56){start=null;return;}
           start={x:t.clientX,y:t.clientY,time:Date.now(),zoom:zoom(),video:video};
-          holdTimer=setTimeout(()=>{if(start&&start.x/innerWidth>=0.3&&start.x/innerWidth<=0.7){held=true;send({gesture:'hold'});}},550);
+          holdTimer=setTimeout(()=>{if(start){clearTimeout(tapTimer);held=true;send({gesture:'hold'});}},550);
         },{passive:true});
         document.addEventListener('touchmove',e=>{
           if(!start)return;

@@ -145,13 +145,15 @@ struct TasteDashboard: View {
                 HStack { TasteSectionHeading(title: "Picked for you"); Spacer(); evidenceLink }
             }
             if !feed.results.items.isEmpty {
+                let prefetchThresholdIndex = max(0, feed.results.items.count - 8)
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
-                    ForEach(feed.results.items) { item in
+                    ForEach(Array(feed.results.items.enumerated()), id: \.element.id) { index, item in
                         TasteRecommendationCard(item: item, open: { opened = item }, toggle: { toggle(item) }, isBookmarked: bookmarks.contains(item.item.id))
                             .onAppear {
-                                if item.id == feed.results.items.last?.id && feed.results.failures.isEmpty {
+                                if index >= prefetchThresholdIndex && feed.results.failures.isEmpty && feed.results.cursor.hasMore && !feed.loading && !feed.loadingMore {
                                     Task { await feed.loadMore(mode: mode, env: env, language: comicLanguage) }
                                 }
+                                prefetchRecommendations(around: index)
                             }
                     }
                 }
@@ -193,6 +195,31 @@ struct TasteDashboard: View {
                 }.padding(.top, 8)
             }.font(.footnote).foregroundStyle(.secondary).tint(.secondary)
         }.padding(.horizontal, 4)
+    }
+
+    private func prefetchRecommendations(around index: Int) {
+        let items = feed.results.items
+        let lookaheadEnd = min(items.count, index + 16)
+        guard index + 1 < lookaheadEnd else { return }
+        let upcoming = Array(items[(index + 1)..<lookaheadEnd])
+        let booruTargets = upcoming.compactMap { item -> (URL, BooruServer)? in
+            guard let post = item.post,
+                  let url = post.previewURL ?? post.sampleURL,
+                  let server = env.booru.servers.first(where: { $0.id == post.serverID }) else { return nil }
+            return (url, server)
+        }
+        BooruThumbnailCache.shared.prefetch(booruTargets)
+        let comicGalleries = upcoming.compactMap { $0.gallery }
+        if !comicGalleries.isEmpty {
+            Task.detached(priority: .utility) {
+                for gallery in comicGalleries {
+                    guard !Task.isCancelled else { break }
+                    if let page = gallery.pages.first {
+                        _ = try? await TasteSources.images.load(page, galleryID: gallery.id, thumbnail: true)
+                    }
+                }
+            }
+        }
     }
 
     private func toggle(_ item: TasteRecommendation) {

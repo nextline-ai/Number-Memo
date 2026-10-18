@@ -112,6 +112,21 @@ final class BooruThumbnailCacheTests: XCTestCase {
         let files = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
         XCTAssertTrue(files.isEmpty)
     }
+    @MainActor func testPrefetchPopulatesMemoryCacheForImmediateSynchronousRead() async throws {
+        let root = directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let loader = ThumbnailLoader(data: preview(), delay: .milliseconds(5))
+        let cache = BooruThumbnailCache(directory: root, loadData: { url, _ in try await loader.load(url) })
+        let url = URL(string: "https://example.test/prefetch.png")!, server = BooruServer.presets[0]
+        XCTAssertNil(cache.cachedImage(url: url, server: server))
+        cache.prefetch([(url, server)])
+        for _ in 0..<100 {
+            if cache.cachedImage(url: url, server: server) != nil { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertNotNil(cache.cachedImage(url: url, server: server))
+        let calls = await loader.calls
+        XCTAssertEqual(calls, 1)
+    }
 }
 
 private actor ThumbnailLoader {

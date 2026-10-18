@@ -43,7 +43,7 @@ public struct WorkCardView: View {
     public init(work: Work) { self.work = work }
     public var body: some View {
         GalleryCardLayout(title: work.hasTitle ? work.title ?? "" : String(work.galleryId), artists: work.artists ?? "", language: work.language ?? "") {
-            if let path = work.thumbPath, work.thumbStatus == "ready", let image = UIImage(contentsOfFile: path) {
+            if let path = work.thumbPath, work.thumbStatus == "ready", let image = LocalThumbnailCache.shared.image(forPath: path) {
                 Image(uiImage: image).resizable().scaledToFill().id("\(work.galleryId)_\(work.thumbPage ?? 1)")
             } else {
                 Rectangle().fill(Color.secondary.opacity(0.12)).overlay {

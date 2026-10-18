@@ -97,9 +97,10 @@ actor FixtureContentSource: ContentProviding {
     init() { shouldFail = ProcessInfo.processInfo.arguments.contains("--native-content-initial-error") }
 
     func gallery(_ id: Int64) async throws -> NativeGallery {
-        NativeGallery(id: id, title: "네이티브 읽기 테스트", artists: ["Number Memo"], language: "english", type: "테스트",
+        let scrolling = ProcessInfo.processInfo.arguments.contains("--native-content-long-feed")
+        return NativeGallery(id: id, title: "네이티브 읽기 테스트", artists: ["Number Memo"], language: "english", type: "테스트",
                       tags: ["female:sample", "tag:example"], pages: (1...3).map { index in
-                          GalleryPage(hash: String(repeating: "a", count: 63) + String(index), name: "\(index).png", width: 800, height: 1200, hasAVIF: false)
+                          GalleryPage(hash: scrolling ? String(format: "%064llx", id * 10 + Int64(index)) : String(repeating: "a", count: 63) + String(index), name: "\(index).png", width: 800, height: 1200, hasAVIF: false)
                       })
     }
 
@@ -108,9 +109,11 @@ actor FixtureContentSource: ContentProviding {
         if ProcessInfo.processInfo.arguments.contains("--taste-ui-rich") {
             return GalleryBatch(ids: offset < 48 ? (0..<24).map { Int64(900000001 + offset + $0) } : [], hasMore: offset < 24)
         }
-        let ids: [Int64] = ProcessInfo.processInfo.arguments.contains("--native-content-long-feed")
-            ? (900000001...900000024).map { Int64($0) } : [900000001]
-        return GalleryBatch(ids: offset == 0 ? ids : [], hasMore: false)
+        if ProcessInfo.processInfo.arguments.contains("--native-content-long-feed") {
+            let end = min(120, offset + count)
+            return GalleryBatch(ids: (offset..<end).map { Int64(900000001 + $0) }, hasMore: end < 120)
+        }
+        return GalleryBatch(ids: offset == 0 ? [900000001] : [], hasMore: false)
     }
 
     func suggestions(for token: String) async throws -> [TagSuggestion] {

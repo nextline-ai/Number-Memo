@@ -229,9 +229,9 @@
 "Tap Left" = "左をタップ";
 "Tap Right" = "右をタップ";
 "Tap center → Translate" = "中央をタップ → 翻訳";
-"Tap either side to turn pages. Tap the center for the quick menu, or hold it to bookmark." = "左右をタップしてページを送り、中央をタップしてクイックメニューを開きます。中央を長押しするとブックマークできます。";
+"Tap either side to turn pages. Tap the center for the quick menu, or hold anywhere to bookmark." = "左右をタップしてページを送り、中央をタップしてクイックメニューを開きます。画面のどこでも長押しするとブックマークできます。";
 "Tap the Sides to Turn Pages" = "左右をタップしてページを送る";
-"Tap the center: quick menu\nHold the center: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page" = "中央をタップ：クイックメニュー\n中央を長押し：ブックマーク\nダブルタップ・ピンチ：拡大 · 拡大中にドラッグ：画像を移動\nクイックメニューのページ番号：指定ページへ移動";
+"Tap the center: quick menu\nHold anywhere: bookmark\nDouble tap or pinch: zoom · Drag while zoomed: move image\nPage number in the quick menu: go to a page" = "中央をタップ：クイックメニュー\n画面のどこでも長押し：ブックマーク\nダブルタップ・ピンチ：拡大 · 拡大中にドラッグ：画像を移動\nクイックメニューのページ番号：指定ページへ移動";
 "Tap the star (★) beside an artist on the work details screen to add them." = "作品情報の作家名の横にある星（★）をタップして登録できます。";
 "Taps" = "タップ";
 "Task Status" = "処理状況";
@@ -389,7 +389,7 @@
 "Clear History?" = "検索履歴を削除しますか？";
 "Saved to Favorites" = "お気に入りに保存しました";
 "Share" = "共有";
-"Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close" = "中央をタップ：クイックメニュー\n中央を長押し：お気に入り\n端をタップ・スワイプ：画像を移動\nダブルタップ・ピンチ：拡大縮小\n標準倍率で下にスワイプ：閉じる";
+"Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nSwipe down at original zoom: close" = "中央をタップ：クイックメニュー\n画面のどこでも長押し：お気に入り\n端をタップ・スワイプ：画像を移動\nダブルタップ・ピンチ：拡大縮小\n標準倍率で下にスワイプ：閉じる";
 "The network connection was interrupted. Retry or check another network if the website also fails to open." = "ネットワーク接続が切断されました。再試行し、サイトも開けない場合は別のネットワークで確認してください。";
 
 "Appearance and reader preferences are saved separately for each mode." = "外観とビューアの設定はモードごとに保存されます。";
@@ -444,7 +444,7 @@
 "Move your folders and works from Violet. You can also start with an empty library." = "Violetのフォルダと作品を移行できます。空のライブラリから始めることもできます。";
 "In Files, open the Violet folder and choose user.db for your library, or data.db for metadata." = "ファイルアプリでVioletフォルダを開き、ライブラリはuser.db、メタデータはdata.dbを選択してください。";
 
-"Tap the center: quick menu\nHold the center: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" = "中央をタップ：クイックメニュー\n中央を長押し：お気に入り\n端をタップ・スワイプ：画像移動\nダブルタップ・ピンチ：拡大\n翻訳：表示範囲をAppleの画像翻訳で表示\n元の倍率で下にスワイプ：閉じる";
+"Tap the center: quick menu\nHold anywhere: favorite\nTap the sides or swipe: change image\nDouble tap or pinch: zoom\nTranslate: Apple image translation for the visible area\nSwipe down at original zoom: close" = "中央をタップ：クイックメニュー\n画面のどこでも長押し：お気に入り\n端をタップ・スワイプ：画像移動\nダブルタップ・ピンチ：拡大\n翻訳：表示範囲をAppleの画像翻訳で表示\n元の倍率で下にスワイプ：閉じる";
 
 "Saved" = "保存";
 "Popular" = "人気順";

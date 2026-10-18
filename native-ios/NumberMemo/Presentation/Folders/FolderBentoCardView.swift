@@ -80,7 +80,7 @@ public struct FolderBentoCardView: View {
                         let work = previews[index]
                         if let path = work.thumbPath,
                            work.thumbStatus == "ready",
-                           let uiImage = UIImage(contentsOfFile: path) {
+                           let uiImage = LocalThumbnailCache.shared.image(forPath: path) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFill()

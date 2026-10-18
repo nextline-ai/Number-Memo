@@ -135,6 +135,14 @@ final class BooruFeedLoader {
                     var seen = Set(nextPosts.map(\.id))
                     let incoming = batch.posts.filter { seen.insert($0.id).inserted }
                     nextPosts += incoming
+                    if !incoming.isEmpty {
+                        let targets = incoming.prefix(16).compactMap { p -> (URL, BooruServer)? in
+                            guard let url = p.previewURL ?? p.sampleURL,
+                                  let s = servers.first(where: { $0.id == p.serverID }) else { return nil }
+                            return (url, s)
+                        }
+                        BooruThumbnailCache.shared.prefetch(targets)
+                    }
                     if poolID == nil, !nextPosts.isEmpty, nextPosts.allSatisfy({ sort.metric($0) != nil }) {
                         nextPosts.sort { sort.metric($0) == sort.metric($1) ? $0.id < $1.id : sort.metric($0)! > sort.metric($1)! }
                     }
@@ -230,7 +238,9 @@ struct BooruFeedView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     if pool == nil { filters }
-                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: true, feedback: { saveFeedback = $0 }) { viewerPosition = $0; selectedPost = $0 }.environment(\.discoveryContext, discovery)
+                    BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: true, prefetch: {
+                        if loader.hasMore && !loader.loading { Task { await load(reset: false) } }
+                    }, feedback: { saveFeedback = $0 }) { viewerPosition = $0; selectedPost = $0 }.environment(\.discoveryContext, discovery)
                     if loader.loading { ProgressView(L10n.text("Loading")).padding(24) }
                     ForEach(servers.filter { loader.errors[$0.id] != nil }) { server in
                         VStack(alignment: .leading, spacing: 12) {
@@ -415,6 +425,7 @@ struct BooruPostGrid: View {
     var server: BooruServer? = nil
     var showsFavoriteIndicator = false
     var selection: Binding<Set<String>>? = nil
+    var prefetch: (() -> Void)? = nil
     var feedback: (WorkSaveFeedback) -> Void = { _ in }
     let open: (BooruPost) -> Void
     @Environment(BooruStore.self) private var store
@@ -423,8 +434,9 @@ struct BooruPostGrid: View {
     @State private var similarity: VisualSimilaritySeed?
     var body: some View {
         let favorites = store.favoriteIDs
+        let prefetchThresholdIndex = max(0, posts.count - 8)
         return LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns), spacing: 12) {
-            ForEach(posts) { post in
+            ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
                 if let server = store.servers.first(where: { $0.id == post.serverID }) ?? server {
                     Group {
                         if let selection {
@@ -462,6 +474,21 @@ struct BooruPostGrid: View {
                     .accessibilityLabel(server.displayName + " · " + String(post.postID))
                     .accessibilityIdentifier("booru.post.\(post.postID)")
                     .accessibilityValue(selection.map { $0.wrappedValue.contains(post.id) ? L10n.text("Selected") : "" } ?? (showsFavoriteIndicator ? WorkSaveResult.accessibilityValue(saved: favorites.contains(post.id), mode: .booru) : ""))
+                    .onAppear {
+                        if index >= prefetchThresholdIndex {
+                            prefetch?()
+                        }
+                        let lookaheadEnd = min(posts.count, index + 16)
+                        if index + 1 < lookaheadEnd {
+                            let upcoming = Array(posts[(index + 1)..<lookaheadEnd])
+                            let targets = upcoming.compactMap { p -> (URL, BooruServer)? in
+                                guard let url = p.previewURL ?? p.sampleURL else { return nil }
+                                let s = store.servers.first(where: { $0.id == p.serverID }) ?? server
+                                return (url, s)
+                            }
+                            BooruThumbnailCache.shared.prefetch(targets)
+                        }
+                    }
                 }
             }
         }.sheet(item: $similarity) { VisualSimilarityView(seed: $0) }
