@@ -133,7 +133,13 @@
 		97F275EFC03DF3E4A1834733 /* ChallengeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B9108B0B252C95F752E85 /* ChallengeEngine.swift */; };
 		59E0835501F6A15D0AA44868 /* ChallengeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C04D77C97393EE83DDE4459 /* ChallengeModels.swift */; };
 		2D1032D6C304CE01713FB5F7 /* ChallengeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96769750C5AEC39276B78944 /* ChallengeStore.swift */; };
+		33DB30FEE41026006C8A92E4 /* ChallengeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52561A4ECDB99CA3B613EA1 /* ChallengeEditorView.swift */; };
+		ACC0A6E09E8E55E7DFDDE533 /* ChallengeLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77DB6A93FDC53717A941BDF /* ChallengeLibraryView.swift */; };
+		C5CED574C70DCC1099E56470 /* ChallengePlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD90F333216B9CA5E03F0306 /* ChallengePlayView.swift */; };
+		9EBF0AA004D32F5934A376E7 /* ChallengeReferenceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C9A967E62817529CBD16D9 /* ChallengeReferenceView.swift */; };
+		097285DCCB0D05AA18A23DC6 /* ChallengeUITestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E58A1895DEFCCC8FD809D45F /* ChallengeUITestSupport.swift */; };
 		FF8710300AB2E727C84EF6F4 /* ChallengeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6FFEC1A61D6ED208A9115A0 /* ChallengeTests.swift */; };
+		C59D65652F9938EA90490992 /* ChallengeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC42FD33C78DB362F63144B /* ChallengeUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -309,7 +315,13 @@
 		FD9B9108B0B252C95F752E85 /* ChallengeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Core/Challenge/ChallengeEngine.swift"; sourceTree = SOURCE_ROOT; };
 		6C04D77C97393EE83DDE4459 /* ChallengeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Core/Challenge/ChallengeModels.swift"; sourceTree = SOURCE_ROOT; };
 		96769750C5AEC39276B78944 /* ChallengeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Core/Challenge/ChallengeStore.swift"; sourceTree = SOURCE_ROOT; };
+		E52561A4ECDB99CA3B613EA1 /* ChallengeEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Presentation/Challenge/ChallengeEditorView.swift"; sourceTree = SOURCE_ROOT; };
+		B77DB6A93FDC53717A941BDF /* ChallengeLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Presentation/Challenge/ChallengeLibraryView.swift"; sourceTree = SOURCE_ROOT; };
+		DD90F333216B9CA5E03F0306 /* ChallengePlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Presentation/Challenge/ChallengePlayView.swift"; sourceTree = SOURCE_ROOT; };
+		81C9A967E62817529CBD16D9 /* ChallengeReferenceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Presentation/Challenge/ChallengeReferenceView.swift"; sourceTree = SOURCE_ROOT; };
+		E58A1895DEFCCC8FD809D45F /* ChallengeUITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Presentation/Challenge/ChallengeUITestSupport.swift"; sourceTree = SOURCE_ROOT; };
 		A6FFEC1A61D6ED208A9115A0 /* ChallengeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemoTests/ChallengeTests.swift"; sourceTree = SOURCE_ROOT; };
+		BBC42FD33C78DB362F63144B /* ChallengeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemoUITests/ChallengeUITests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -667,6 +679,7 @@
 		FA938BEFE61F916D347E085D = {
 			isa = PBXGroup;
 			children = (
+				C8A110000000000000000001 /* Challenge */,
 				9CF9B6EE8855F205F3649D61 /* NumberMemo */,
 				718AFBF9D27969F283886850 /* NumberMemoTests */,
 				826B7AD005E1658A9D5C2451 /* NumberMemoUITests */,
@@ -685,6 +698,23 @@
 				A8346FCB8EB53E1B5E6D5B20 /* AppTab.swift */,
 			);
 			path = Navigation;
+			sourceTree = "<group>";
+		};
+		C8A110000000000000000001 /* Challenge */ = {
+			isa = PBXGroup;
+			children = (
+				FD9B9108B0B252C95F752E85 /* ChallengeEngine.swift */,
+				6C04D77C97393EE83DDE4459 /* ChallengeModels.swift */,
+				96769750C5AEC39276B78944 /* ChallengeStore.swift */,
+				E52561A4ECDB99CA3B613EA1 /* ChallengeEditorView.swift */,
+				B77DB6A93FDC53717A941BDF /* ChallengeLibraryView.swift */,
+				DD90F333216B9CA5E03F0306 /* ChallengePlayView.swift */,
+				81C9A967E62817529CBD16D9 /* ChallengeReferenceView.swift */,
+				E58A1895DEFCCC8FD809D45F /* ChallengeUITestSupport.swift */,
+				A6FFEC1A61D6ED208A9115A0 /* ChallengeTests.swift */,
+				BBC42FD33C78DB362F63144B /* ChallengeUITests.swift */,
+			);
+			name = Challenge;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -855,6 +885,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C59D65652F9938EA90490992 /* ChallengeUITests.swift in Sources */,
 				1235E4C2F50FAF7CEA917364 /* BooruUITests.swift in Sources */,
 				6F9F638B758A75AA634F8E34 /* KeyboardUITests.swift in Sources */,
 				A7211E7AAC00D94630FC6920 /* NativeContentUITests.swift in Sources */,
@@ -865,6 +896,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				097285DCCB0D05AA18A23DC6 /* ChallengeUITestSupport.swift in Sources */,
+				9EBF0AA004D32F5934A376E7 /* ChallengeReferenceView.swift in Sources */,
+				C5CED574C70DCC1099E56470 /* ChallengePlayView.swift in Sources */,
+				ACC0A6E09E8E55E7DFDDE533 /* ChallengeLibraryView.swift in Sources */,
+				33DB30FEE41026006C8A92E4 /* ChallengeEditorView.swift in Sources */,
 				2D1032D6C304CE01713FB5F7 /* ChallengeStore.swift in Sources */,
 				59E0835501F6A15D0AA44868 /* ChallengeModels.swift in Sources */,
 				97F275EFC03DF3E4A1834733 /* ChallengeEngine.swift in Sources */,

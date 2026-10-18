@@ -245,6 +245,8 @@ struct BooruMoreView: View {
     var body: some View {
         Form {
             Section {
+                NavigationLink { ChallengeLibraryView(source: source) } label: { Label { Text(L10n.text("Challenge Roulette")) } icon: { Image(systemName: "dice").foregroundStyle(.purple) } }
+                    .accessibilityIdentifier("booru.challengesLink")
                 NavigationLink { BooruServersView() } label: { Label(L10n.text("Servers"), systemImage: "server.rack") }
                     .accessibilityIdentifier("booru.serversLink")
                 if !store.servers.isEmpty {

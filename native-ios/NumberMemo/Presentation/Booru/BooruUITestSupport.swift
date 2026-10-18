@@ -44,6 +44,9 @@ actor BooruFixtureSource: BooruProviding {
         if ProcessInfo.processInfo.arguments.contains("--booru-media-test") {
             return .init(posts: [Self.post(104, server: server), Self.post(105, server: server)], hasMore: false)
         }
+        if ProcessInfo.processInfo.arguments.contains("--challenge-scroll-test") {
+            return .init(posts: (101 + page * 40..<141 + page * 40).map { Self.post(Int64($0), server: server) }, hasMore: page < 2)
+        }
         let offset: Int64 = ProcessInfo.processInfo.arguments.contains("--booru-multi-test") && server.id == "gelbooru" ? 1000 : 0
         let posts = page == 0 ? [Self.post(101 + offset, server: server), Self.post(102 + offset, server: server, tags: ["city", "night"])] : [Self.post(103 + offset, server: server)]
         return .init(posts: posts, hasMore: page == 0)

@@ -20,6 +20,7 @@ struct BooruPostView: View {
     private let initialServer: BooruServer
     private var server: BooruServer { store.servers.first { $0.id == post.serverID } ?? initialServer }
     let source: any BooruProviding
+    var challenge: ChallengeSessionController?
     @Environment(BooruStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var post: BooruPost
@@ -56,7 +57,8 @@ struct BooruPostView: View {
     @State private var mediaStatus = "loading"
     @State private var retry = 0
     @State private var refreshedMediaID: String?
-    init(post: BooruPost, posts: [BooruPost], server: BooruServer, source: any BooruProviding, loadMore: (() async -> BooruViewerBatch)? = nil, positionChanged: @escaping (BooruPost) -> Void = { _ in }, contextForPost: ((BooruPost) -> DiscoveryContext)? = nil) {
+    init(post: BooruPost, posts: [BooruPost], server: BooruServer, source: any BooruProviding, loadMore: (() async -> BooruViewerBatch)? = nil, positionChanged: @escaping (BooruPost) -> Void = { _ in }, contextForPost: ((BooruPost) -> DiscoveryContext)? = nil, challenge: ChallengeSessionController? = nil) {
+        self.challenge = challenge
         _posts = State(initialValue: posts); self.loadMore = loadMore; self.positionChanged = positionChanged; self.contextForPost = contextForPost; self.initialServer = server; self.source = source; _post = State(initialValue: post)
         _original = State(initialValue: ReaderPreferences.booruDefaults.bool(forKey: "booru.original"))
         _showNotes = State(initialValue: ReaderPreferences.booruDefaults.object(forKey: "booru.showNotes") as? Bool ?? true)
@@ -115,6 +117,12 @@ struct BooruPostView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if bottomMenu && !menuVisible && translation == nil { menuActions(compact: true).padding(12).modifier(ReaderMenuGlass()).padding(.horizontal, 12).padding(.bottom, 6) }
+            }
+            .overlay(alignment: .top) {
+                if let challenge, translation == nil { ChallengeViewerControls(controller: challenge) }
+            }
+            .onChange(of: challenge?.session.phase) { _, phase in
+                if phase == .idle || phase == .ended { closeViewer() }
             }
             .background(VideoMenuGesture(enabled: post.isVideo && !info && !readerSettings && !filing && translation == nil && selectedNote == nil && !showJump) { menuVisible.toggle() })
             .accessibilityAction(named: L10n.text("Open Menu")) { menuVisible = true }

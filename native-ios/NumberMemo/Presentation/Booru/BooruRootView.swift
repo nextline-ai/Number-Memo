@@ -169,11 +169,18 @@ struct BooruFeedView: View {
     let servers: [BooruServer]
     let source: any BooruProviding
     var pool: BooruPool?
+    var challenge: ChallengeSessionController?
+    var header: AnyView?
+    @State private var challengeBrowser = false
     @Environment(BooruStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.discoveryContext) private var inheritedContext
     @State private var tasteSession = UUID().uuidString
     @State private var submitted = false
-    private var discovery: DiscoveryContext { DiscoveryContext(origin: !submitted && inheritedContext.origin == .recommendation ? .recommendation : query.isEmpty ? .feed : .search, query: query, session: tasteSession) }
+    private var discovery: DiscoveryContext {
+        if let challenge { return DiscoveryContext(origin: .external, session: "challenge:" + challenge.session.definition.id) }
+        return DiscoveryContext(origin: !submitted && inheritedContext.origin == .recommendation ? .recommendation : query.isEmpty ? .feed : .search, query: query, session: tasteSession)
+    }
     @State private var loader = BooruFeedLoader()
     @State private var searchText: String
     @State private var query: String
@@ -189,8 +196,10 @@ struct BooruFeedView: View {
     @State private var sortMessage: String?
     @State private var isSearchBarVisible = true
     @State private var searchScroll = ScrollSearchVisibility()
+    @State private var scrollPosition = BooruFeedScrollPosition()
+    @State private var searchSlotY: CGFloat?
     @State private var loadedRequest: String?
-    @SwiftUI.AppStorage("booru.rating", store: ReaderPreferences.booruDefaults) private var rating: BooruRating = .all
+    @SwiftUI.AppStorage("booru.rating", store: ReaderPreferences.booruDefaults) private var savedRating: BooruRating = .all
     @SwiftUI.AppStorage("booru.useEmbeddedBrowser", store: ReaderPreferences.booruDefaults) private var useEmbeddedBrowser = false
     @State private var selectedPost: BooruPost?
     @State private var viewerPosition: BooruPost?
@@ -201,9 +210,21 @@ struct BooruFeedView: View {
     init(server: BooruServer, source: any BooruProviding, initialQuery: String = "", pool: BooruPool? = nil) {
         self.init(servers: [server], source: source, initialQuery: initialQuery, pool: pool)
     }
-    init(servers: [BooruServer], source: any BooruProviding, initialQuery: String = "", pool: BooruPool? = nil) {
+    init(servers: [BooruServer], source: any BooruProviding, initialQuery: String = "", pool: BooruPool? = nil, challenge: ChallengeSessionController? = nil, header: AnyView? = nil) {
         self.servers = servers; self.source = source; self.pool = pool
+        self.challenge = challenge; self.header = header
         _searchText = State(initialValue: initialQuery); _query = State(initialValue: initialQuery)
+    }
+    private var rating: BooruRating {
+        get { challenge?.imageRating ?? savedRating }
+        nonmutating set {
+            if let challenge { challenge.rating(newValue) }
+            else { savedRating = newValue }
+        }
+    }
+    private func openBrowser(_ id: String? = nil) {
+        browserServerID = id
+        if challenge == nil { useEmbeddedBrowser = true } else { challengeBrowser = true }
     }
     private var visiblePosts: [BooruPost] {
         let filters = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, BooruBlacklist(store.blacklist(serverID: $0.id))) })
@@ -211,15 +232,21 @@ struct BooruFeedView: View {
     }
     var body: some View {
         Group {
-            if useEmbeddedBrowser {
+            if useEmbeddedBrowser && challenge == nil {
                 BooruEmbeddedBrowserView(servers: servers, query: query, poolID: pool?.id, sort: sort, rating: rating, preferredServerID: browserServerID)
             } else { nativeFeed }
         }
         .workSaveFeedback($saveFeedback, identifier: "booru.saveStatus")
-        .navigationTitle(pool?.name.replacingOccurrences(of: "_", with: " ") ?? L10n.text("Explore"))
+        .navigationTitle(challenge?.session.definition.title ?? pool?.name.replacingOccurrences(of: "_", with: " ") ?? L10n.text("Explore"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $validating) { server in
             BooruValidationView(server: server, initialURL: server.browsingURL(query: sort.query(rating.query(query, server: server), engine: server.engine), poolID: pool?.id))
+        }
+        .sheet(isPresented: $challengeBrowser) {
+            NavigationStack {
+                BooruEmbeddedBrowserView(servers: servers, query: query, poolID: pool?.id, sort: sort, rating: rating, preferredServerID: browserServerID)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { challengeBrowser = false } } }
+            }.tint(.purple)
         }
         .sheet(item: $accountServer) { BooruServerEditor(server: $0) }
         .fullScreenCover(item: $selectedPost) { post in
@@ -230,22 +257,41 @@ struct BooruFeedView: View {
                     if visiblePosts.count > count || !loader.hasMore { break }
                 }
                 return BooruViewerBatch(posts: visiblePosts, hasMore: loader.hasMore, failure: loader.error)
-            }, positionChanged: { viewerPosition = $0 }).environment(\.discoveryContext, discovery) }
+            }, positionChanged: { viewerPosition = $0; challenge?.select($0) }, challenge: challenge).environment(\.discoveryContext, discovery) }
         }
     }
     private var nativeFeed: some View {
         ZStack(alignment: .top) {
             ScrollView {
+              VStack(spacing: 0) {
+                GeometryReader { proxy in
+                    Color.clear.preference(key: BooruFeedOffsetKey.self, value: proxy.frame(in: .named("booru.feedViewport")).minY)
+                }.frame(height: 0)
                 LazyVStack(spacing: 16) {
+                    if let header {
+                        header
+                        Group {
+                            if (searchSlotY ?? 1) > 0 { searchControls }
+                            else { Color.clear.frame(height: 56) }
+                        }.padding(.horizontal, -16).background {
+                            GeometryReader { proxy in
+                                Color.clear.preference(key: BooruSearchSlotKey.self, value: proxy.frame(in: .named("booru.feedViewport")).minY)
+                            }
+                        }
+                    }
                     if pool == nil { filters }
                     BooruPostGrid(posts: visiblePosts, showsFavoriteIndicator: true, prefetch: {
                         if loader.hasMore && !loader.loading { Task { await load(reset: false) } }
-                    }, feedback: { saveFeedback = $0 }) { viewerPosition = $0; selectedPost = $0 }.environment(\.discoveryContext, discovery)
+                    }, feedback: { saveFeedback = $0 }) { viewerPosition = $0; selectedPost = $0; challenge?.select($0) }.environment(\.discoveryContext, discovery)
                     if loader.loading { ProgressView(L10n.text("Loading")).padding(24) }
                     ForEach(servers.filter { loader.errors[$0.id] != nil }) { server in
                         VStack(alignment: .leading, spacing: 12) {
                             Label(server.displayName, systemImage: "server.rack").font(.headline)
                             Text(loader.errors[server.id] ?? "").font(.subheadline).foregroundStyle(.secondary)
+                            DisclosureGroup(L10n.text("Search Tags")) {
+                                Text(sort.query(rating.query(query, server: server), engine: server.engine))
+                                    .font(.caption.monospaced()).textSelection(.enabled)
+                            }
                             if server.engine == .danbooru && query.split(whereSeparator: \.isWhitespace).count >= 2 {
                                 Text(L10n.text("Danbooru limits searches by account level. Regular accounts usually allow up to two tags. For more tags, upgrade on the website and enter your username and API key here. Gelbooru does not have this two-tag limit. Connection errors can have other causes."))
                                     .font(.footnote).foregroundStyle(.secondary)
@@ -257,7 +303,7 @@ struct BooruFeedView: View {
                                     .buttonStyle(.borderedProminent).accessibilityIdentifier("booru.validate")
                                 Button(L10n.text("Try Again")) { retry += 1 }.buttonStyle(.bordered).accessibilityIdentifier("content.retry")
                             }
-                            Button(L10n.text("Use Embedded Browser"), systemImage: "globe") { browserServerID = server.id; useEmbeddedBrowser = true }
+                            Button(L10n.text("Use Embedded Browser"), systemImage: "globe") { openBrowser(server.id) }
                                 .accessibilityIdentifier("booru.openBrowser")
                         }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 18))
@@ -265,7 +311,7 @@ struct BooruFeedView: View {
                     if loader.didLoad && !loader.loading && loader.errors.isEmpty && visiblePosts.isEmpty {
                         ContentUnavailableView(L10n.text(loader.posts.isEmpty ? (pool == nil ? "No Posts" : "No Available Posts") : "Posts Hidden"), systemImage: "photo.on.rectangle", description: Text(L10n.text(loader.posts.isEmpty ? (pool == nil ? "Try different tags or another server." : "This website returned no posts for this pool. It may be empty or its posts may no longer be available.") : "These posts match your blacklist. You can load the next page.")))
                         if pool != nil {
-                            Button(L10n.text("Open in Browser"), systemImage: "globe") { useEmbeddedBrowser = true }
+                            Button(L10n.text("Open in Browser"), systemImage: "globe") { openBrowser() }
                         }
                     }
                     if loader.hasMore && !loader.loading {
@@ -273,11 +319,23 @@ struct BooruFeedView: View {
                             .buttonStyle(.bordered).accessibilityIdentifier("booru.more")
                             .onAppear { Task { await load(reset: false) } }
                     }
-                }.padding(16).padding(.top, pool == nil ? 56 : 0)
+                }.padding(16).padding(.top, pool == nil && header == nil ? 56 : 0)
+              }
             }
+            .coordinateSpace(name: "booru.feedViewport")
             .scrollDismissesKeyboard(.interactively)
             .trackScrollGeometry { oldY, newY in
                 if let visible = searchScroll.update(oldY: oldY, newY: newY, focused: searchFocused) { isSearchBarVisible = visible }
+            }
+            .onPreferenceChange(BooruFeedOffsetKey.self) { value in
+                if #available(iOS 18.0, *) { return }
+                guard let value else { return }
+                let newY = -value
+                if let visible = searchScroll.update(oldY: scrollPosition.y, newY: newY, focused: searchFocused) { isSearchBarVisible = visible }
+                scrollPosition.y = newY
+            }
+            .onPreferenceChange(BooruSearchSlotKey.self) { value in
+                if let value { searchSlotY = max(-1, value) }
             }
             .refreshable {
                 let value = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -288,18 +346,12 @@ struct BooruFeedView: View {
                     await Task { await load(reset: true) }.value
                 }
             }
-            if pool == nil {
-                VStack(spacing: 0) {
-                    ScrollSearchBar(text: $searchText, focused: $searchFocused, prompt: L10n.text("Search tags"), identifier: "booru.search") { submit(searchText) }
-                    if searchFocused && (searchText.isEmpty && !searchHistory.isEmpty || !suggestions.isEmpty || suggestionError != nil || suggesting) {
-                        searchSuggestions
-                            .searchResultsPanel(height: searchText.isEmpty ? 260 : max(60, min(280, CGFloat(suggestions.count) * 47)))
-                    }
-                }
-                .offset(y: isSearchBarVisible ? 0 : -60).opacity(isSearchBarVisible ? 1 : 0)
-                .allowsHitTesting(isSearchBarVisible).accessibilityHidden(!isSearchBarVisible)
+            if pool == nil && (header == nil || (searchSlotY ?? 1) <= 0) {
+                searchControls
+                    .offset(y: isSearchBarVisible ? 0 : -60).opacity(isSearchBarVisible ? 1 : 0)
+                    .allowsHitTesting(isSearchBarVisible).accessibilityHidden(!isSearchBarVisible)
             }
-        }
+        }.clipped()
         .animation(isSearchBarVisible ? .spring(response: 0.35, dampingFraction: 0.86) : .easeInOut(duration: 0.32), value: isSearchBarVisible)
         .onChange(of: searchFocused) { _, focused in if focused { isSearchBarVisible = true } }
         .onAppear { if !BooruRating.options(for: servers).contains(rating) { rating = .all } }
@@ -317,16 +369,25 @@ struct BooruFeedView: View {
         .transientMessage($sortMessage)
         .task(id: "\(searchFocused):\(searchText)") { await complete() }
     }
+    private var searchControls: some View {
+        VStack(spacing: 0) {
+            ScrollSearchBar(text: $searchText, focused: $searchFocused, prompt: L10n.text("Search tags"), identifier: "booru.search") { submit(searchText) }
+            if searchFocused && (searchText.isEmpty && !searchHistory.isEmpty || !suggestions.isEmpty || suggestionError != nil || suggesting) {
+                searchSuggestions.searchResultsPanel(height: searchText.isEmpty ? 260 : max(60, min(280, CGFloat(suggestions.count) * 47)))
+            }
+        }
+    }
     private var requestKey: String { query + "|\(sort.rawValue)|\(rating.rawValue)|\(retry)|" + servers.map { $0.id + $0.canonicalAddress }.joined(separator: ",") }
-    private var sortOptions: [BooruSort] { BooruSort.options(for: servers) }
+    private var sortOptions: [BooruSort] { BooruSort.options(for: servers, local: challenge?.session.sourceKind == "folder") }
     private var filters: some View {
-        HStack {
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout())
+        return layout {
             if BooruRating.options(for: servers).count > 1 {
                 BrowseFilterMenu(title: rating.title, icon: "line.3.horizontal.decrease") {
-                    Picker(L10n.text("Rating"), selection: $rating) { ForEach(BooruRating.options(for: servers)) { Text($0.title).tag($0) } }
+                    Picker(L10n.text("Rating"), selection: Binding(get: { rating }, set: { rating = $0 })) { ForEach(BooruRating.options(for: servers)) { Text($0.title).tag($0) } }
                 }.accessibilityIdentifier("booru.rating")
             }
-            Spacer()
+            if !typeSize.isAccessibilitySize { Spacer() }
             BrowseFilterMenu(title: sort.title, icon: "arrow.up.arrow.down") {
                 Picker(L10n.text("Sort"), selection: $sort) { ForEach(sortOptions) { Text($0.title).tag($0) } }
             }.accessibilityIdentifier("booru.sort")
@@ -377,7 +438,7 @@ struct BooruFeedView: View {
         suggestions = []
         submitted = true; tasteSession = UUID().uuidString
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if rememberHistory { store.perform {
+        if rememberHistory && challenge == nil { store.perform {
             for server in servers { try store.recordSearch(value, serverID: server.id) }
             try store.recordTasteSearch(DiscoveryContext(origin: .search, query: value, session: tasteSession), servers: servers)
         } }
@@ -538,4 +599,15 @@ struct BooruNoSelectionView: View {
             description: Text(L10n.text("Choose servers using the server button above. Your saved works are kept.")))
             .accessibilityIdentifier("booru.noSelection")
     }
+}
+
+
+private final class BooruFeedScrollPosition { var y: CGFloat = 0 }
+private struct BooruFeedOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat? = nil
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) { value = nextValue() ?? value }
+}
+private struct BooruSearchSlotKey: PreferenceKey {
+    static var defaultValue: CGFloat? = nil
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) { value = nextValue() ?? value }
 }

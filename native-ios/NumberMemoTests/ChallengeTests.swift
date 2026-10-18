@@ -75,6 +75,26 @@ final class ChallengeTests: XCTestCase {
         XCTAssertEqual(try store.example().id, first.id)
         XCTAssertNil(try store.session(first).mission)
     }
+    @MainActor func testFolderFeedUsesEveryTagPaginationRatingAndBlocks() async throws {
+        let store = try BooruStore(), server = BooruServer.presets[0]
+        try store.saveServer(server)
+        let folder = try store.saveFolder(name: "References")
+        for id in 1...45 {
+            try store.saveFavorite(BooruFixtureSource.post(Int64(id), server: server, tags: ["mountain", "middle", "scenery"]), folderID: folder)
+        }
+        try store.setBlacklist("id:1", serverID: server.id)
+        let source = ChallengeFolderSource(store: store, folderID: folder, source: BooruFixtureSource())
+        let first = try await source.posts(server: server, query: "scenery mountain rating:general", page: 0)
+        let second = try await source.posts(server: server, query: "mountain scenery rating:general", page: 1)
+        XCTAssertEqual(first.posts.count, 40); XCTAssertTrue(first.hasMore)
+        XCTAssertEqual(second.posts.count, 4); XCTAssertFalse(second.hasMore)
+        XCTAssertEqual(Set((first.posts + second.posts).map(\.id)).count, 44)
+        XCTAssertFalse((first.posts + second.posts).contains { $0.postID == 1 })
+        let excluded = try await source.posts(server: server, query: "scenery -mountain", page: 0)
+        XCTAssertTrue(excluded.posts.isEmpty)
+        let rating = try await source.posts(server: server, query: "rating:explicit", page: 0)
+        XCTAssertTrue(rating.posts.isEmpty)
+    }
     private func game() -> ChallengeDefinition {
         var game = ChallengeDefinition.croquis()
         game.reels[0].options = [.init(text: "Subject", tags: ["scenery"])]
@@ -253,6 +273,18 @@ final class ChallengeTests: XCTestCase {
         let copies = try store.definitions()
         XCTAssertEqual(copies.count, 2)
         for copy in copies { XCTAssertNoThrow(try copy.validate()) }
+    }
+    func testMediaFilteringRespectsTagsRatingsAndBlocks() {
+        let post = BooruFixtureSource.post(101, server: BooruServer.presets[0])
+        XCTAssertTrue(ChallengeMediaFilter.matches(post, tags: ["scenery"], rating: .general, blacklist: "", safeOnly: false))
+        for block in ["scenery", "id:101", "artist:sample_artist"] {
+            XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: [], rating: .general, blacklist: block, safeOnly: false))
+        }
+        XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: ["missing"], rating: .all, blacklist: "", safeOnly: false))
+        XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: [], rating: .explicit, blacklist: "", safeOnly: false))
+        let legacy = BooruServer(id: "legacy", name: "Legacy", baseURL: URL(string: "https://example.com")!, engine: .moebooru)
+        XCTAssertEqual(BooruRating.general.query("scenery", server: legacy), "scenery rating:safe")
+        XCTAssertEqual(BooruRating.general.query("scenery", server: BooruServer.presets[0]), "scenery rating:general")
     }
     func testCloudDefinitionMergeDeletionAndSessionExclusion() throws {
         let suites = ["challenge-a-" + UUID().uuidString, "challenge-b-" + UUID().uuidString]

@@ -20,6 +20,7 @@ struct BooruBackupView: View {
                 Text(L10n.text("Back up servers, favorites, folder colors and order, saved tags, searches and blacklists. Images and sign-in details are not included."))
             }
             Section {
+                NavigationLink { ChallengeBackupView() } label: { Label { Text(L10n.text("Challenge Backup and Import")) } icon: { Image(systemName: "dice").foregroundStyle(.purple) } }
                 NavigationLink { AnimeBoxesImportView() } label: { Label(L10n.text("Import from Anime Boxes"), systemImage: "shippingbox") }
                     .accessibilityIdentifier("booru.importLink")
             }

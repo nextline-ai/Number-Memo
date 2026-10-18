@@ -50,6 +50,9 @@ enum ContentUITestSupport {
                 }
             }
         }
+        if ProcessInfo.processInfo.arguments.contains("--challenge-ui-test") {
+            try! ChallengeUITestSupport.seed(env.booru)
+        }
         if ProcessInfo.processInfo.arguments.contains("--taste-recap-test") {
             Task { await env.taste.prepareCompletedReports() }
         }
@@ -123,6 +126,7 @@ actor FixtureContentSource: ContentProviding {
 
     func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data {
         imageRequests += 1
+        if thumbnail && ProcessInfo.processInfo.arguments.contains("--native-content-long-feed") { try await Task.sleep(for: .milliseconds(180)) }
         if thumbnail && ProcessInfo.processInfo.arguments.contains("--slow-detail-cover-test") { try await Task.sleep(for: .seconds(20)) }
         if ProcessInfo.processInfo.arguments.contains("--native-content-image-error") { throw URLError(.timedOut) }
         return await MainActor.run {
