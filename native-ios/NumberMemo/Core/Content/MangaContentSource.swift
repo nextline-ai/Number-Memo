@@ -1,25 +1,44 @@
 import Foundation
 import CryptoKit
 
+/// Preserve one-at-a-time metadata decoding without blocking the source actor's
+/// cancellation and consumer registration while a large gallery is parsed.
+private actor GalleryMetadataParser {
+    static let shared = GalleryMetadataParser()
+    func parse(_ data: Data, id: Int64) throws -> NativeGallery {
+        try Task.checkCancellation()
+        let gallery = try NativeGallery.parse(data, id: id)
+        try Task.checkCancellation()
+        return gallery
+    }
+}
+
 actor MangaContentSource: ContentProviding {
     static let shared = MangaContentSource()
     private let transport: ContentTransport
     private let base = "https://ltn.gold-usergeneratedcontent.net/"
-    private var documents: [Int64: (NativeGallery, Date)] = [:]
     private var routing: (CDNRouting, Date)?
     private var routingTask: Task<CDNRouting, Error>?
     private var suggestionCache: [String: ([TagSuggestion], Date)] = [:]
     private var searchCache: (GalleryQuery, [Int64], Date)?
+    private struct GalleryFlight {
+        let id: UUID
+        let task: Task<Void, Never>
+        var waiters: [UUID: CheckedContinuation<NativeGallery, Error>]
+    }
+    private var galleryFlights: [Int64: GalleryFlight] = [:]
 
     private final class NativeGalleryBox {
         let gallery: NativeGallery
         init(_ gallery: NativeGallery) { self.gallery = gallery }
     }
-    private let galleryCache = NSCache<NSNumber, NativeGalleryBox>()
+    // NSCache synchronizes its storage; boxes are immutable after insertion.
+    private nonisolated(unsafe) let galleryCache = NSCache<NSNumber, NativeGalleryBox>()
 
     init(transport: ContentTransport = .shared) {
         self.transport = transport
         galleryCache.countLimit = 512
+        galleryCache.totalCostLimit = 32 * 1024 * 1024
     }
 
     nonisolated func cachedGallery(_ id: Int64) -> NativeGallery? {
@@ -59,20 +78,55 @@ actor MangaContentSource: ContentProviding {
     }
 
     func gallery(_ id: Int64) async throws -> NativeGallery {
+        try Task.checkCancellation()
         guard id > 0 else { throw ContentError.invalidQuery }
         if let cached = galleryCache.object(forKey: id as NSNumber)?.gallery { return cached }
-        if let (value, date) = documents[id], Date().timeIntervalSince(date) < 600 {
-            galleryCache.setObject(NativeGalleryBox(value), forKey: id as NSNumber)
-            return value
+        let waiter = UUID()
+        return try await withTaskCancellationHandler {
+            let document: NativeGallery = try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else { continuation.resume(throwing: CancellationError()); return }
+                if var flight = galleryFlights[id] {
+                    flight.waiters[waiter] = continuation
+                    galleryFlights[id] = flight
+                    return
+                }
+                let token = UUID(), transport = transport, target = url("galleries/\(id).js")
+                let task = Task.detached(priority: Task.currentPriority) {
+                    do {
+                        let (data, _) = try await transport.get(target, limit: 4_000_000, galleryID: id)
+                        try Task.checkCancellation()
+                        let document = try await GalleryMetadataParser.shared.parse(data, id: id)
+                        try Task.checkCancellation()
+                        let cost = max(1024, max(data.count * 2, document.pages.count * 192))
+                        await self.finishGallery(id, token: token, result: .success(document), cost: cost)
+                    } catch { await self.finishGallery(id, token: token, result: .failure(error)) }
+                }
+                galleryFlights[id] = GalleryFlight(id: token, task: task, waiters: [waiter: continuation])
+            }
+            try Task.checkCancellation()
+            return document
+        } onCancel: { Task { await self.cancelGallery(id, waiter: waiter) } }
+    }
+
+    /// Used by performance regression tests to wait for consumers, not wall-clock delays.
+    func galleryConsumerCount(_ id: Int64) -> Int { galleryFlights[id]?.waiters.count ?? 0 }
+
+    private func cancelGallery(_ id: Int64, waiter: UUID) {
+        guard var flight = galleryFlights[id], let continuation = flight.waiters.removeValue(forKey: waiter) else { return }
+        if flight.waiters.isEmpty {
+            galleryFlights.removeValue(forKey: id)
+            flight.task.cancel()
+        } else { galleryFlights[id] = flight }
+        continuation.resume(throwing: CancellationError())
+    }
+
+    private func finishGallery(_ id: Int64, token: UUID, result: Result<NativeGallery, Error>, cost: Int = 0) {
+        guard let flight = galleryFlights[id], flight.id == token else { return }
+        galleryFlights.removeValue(forKey: id)
+        if case .success(let document) = result {
+            galleryCache.setObject(NativeGalleryBox(document), forKey: id as NSNumber, cost: cost)
         }
-        let (data, _) = try await transport.get(url("galleries/\(id).js"), limit: 4_000_000, galleryID: id)
-        let document = try NativeGallery.parse(data, id: id)
-        galleryCache.setObject(NativeGalleryBox(document), forKey: id as NSNumber)
-        if documents.count >= 256, let oldest = documents.min(by: { $0.value.1 < $1.value.1 })?.key {
-            documents.removeValue(forKey: oldest)
-        }
-        documents[id] = (document, Date())
-        return document
+        for continuation in flight.waiters.values { continuation.resume(with: result) }
     }
 
     func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch {
@@ -264,11 +318,19 @@ struct BinaryCursor {
     }
     static func ids(_ data: Data) throws -> [Int64] {
         guard data.count % 4 == 0 else { throw ContentError.invalidResponse }
-        var reader = BinaryCursor(data)
-        return try (0..<(data.count / 4)).map { _ in
-            let value = try reader.u32()
-            guard value > 0 else { throw ContentError.invalidResponse }
-            return Int64(value)
+        // Search indexes can contain millions of IDs. Read the bytes directly
+        // instead of allocating a Data slice and an Array for every integer.
+        return try data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
+            var result: [Int64] = []
+            result.reserveCapacity(bytes.count / 4)
+            for offset in stride(from: 0, to: bytes.count, by: 4) {
+                if offset % 4096 == 0 { try Task.checkCancellation() }
+                let value = UInt32(bytes[offset]) << 24 | UInt32(bytes[offset + 1]) << 16
+                    | UInt32(bytes[offset + 2]) << 8 | UInt32(bytes[offset + 3])
+                guard value > 0 else { throw ContentError.invalidResponse }
+                result.append(Int64(value))
+            }
+            return result
         }
     }
 }

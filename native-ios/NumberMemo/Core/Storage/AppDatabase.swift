@@ -292,53 +292,59 @@ public final class AppDatabase: Sendable {
     }
 
     public func listFolders() throws -> [Folder] {
-        try dbWriter.read { db in
-            let sql = """
-            SELECT f.*, COUNT(fw.work_id) AS work_count
-            FROM folders f
-            LEFT JOIN folder_works fw ON fw.folder_id = f.id
-            GROUP BY f.id
-            ORDER BY f.sort_order ASC, f.id ASC
-            """
-            let rows = try Row.fetchAll(db, sql: sql)
-            return rows.map { row in
-                Folder(
-                    id: row["id"],
-                    name: row["name"],
-                    description: row["description"],
-                    color: row["color"],
-                    sortOrder: row["sort_order"],
-                    createdAt: row["created_at"],
-                    violetGroupId: row["violet_group_id"],
-                    workCount: row["work_count"]
-                )
-            }
+        try dbWriter.read { try Self.fetchFolders($0) }
+    }
+
+    /// Reused by observations so the snapshot is fetched on the database queue.
+    static func fetchFolders(_ db: Database) throws -> [Folder] {
+        let sql = """
+        SELECT f.*, COUNT(fw.work_id) AS work_count
+        FROM folders f
+        LEFT JOIN folder_works fw ON fw.folder_id = f.id
+        GROUP BY f.id
+        ORDER BY f.sort_order ASC, f.id ASC
+        """
+        let rows = try Row.fetchAll(db, sql: sql)
+        return rows.map { row in
+            Folder(
+                id: row["id"],
+                name: row["name"],
+                description: row["description"],
+                color: row["color"],
+                sortOrder: row["sort_order"],
+                createdAt: row["created_at"],
+                violetGroupId: row["violet_group_id"],
+                workCount: row["work_count"]
+            )
         }
     }
 
     public func folderPreviews(limitPerFolder: Int = 4) throws -> [Int64: [Work]] {
-        try dbWriter.read { db in
-            let sql = """
-            WITH ranked AS (
-                SELECT fw.folder_id, w.*,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY fw.folder_id
-                           ORDER BY COALESCE(NULLIF(w.bookmarked_at, ''), fw.added_at) DESC, w.id DESC
-                       ) AS rn
-                FROM folder_works fw
-                INNER JOIN works w ON w.id = fw.work_id
-            )
-            SELECT * FROM ranked WHERE rn <= ?
-            """
-            let rows = try Row.fetchAll(db, sql: sql, arguments: [limitPerFolder])
-            var result: [Int64: [Work]] = [:]
-            for row in rows {
-                let folderId: Int64 = row["folder_id"]
-                let work = try Work(row: row)
-                result[folderId, default: []].append(work)
-            }
-            return result
+        try dbWriter.read { try Self.fetchFolderPreviews($0, limitPerFolder: limitPerFolder) }
+    }
+
+    /// Reused by observations so the snapshot is fetched on the database queue.
+    static func fetchFolderPreviews(_ db: Database, limitPerFolder: Int = 4) throws -> [Int64: [Work]] {
+        let sql = """
+        WITH ranked AS (
+            SELECT fw.folder_id, w.*,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY fw.folder_id
+                       ORDER BY COALESCE(NULLIF(w.bookmarked_at, ''), fw.added_at) DESC, w.id DESC
+                   ) AS rn
+            FROM folder_works fw
+            INNER JOIN works w ON w.id = fw.work_id
+        )
+        SELECT * FROM ranked WHERE rn <= ?
+        """
+        let rows = try Row.fetchAll(db, sql: sql, arguments: [limitPerFolder])
+        var result: [Int64: [Work]] = [:]
+        for row in rows {
+            let folderId: Int64 = row["folder_id"]
+            let work = try Work(row: row)
+            result[folderId, default: []].append(work)
         }
+        return result
     }
 
     public func createFolder(name: String, description: String? = nil, color: Int64? = nil, violetGroupId: Int64? = nil) throws -> Folder {
@@ -428,82 +434,85 @@ public final class AppDatabase: Sendable {
     // MARK: - Works
 
     public func listWorks(folderId: Int64? = nil, query: String? = nil, artist: String? = nil) throws -> [Work] {
-        try dbWriter.read { db in
-            var conditions: [String] = []
-            var arguments: [DatabaseValueConvertible] = []
+        try dbWriter.read { try Self.fetchWorks($0, folderId: folderId, query: query, artist: artist) }
+    }
 
-            if let folderId {
-                conditions.append("w.id IN (SELECT work_id FROM folder_works WHERE folder_id = ?)")
-                arguments.append(folderId)
-            }
+    /// Reused by observations so the snapshot is fetched on the database queue.
+    static func fetchWorks(_ db: Database, folderId: Int64? = nil, query: String? = nil, artist: String? = nil) throws -> [Work] {
+        var conditions: [String] = []
+        var arguments: [DatabaseValueConvertible] = []
 
-            if let artist, !artist.isEmpty {
-                conditions.append("(w.artists LIKE ? OR w.groups LIKE ?)")
-                arguments.append("%\(artist)%")
-                arguments.append("%\(artist)%")
-            }
-
-            if let query, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-                if let idQuery = Int64(trimmed) {
-                    conditions.append("(w.gallery_id = ? OR w.title LIKE ? OR w.artists LIKE ? OR w.tags LIKE ? OR w.note LIKE ?)")
-                    arguments.append(idQuery)
-                    arguments.append("%\(trimmed)%")
-                    arguments.append("%\(trimmed)%")
-                    arguments.append("%\(trimmed)%")
-                    arguments.append("%\(trimmed)%")
-                } else {
-                    conditions.append("(w.title LIKE ? OR w.artists LIKE ? OR w.tags LIKE ? OR w.note LIKE ?)")
-                    arguments.append("%\(trimmed)%")
-                    arguments.append("%\(trimmed)%")
-                    arguments.append("%\(trimmed)%")
-                    arguments.append("%\(trimmed)%")
-                }
-            }
-
-            let whereClause = conditions.isEmpty ? "" : "WHERE " + conditions.joined(separator: " AND ")
-            let sql = """
-            SELECT w.* FROM works w
-            \(whereClause)
-            ORDER BY w.bookmarked_at DESC, w.id DESC
-            """
-            var works = try Work.fetchAll(db, sql: sql, arguments: StatementArguments(arguments))
-
-            // Fetch attached folders in a single batch query to avoid N+1 queries
-            let workIds = works.compactMap(\.id)
-            if !workIds.isEmpty {
-                let placeholders = workIds.map { _ in "?" }.joined(separator: ",")
-                let folderSql = """
-                SELECT fw.work_id, f.* FROM folders f
-                INNER JOIN folder_works fw ON fw.folder_id = f.id
-                WHERE fw.work_id IN (\(placeholders))
-                ORDER BY f.sort_order ASC, f.id ASC
-                """
-                let rows = try Row.fetchAll(db, sql: folderSql, arguments: StatementArguments(workIds))
-                var foldersByWorkId: [Int64: [Folder]] = [:]
-                for row in rows {
-                    let workId: Int64 = row["work_id"]
-                    let folder = Folder(
-                        id: row["id"],
-                        name: row["name"],
-                        description: row["description"],
-                        color: row["color"],
-                        sortOrder: row["sort_order"],
-                        createdAt: row["created_at"],
-                        violetGroupId: row["violet_group_id"],
-                        workCount: 0
-                    )
-                    foldersByWorkId[workId, default: []].append(folder)
-                }
-                for i in works.indices {
-                    if let workId = works[i].id {
-                        works[i].folders = foldersByWorkId[workId] ?? []
-                    }
-                }
-            }
-
-            return works
+        if let folderId {
+            conditions.append("w.id IN (SELECT work_id FROM folder_works WHERE folder_id = ?)")
+            arguments.append(folderId)
         }
+
+        if let artist, !artist.isEmpty {
+            conditions.append("(w.artists LIKE ? OR w.groups LIKE ?)")
+            arguments.append("%\(artist)%")
+            arguments.append("%\(artist)%")
+        }
+
+        if let query, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let idQuery = Int64(trimmed) {
+                conditions.append("(w.gallery_id = ? OR w.title LIKE ? OR w.artists LIKE ? OR w.tags LIKE ? OR w.note LIKE ?)")
+                arguments.append(idQuery)
+                arguments.append("%\(trimmed)%")
+                arguments.append("%\(trimmed)%")
+                arguments.append("%\(trimmed)%")
+                arguments.append("%\(trimmed)%")
+            } else {
+                conditions.append("(w.title LIKE ? OR w.artists LIKE ? OR w.tags LIKE ? OR w.note LIKE ?)")
+                arguments.append("%\(trimmed)%")
+                arguments.append("%\(trimmed)%")
+                arguments.append("%\(trimmed)%")
+                arguments.append("%\(trimmed)%")
+            }
+        }
+
+        let whereClause = conditions.isEmpty ? "" : "WHERE " + conditions.joined(separator: " AND ")
+        let sql = """
+        SELECT w.* FROM works w
+        \(whereClause)
+        ORDER BY w.bookmarked_at DESC, w.id DESC
+        """
+        var works = try Work.fetchAll(db, sql: sql, arguments: StatementArguments(arguments))
+
+        // Join the same filtered works instead of binding one parameter per work.
+        // Large imported libraries can exceed SQLite's parameter limit.
+        if !works.isEmpty {
+            let folderSql = """
+            SELECT fw.work_id, f.* FROM folders f
+            INNER JOIN folder_works fw ON fw.folder_id = f.id
+            INNER JOIN works w ON w.id = fw.work_id
+            \(whereClause)
+            ORDER BY f.sort_order ASC, f.id ASC
+            """
+            let rows = try Row.fetchAll(db, sql: folderSql, arguments: StatementArguments(arguments))
+            var foldersByWorkId: [Int64: [Folder]] = [:]
+            for row in rows {
+                let workId: Int64 = row["work_id"]
+                let folder = Folder(
+                    id: row["id"],
+                    name: row["name"],
+                    description: row["description"],
+                    color: row["color"],
+                    sortOrder: row["sort_order"],
+                    createdAt: row["created_at"],
+                    violetGroupId: row["violet_group_id"],
+                    workCount: 0
+                )
+                foldersByWorkId[workId, default: []].append(folder)
+            }
+            for i in works.indices {
+                if let workId = works[i].id {
+                    works[i].folders = foldersByWorkId[workId] ?? []
+                }
+            }
+        }
+
+        return works
     }
 
     public func getWork(galleryId: Int64) throws -> Work? {
@@ -691,6 +700,10 @@ public final class AppDatabase: Sendable {
 
     public func setThumb(galleryId: Int64, status: String, path: String? = nil, page: Int? = nil) throws {
         let now = ISO8601DateFormatter().string(from: Date())
+        // Invalidate before observers receive the updated thumbnail record.
+        if let path {
+            LocalThumbnailCache.shared.invalidate(path: path)
+        }
         try dbWriter.write { db in
             if status == "failed" || status == "gone" {
                 try db.execute(
@@ -715,9 +728,6 @@ public final class AppDatabase: Sendable {
                     arguments: [status, galleryId]
                 )
             }
-        }
-        if let path {
-            LocalThumbnailCache.shared.invalidate(path: path)
         }
         if status == "ready", let path {
             let store = VisualFingerprintStore(database: dbWriter)

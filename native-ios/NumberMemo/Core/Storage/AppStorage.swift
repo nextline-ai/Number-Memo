@@ -50,49 +50,151 @@ public enum AppStorage {
 }
 
 import UIKit
+import ImageIO
 
-/// High-performance thread-safe in-memory cache for local work thumbnails.
-/// Prevents redundant synchronous disk I/O and JPEG decoding during SwiftUI view body evaluations.
+/// Bounded, coalesced thumbnail decoding. View evaluation only reads memory;
+/// ImageIO opens and downsamples files on the operation queue.
 public final class LocalThumbnailCache: @unchecked Sendable {
     public static let shared = LocalThumbnailCache()
+    static let didInvalidate = Notification.Name("localThumbnailCacheDidInvalidate")
     private let cache = NSCache<NSString, UIImage>()
+    private let lock = NSLock()
+    private let decodeQueue: OperationQueue
+    private struct Request {
+        let id: UUID
+        let operation: BlockOperation
+        var waiters: [UUID: CheckedContinuation<UIImage?, Never>] = [:]
+        var prefetched = false
+    }
+    private var pending: [String: Request] = [:]
+    let maximumPixelSize: Int
 
-    private init() {
-        // Cache up to 128 thumbnails or 64MB of decoded images
+    init(maximumPixelSize: Int = 768, decodeQueue: OperationQueue = OperationQueue()) {
+        self.maximumPixelSize = max(1, maximumPixelSize)
         cache.countLimit = 128
         cache.totalCostLimit = 64 * 1024 * 1024
+        self.decodeQueue = decodeQueue
+        decodeQueue.name = "work-thumbnail-decode"
+        decodeQueue.qualityOfService = .userInitiated
+        decodeQueue.maxConcurrentOperationCount = 2
     }
 
+    /// A cache miss never opens a file on the caller's thread.
     public func image(forPath path: String) -> UIImage? {
-        let key = path as NSString
-        if let cached = cache.object(forKey: key) {
-            return cached
+        cache.object(forKey: path as NSString)
+    }
+
+    public func load(forPath path: String) async -> UIImage? {
+        if Task.isCancelled { return nil }
+        let waiterID = UUID()
+        let image = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                enqueue(path: path, waiterID: waiterID, waiter: continuation)
+            }
+        } onCancel: { cancelLoad(path: path, waiterID: waiterID) }
+        return Task.isCancelled ? nil : image
+    }
+
+    private func enqueue(path: String, waiterID: UUID? = nil, waiter: CheckedContinuation<UIImage?, Never>? = nil) {
+        lock.lock()
+        // Check under the same lock used by cancellation so a cancellation
+        // arriving before registration cannot leave an orphaned waiter.
+        if waiter != nil && Task.isCancelled {
+            lock.unlock(); waiter?.resume(returning: nil); return
         }
-        guard let image = UIImage(contentsOfFile: path) else { return nil }
-        let cost = (image.cgImage?.bytesPerRow ?? 0) * (image.cgImage?.height ?? 0)
-        cache.setObject(image, forKey: key, cost: cost > 0 ? cost : 1024)
-        return image
+        if let image = cache.object(forKey: path as NSString) {
+            lock.unlock()
+            waiter?.resume(returning: image)
+            return
+        }
+        if var request = pending[path] {
+            if let waiter, let waiterID { request.waiters[waiterID] = waiter }
+            else { request.prefetched = true }
+            pending[path] = request
+            lock.unlock()
+            return
+        }
+        let requestID = UUID(), operation = BlockOperation()
+        var request = Request(id: requestID, operation: operation, prefetched: waiter == nil)
+        if let waiter, let waiterID { request.waiters[waiterID] = waiter }
+        operation.addExecutionBlock { [self] in
+            lock.lock()
+            let active = pending[path]?.id == requestID
+            lock.unlock()
+            guard active else { return }
+            let image = autoreleasepool { decode(path: path) }
+            lock.lock()
+            guard pending[path]?.id == requestID else { lock.unlock(); return }
+            let waiters = pending.removeValue(forKey: path)?.waiters.values.map { $0 } ?? []
+            if let image, let cgImage = image.cgImage {
+                cache.setObject(image, forKey: path as NSString, cost: cgImage.bytesPerRow * cgImage.height)
+            }
+            lock.unlock()
+            for waiter in waiters { waiter.resume(returning: image) }
+        }
+        pending[path] = request
+        lock.unlock()
+        decodeQueue.addOperation(operation)
+    }
+
+    private func cancelLoad(path: String, waiterID: UUID) {
+        lock.lock()
+        guard var request = pending[path], let waiter = request.waiters.removeValue(forKey: waiterID) else {
+            lock.unlock(); return
+        }
+        let orphaned = request.waiters.isEmpty && !request.prefetched
+        if orphaned { pending.removeValue(forKey: path) }
+        else { pending[path] = request }
+        lock.unlock()
+        // Cancelled queued operations never decode. If ImageIO has already
+        // started, OperationQueue retains its physical slot until it returns.
+        if orphaned { request.operation.cancel() }
+        waiter.resume(returning: nil)
+    }
+
+    /// Allows cancellation tests to await registration without timing sleeps.
+    func pendingConsumerCount(forPath path: String) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return pending[path]?.waiters.count ?? 0
+    }
+
+    private func decode(path: String) -> UIImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, sourceOptions) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: image)
     }
 
     public func invalidate(path: String) {
+        lock.lock()
         cache.removeObject(forKey: path as NSString)
+        let request = pending.removeValue(forKey: path)
+        lock.unlock()
+        request?.operation.cancel()
+        for waiter in request?.waiters.values.map({ $0 }) ?? [] { waiter.resume(returning: nil) }
+        NotificationCenter.default.post(name: Self.didInvalidate, object: self, userInfo: ["path": path])
     }
 
     public func prefetch(paths: [String]) {
-        guard !paths.isEmpty else { return }
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else { return }
-            for path in paths {
-                let key = path as NSString
-                if self.cache.object(forKey: key) != nil { continue }
-                guard let image = UIImage(contentsOfFile: path) else { continue }
-                let cost = (image.cgImage?.bytesPerRow ?? 0) * (image.cgImage?.height ?? 0)
-                self.cache.setObject(image, forKey: key, cost: cost > 0 ? cost : 1024)
-            }
-        }
+        for path in Set(paths) { enqueue(path: path) }
     }
 
     public func clear() {
+        lock.lock()
         cache.removeAllObjects()
+        let requests = Array(pending.values)
+        pending.removeAll()
+        lock.unlock()
+        for request in requests {
+            request.operation.cancel()
+            for waiter in request.waiters.values { waiter.resume(returning: nil) }
+        }
+        NotificationCenter.default.post(name: Self.didInvalidate, object: self)
     }
 }

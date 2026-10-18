@@ -243,6 +243,11 @@ enum ReaderLayout {
     static func next(_ page: Int, delta: Int, count: Int, total: Int) -> Int {
         min(max(0, start(page, count: count) + delta * Self.count(count)), start(max(0, total - 1), count: count))
     }
+    static func initialPage(_ initial: Int, saved: Int, total: Int, count: Int) -> Int {
+        let preferred = initial > 1 ? initial : max(initial, saved)
+        let page = min(max(1, preferred) - 1, max(0, total - 1))
+        return start(page, count: count)
+    }
 }
 
 @MainActor

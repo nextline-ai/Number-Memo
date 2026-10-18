@@ -30,11 +30,15 @@ struct BooruThumbnailDiskCache {
         trim()
     }
     private func name(_ key: String) -> String { SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined() + "." + fileExtension }
+    mutating func contains(_ key: String) -> Bool {
+        ensureIndex()
+        return entries[name(key)] != nil
+    }
     mutating func read(_ key: String, now: Date = Date()) -> Data? {
         ensureIndex()
         let name = name(key), file = directory.appendingPathComponent(name)
         guard var entry = entries[name] else { return nil }
-        guard let data = try? Data(contentsOf: file) else { remove(key); return nil }
+        guard let data = try? Data(contentsOf: file, options: .mappedIfSafe) else { remove(key); return nil }
         // Persist recency at most hourly; memory still tracks every cache hit.
         if now.timeIntervalSince(entry.persisted) > 3600 { try? FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: file.path); entry.persisted = now }
         entry.accessed = now; entries[name] = entry

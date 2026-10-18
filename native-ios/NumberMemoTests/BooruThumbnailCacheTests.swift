@@ -127,19 +127,240 @@ final class BooruThumbnailCacheTests: XCTestCase {
         let calls = await loader.calls
         XCTAssertEqual(calls, 1)
     }
+
+    @MainActor func testOverlappingPrefetchWindowsShareGlobalConcurrencyLimit() async throws {
+        let root = directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let loader = ThumbnailLoader(data: preview(), delay: .milliseconds(40))
+        let cache = BooruThumbnailCache(directory: root, loadData: { url, _ in try await loader.load(url) })
+        let server = BooruServer.presets[0]
+        let urls = (0..<8).map { URL(string: "https://example.test/\($0).png")! }
+        for _ in 0..<12 { cache.prefetch(urls.map { ($0, server) }) }
+        for _ in 0..<300 {
+            if urls.allSatisfy({ cache.cachedImage(url: $0, server: server) != nil }) { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(urls.allSatisfy { cache.cachedImage(url: $0, server: server) != nil })
+        let calls = await loader.calls, peak = await loader.peakActive
+        XCTAssertEqual(calls, urls.count, "Overlapping cells must share the same work")
+        XCTAssertLessThanOrEqual(peak, 2, "The limit must apply across all prefetch calls")
+    }
+
+    @MainActor func testCancellingPrefetchDiscardsQueuedWork() async throws {
+        let root = directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let loader = ThumbnailLoader(data: preview(), delay: .milliseconds(100))
+        let cache = BooruThumbnailCache(directory: root, loadData: { url, _ in try await loader.load(url) })
+        let server = BooruServer.presets[0]
+        cache.prefetch((0..<12).map { (URL(string: "https://example.test/cancel-\($0).png")!, server) })
+        for _ in 0..<100 {
+            if await loader.calls == 2 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        await cache.cancelPrefetch()
+        try await Task.sleep(for: .milliseconds(250))
+        let calls = await loader.calls
+        XCTAssertEqual(calls, 2, "Leaving the image mode must discard speculative queued downloads")
+    }
+
+    @MainActor func testRepeatedPrefetchCancellationKeepsSharedDownloadsWithinLimit() async throws {
+        let root = directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let loader = ThumbnailLoader(data: preview(), delay: .milliseconds(200))
+        let cache = BooruThumbnailCache(directory: root, loadData: { url, _ in try await loader.load(url) })
+        let server = BooruServer.presets[0]
+        cache.prefetch((0..<8).map { (URL(string: "https://example.test/initial-\($0).png")!, server) })
+        for _ in 0..<100 {
+            if await loader.calls == 2 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        var finalURLs: [URL] = []
+        for wave in 0..<4 {
+            await cache.cancelPrefetch()
+            finalURLs = (0..<4).map { URL(string: "https://example.test/wave-\(wave)-\($0).png")! }
+            cache.prefetch(finalURLs.map { ($0, server) })
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        for _ in 0..<300 {
+            if finalURLs.allSatisfy({ cache.cachedImage(url: $0, server: server) != nil }) { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(finalURLs.allSatisfy { cache.cachedImage(url: $0, server: server) != nil })
+        let peak = await loader.peakActive
+        XCTAssertLessThanOrEqual(peak, 2, "Cancelled workers must count until their shared downloads finish")
+    }
+}
+
+final class PageImageDecodeQueueTests: XCTestCase {
+    @MainActor func testDecodeQueueLimitsIndependentRequests() async throws {
+        let queue = PageImageDecodeQueue(limit: 2), probe = BlockingImageDecodeProbe()
+        defer { probe.release() }
+        let requests = (0..<8).map { id in Task { try await queue.perform { probe.decode(id) } } }
+        try await waitForTwoDecodes(probe)
+        XCTAssertEqual(probe.started.count, 2, "Only two independent decodes may enter ImageIO together")
+        probe.release()
+        var values: [Int] = []
+        for request in requests { values.append(try await request.value) }
+        XCTAssertEqual(Set(values), Set(0..<8))
+        XCTAssertLessThanOrEqual(probe.peak, 2)
+    }
+
+    @MainActor func testCancellationSkipsQueuedDecodeAndKeepsRunningPermit() async throws {
+        let queue = PageImageDecodeQueue(limit: 2), probe = BlockingImageDecodeProbe()
+        defer { probe.release() }
+        let first = Task { try await queue.perform { probe.decode(0) } }
+        let second = Task { try await queue.perform { probe.decode(1) } }
+        try await waitForTwoDecodes(probe)
+        first.cancel()
+        let obsolete = Task { try await queue.perform { probe.decode(2) } }
+        let next = Task { try await queue.perform { probe.decode(3) } }
+        await Task.yield()
+        obsolete.cancel()
+        do { _ = try await obsolete.value; XCTFail("Queued cancelled work must not decode") } catch is CancellationError {} catch { XCTFail("Unexpected error: \(error)") }
+        XCTAssertEqual(Set(probe.started), [0, 1], "Cancelling a running decode must not free its slot early")
+        probe.release()
+        do { _ = try await first.value; XCTFail("The cancelled caller must not receive decoded pixels") } catch is CancellationError {} catch { XCTFail("Unexpected error: \(error)") }
+        let secondValue = try await second.value, nextValue = try await next.value
+        XCTAssertEqual(secondValue, 1); XCTAssertEqual(nextValue, 3)
+        XCTAssertFalse(probe.started.contains(2))
+        XCTAssertLessThanOrEqual(probe.peak, 2)
+    }
+
+    @MainActor private func waitForTwoDecodes(_ probe: BlockingImageDecodeProbe) async throws {
+        for _ in 0..<200 {
+            if probe.started.count >= 2 { return }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTFail("Decode workers did not start")
+    }
+}
+
+private final class BlockingImageDecodeProbe: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var blocked = true
+    private var active = 0
+    private var peakActive = 0
+    private var startedIDs: [Int] = []
+    var started: [Int] { condition.withLock { startedIDs } }
+    var peak: Int { condition.withLock { peakActive } }
+    func decode(_ id: Int) -> Int {
+        condition.lock()
+        active += 1; peakActive = max(peakActive, active); startedIDs.append(id)
+        while blocked { condition.wait() }
+        active -= 1
+        condition.unlock()
+        return id
+    }
+    func release() {
+        condition.lock(); blocked = false; condition.broadcast(); condition.unlock()
+    }
 }
 
 private actor ThumbnailLoader {
     let data: Data
     let delay: Duration
     var calls = 0
+    var active = 0
+    var peakActive = 0
     var offline = false
     init(data: Data, delay: Duration = .milliseconds(30)) { self.data = data; self.delay = delay }
     func goOffline() { offline = true }
     func load(_ url: URL) async throws -> Data {
         calls += 1
         guard !offline else { throw URLError(.notConnectedToInternet) }
+        active += 1; peakActive = max(peakActive, active)
+        defer { active -= 1 }
         try await Task.sleep(for: delay)
         return data
+    }
+}
+
+final class ViewerDownloadLifetimeTests: XCTestCase {
+    private let server = BooruServer.presets[0]
+    private let url = URL(string: "https://example.test/viewer-original.png")!
+
+    @MainActor private func png(_ color: UIColor) -> Data {
+        UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { context in
+            color.setFill(); context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        }.pngData()!
+    }
+
+    @MainActor func testCancelingSpeculationPreservesVisibleOriginalRequest() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let bytes = png(.blue), loader = ControlledViewerDownload(payloads: [bytes])
+        defer { Task { await loader.releaseAll() } }
+        let cache = BooruViewerImageCache(directory: root, loadData: { _, _ in await loader.load() })
+        let speculative = Task { try await cache.data(url: url, server: server) }
+        let visible = Task { try await cache.data(url: url, server: server) }
+        try await waitUntil { await cache.consumerCount(url: self.url, server: self.server) == 2 }
+        speculative.cancel()
+        do { _ = try await speculative.value; XCTFail("Canceled caller must return before the download completes") }
+        catch is CancellationError {} catch { XCTFail("Unexpected error: \(error)") }
+        let consumers = await cache.consumerCount(url: url, server: server)
+        XCTAssertEqual(consumers, 1)
+        await loader.release(1)
+        let image = try await visible.value
+        XCTAssertEqual(image, bytes)
+        let count = await loader.requests
+        XCTAssertEqual(count, 1)
+    }
+
+    @MainActor func testLastConsumerCancellationAllowsFreshRequestWithoutStaleCacheWrite() async throws {
+        try await verifyRestart(clear: false)
+    }
+
+    @MainActor func testClearingCacheCancelsConsumersAndRejectsLateResponse() async throws {
+        try await verifyRestart(clear: true)
+    }
+
+    @MainActor private func verifyRestart(clear: Bool) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let oldBytes = png(.blue), newBytes = png(.red)
+        let loader = ControlledViewerDownload(payloads: [oldBytes, newBytes])
+        defer { Task { await loader.releaseAll() } }
+        let cache = BooruViewerImageCache(directory: root, loadData: { _, _ in await loader.load() })
+        let old = Task { try await cache.data(url: url, server: server) }
+        try await waitUntil { await loader.requests == 1 }
+        if clear { await cache.clear() } else { old.cancel() }
+        do { _ = try await old.value; XCTFail("The unused consumer must finish immediately") }
+        catch is CancellationError {} catch { XCTFail("Unexpected error: \(error)") }
+        let current = Task { try await cache.data(url: url, server: server) }
+        try await waitUntil { await loader.requests == 2 }
+        // Simulate a transport that finishes after cancellation, out of order.
+        await loader.release(2)
+        let value = try await current.value
+        XCTAssertEqual(value, newBytes)
+        await loader.release(1)
+        let cached = try await cache.data(url: url, server: server)
+        XCTAssertEqual(cached, newBytes)
+        let count = await loader.requests
+        XCTAssertEqual(count, 2)
+    }
+
+    @MainActor private func waitUntil(_ condition: () async -> Bool) async throws {
+        for _ in 0..<200 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTFail("Viewer download did not reach the expected state")
+        throw URLError(.timedOut)
+    }
+}
+
+private actor ControlledViewerDownload {
+    let payloads: [Data]
+    private(set) var requests = 0
+    private var gates: [Int: CheckedContinuation<Void, Never>] = [:]
+    init(payloads: [Data]) { self.payloads = payloads }
+    func load() async -> Data {
+        requests += 1
+        let index = requests
+        await withCheckedContinuation { gates[index] = $0 }
+        return payloads[min(index - 1, payloads.count - 1)]
+    }
+    func release(_ request: Int) { gates.removeValue(forKey: request)?.resume() }
+    func releaseAll() {
+        let pending = gates.values
+        gates.removeAll()
+        for continuation in pending { continuation.resume() }
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 struct TasteRecommendation: Identifiable, Sendable {
     let item: TasteItem
@@ -25,18 +26,48 @@ struct TasteRecommendations: Sendable {
 }
 
 struct RecommendationService {
-    static func score(_ item: TasteItem, tags: [TasteTag], ignoring: Set<String> = []) -> Double {
-        let eligible = Set(item.eligibleTags.filter { !ignoring.contains(TasteControl.normalizeExclusion($0)) })
-        let matches = tags.filter { $0.source == item.source && eligible.contains($0.name) }
-        let profile = tags.filter { $0.source == item.source && $0.count > 0 }
-        let libraryCount = max(1, Set(profile.flatMap { $0.works.map(\.key) }).count)
-        func importance(_ tag: TasteTag) -> Double {
-            let confidence = Double(tag.count) / Double(tag.count + 4)
-            let rarity = 1 + log(1 + Double(libraryCount) / Double(1 + tag.works.count))
-            return tag.weight * confidence * rarity
+    /// The library-wide evidence and denominator are constant for every
+    /// candidate from a source. Build them once for each requested page.
+    struct ScoringProfile: Sendable {
+        private struct WeightedTag: Sendable { let name: String; let weight: Double }
+        private let source: String
+        private let tags: [WeightedTag]
+        private let positions: [String: [Int]]
+        private let norm: Double
+
+        init(source: String, tags: [TasteTag]) {
+            self.source = source
+            let matching = tags.filter { $0.source == source }
+            let profile = matching.filter { $0.count > 0 }
+            let libraryCount = max(1, Set(profile.flatMap { $0.works.map(\.key) }).count)
+            func importance(_ tag: TasteTag) -> Double {
+                let confidence = Double(tag.count) / Double(tag.count + 4)
+                let rarity = 1 + log(1 + Double(libraryCount) / Double(1 + tag.works.count))
+                return tag.weight * confidence * rarity
+            }
+            norm = sqrt(profile.reduce(0) { $0 + pow(importance($1), 2) })
+            // Preserve the original tag order, including duplicate names, so
+            // floating-point sums and tie-breaking do not change.
+            self.tags = matching.map { WeightedTag(name: $0.name, weight: importance($0)) }
+            positions = Dictionary(grouping: matching.indices, by: { matching[$0].name })
         }
-        let norm = sqrt(profile.reduce(0) { $0 + pow(importance($1), 2) })
-        return matches.reduce(0) { $0 + importance($1) } / max(1, norm * sqrt(Double(max(1, eligible.count))))
+
+        func score(_ item: TasteItem, ignoring: Set<String> = []) -> Double {
+            guard item.source == source else { return 0 }
+            let eligible = Set(item.eligibleTags.filter { !ignoring.contains(TasteControl.normalizeExclusion($0)) })
+            return score(eligibleTags: eligible)
+        }
+
+        func score(eligibleTags: Set<String>) -> Double {
+            // Only visit matched tags while preserving the original profile's
+            // summation order, including duplicate names and floating-point ties.
+            let matched = eligibleTags.flatMap { positions[$0] ?? [] }.sorted().reduce(0.0) { $0 + tags[$1].weight }
+            return matched / max(1, norm * sqrt(Double(max(1, eligibleTags.count))))
+        }
+    }
+
+    static func score(_ item: TasteItem, tags: [TasteTag], ignoring: Set<String> = []) -> Double {
+        ScoringProfile(source: item.source, tags: tags).score(item, ignoring: ignoring)
     }
     static func mix(_ candidates: [TasteRecommendation], limit: Int = 20, shuffled: Bool = false) -> [TasteRecommendation] {
         let sorted = candidates.sorted { $0.score == $1.score ? $0.id < $1.id : $0.score > $1.score }
@@ -44,23 +75,29 @@ struct RecommendationService {
         let unique = sorted.filter { seen.insert($0.id).inserted }
         // Maximal marginal relevance discourages near-duplicate tag combinations.
         // Small jitter varies equally useful choices without discarding relevance.
+        let rankingTags = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, $0.rankingTags ?? Set($0.item.eligibleTags)) })
         var remaining = unique
         let jitter = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, shuffled ? Double.random(in: 0.9...1.1) : 1) })
         var result: [TasteRecommendation] = []
         let maximum = max(0.001, unique.map(\.score).max() ?? 1)
         while !remaining.isEmpty && result.count < limit {
+            if Task.isCancelled { break }
             let wantDiscovery = result.count % 10 >= 7
             let eligible = remaining.filter { $0.reason.discovery == wantDiscovery }
             let pool = eligible.isEmpty ? remaining : eligible
             func utility(_ candidate: TasteRecommendation) -> Double {
-                let tags = candidate.rankingTags ?? Set(candidate.item.eligibleTags)
-                let overlap = result.suffix(8).filter { $0.item.source == candidate.item.source }.map { other in
-                    let theirs = other.rankingTags ?? Set(other.item.eligibleTags)
-                    return Double(tags.intersection(theirs).count) / Double(max(1, tags.union(theirs).count))
-                }.max() ?? 0
+                let tags = rankingTags[candidate.id] ?? []
+                var overlap = 0.0
+                for other in result.suffix(8) where other.item.source == candidate.item.source {
+                    let theirs = rankingTags[other.id] ?? []
+                    let intersection = tags.reduce(0) { $0 + (theirs.contains($1) ? 1 : 0) }
+                    overlap = max(overlap, Double(intersection) / Double(max(1, tags.count + theirs.count - intersection)))
+                }
                 return 0.8 * candidate.score / maximum * jitter[candidate.id, default: 1] - 0.2 * overlap
             }
-            guard let next = pool.max(by: { utility($0) < utility($1) }) else { break }
+            // Compute each utility once; max(by:) otherwise recomputes both
+            // sides (and their tag intersections) for every comparison.
+            guard let next = pool.map({ (item: $0, utility: utility($0)) }).max(by: { $0.utility < $1.utility })?.item else { break }
             result.append(next); remaining.removeAll { $0.id == next.id }
         }
         return result
@@ -68,6 +105,7 @@ struct RecommendationService {
     @MainActor
     static func load(mode: TasteMode, snapshot: TasteSnapshot, report: TasteReport?, env: AppEnvironment, language: String,
                      booruSource: any BooruProviding = BooruClient.shared, comicSource: any ContentProviding = MangaContentSource.shared, sourceAddress: String? = nil, sourceAddresses: [String]? = nil, preferencesOverride: [String: RecommendationPreferences]? = nil, cursor: RecommendationCursor = .init(), excluding: Set<String> = [], shuffled: Bool = false, seedOffset: Int = 0, requestTimeout: TimeInterval = 35) async throws -> TasteRecommendations {
+        try Task.checkCancellation()
         guard env.taste.control.enabled else { return .init() }
         func settings(for source: String) -> RecommendationPreferences {
             if let value = preferencesOverride?[source] { return value }
@@ -79,6 +117,9 @@ struct RecommendationService {
         let tags = snapshot.tags.filter { $0.count > 0 && TasteTagPolicy.eligible($0.name) && env.taste.control.allows($0.name, source: $0.source, mode: mode) }.sorted {
             if highlighted.contains($0.id) != highlighted.contains($1.id) { return highlighted.contains($0.id) }
             return $0.weight == $1.weight ? $0.id < $1.id : $0.weight > $1.weight
+        }
+        let scoringProfiles = Dictionary(grouping: tags, by: \.source).mapValues {
+            ScoringProfile(source: $0[0].source, tags: $0)
         }
         func seeds(_ source: String) -> [TasteTag] {
             let matching = tags.filter { $0.source == source }
@@ -127,8 +168,10 @@ struct RecommendationService {
                                     let batch = try await RecommendationDeadline.run(seconds: requestTimeout) {
                                         try await BooruSortValidation.posts(source: booruSource, server: server, query: rating.query(query, server: server), page: page, sort: sort)
                                     }
-                                    let fingerprint = batch.posts.map(\.id).joined(separator: ",")
-                                    if !batch.hasMore || batch.posts.isEmpty || cursor.fingerprints[key] == fingerprint { result.cursor.finished.insert(key) }
+                                    try Task.checkCancellation()
+                                    env.booru.recordGoldRestrictions(serverID: server.id, postIDs: batch.goldRestrictedIDs)
+                                    let fingerprint = (batch.posts.map(\.id) + batch.goldRestrictedIDs.sorted().map { "gold:\($0)" }).joined(separator: ",")
+                                    if !batch.hasMore || batch.sourcePostCount == 0 || cursor.fingerprints[key] == fingerprint { result.cursor.finished.insert(key) }
                                     result.cursor.fingerprints[key] = fingerprint
                                     result.cursor.pages[key] = page + 1
                                     candidates = batch.posts
@@ -138,8 +181,8 @@ struct RecommendationService {
                                 var hydrated = 0
                                 for var post in candidates where !saved.contains(post.id) {
                                     try Task.checkCancellation()
-                                    guard !excluding.contains(server.canonicalAddress + "#" + String(post.postID)) else { continue }
-                                    let names = Set(post.tags.map(TasteTagPolicy.normalize))
+                                    guard env.booru.isVisible(post), !excluding.contains(server.canonicalAddress + "#" + String(post.postID)) else { continue }
+                                    var names = Set(post.tags.map(TasteTagPolicy.normalize))
                                     let needsDetails = !names.contains(seed.name) || !preferences.includedTags.allSatisfy(names.contains) || rating != .all && post.rating.isEmpty
                                     if server.engine.usesGelbooruPages && needsDetails {
                                         let remaining = detailBudget - Date().timeIntervalSince(detailStart)
@@ -150,14 +193,17 @@ struct RecommendationService {
                                             post = try await RecommendationDeadline.run(seconds: min(6, remaining)) {
                                                 try await booruSource.details(server: server, post: unresolved)
                                             }
+                                            names = Set(post.tags.map(TasteTagPolicy.normalize))
                                         } catch is CancellationError { throw CancellationError() }
+                                        catch BooruPostAccessError.goldRequired { env.booru.recordGoldRestriction(unresolved); continue }
                                         catch { detailFailures = true; continue }
                                     }
-                                    guard !blacklist.contains(post), ratingAllows(rating, post: post, server: server) else { continue }
+                                    guard env.booru.isVisible(post), !blacklist.contains(post), ratingAllows(rating, post: post, server: server) else { continue }
                                     let item = TasteItem(source: server.canonicalAddress, id: post.postID, tags: post.tags, metadata: post.metadataTags ?? [])
-                                    guard item.eligibleTags.contains(seed.name), preferences.includedTags.allSatisfy(Set(post.tags.map(TasteTagPolicy.normalize)).contains) else { continue }
-                                    let ignored = Set(item.eligibleTags.filter { !control.allows($0, source: item.source, mode: mode) }.map(TasteControl.normalizeExclusion))
-                                    result.items.append(.init(item: item, post: post, gallery: nil, reason: seed, score: score(item, tags: tags, ignoring: ignored), rankingTags: Set(item.eligibleTags).filter { !ignored.contains(TasteControl.normalizeExclusion($0)) }))
+                                    let eligible = Set(item.eligibleTags)
+                                    guard eligible.contains(seed.name), preferences.includedTags.allSatisfy(names.contains) else { continue }
+                                    let rankingTags = eligible.filter { control.allows($0, source: item.source, mode: mode) }
+                                    result.items.append(.init(item: item, post: post, gallery: nil, reason: seed, score: scoringProfiles[item.source]?.score(eligibleTags: rankingTags) ?? 0, rankingTags: rankingTags))
                                 }
                                 // Resume unresolved candidates before fetching another page, even
                                 // when this was the website's last page. Never silently skip them.
@@ -196,23 +242,26 @@ struct RecommendationService {
                     let query = GalleryQuery(language: preferences.language, text: seed.name, sort: GallerySort(rawValue: preferences.sort.rawValue) ?? .latest).applyingDefaults(tags: preferences.includedTags.joined(separator: " "), excluded: env.defaultExcludedTags)
                     let batch = try await comicSource.list(query, offset: page * 24, count: 24)
                     let fingerprint = batch.ids.map(String.init).joined(separator: ",")
-                    var ids: [Int64] = []
-                    for id in batch.ids where fetched.insert(id).inserted && !excluding.contains("https://manga.la#" + String(id)) {
-                        if try env.database.getWork(galleryId: id) == nil { ids.append(id) }
-                    }
+                    let candidates = batch.ids.filter { fetched.insert($0).inserted && !excluding.contains("https://manga.la#" + String($0)) }
+                    let saved = try savedComicIDs(candidates, database: env.database)
+                    let ids = candidates.filter { !saved.contains($0) }
                     let pendingIDs = ids
                     let galleries = try await RecommendationDeadline.run(seconds: requestTimeout) {
                         try await loadGalleries(pendingIDs, source: comicSource)
                     }
                     if !ids.isEmpty && galleries.isEmpty { throw ContentError.invalidResponse }
+                    // Recheck after metadata awaits so saving a work while the
+                    // request runs still excludes it, using one indexed query.
+                    let savedAfterLoading = try savedComicIDs(galleries.map(\.id), database: env.database)
                     for gallery in galleries {
                         let id = gallery.id
                         try Task.checkCancellation()
-                        guard try env.database.getWork(galleryId: id) == nil else { continue }
+                        guard !savedAfterLoading.contains(id) else { continue }
                         let item = TasteItem(source: "https://manga.la", id: id, tags: gallery.tags)
-                        guard item.eligibleTags.contains(seed.name), !excluding.contains(item.key) else { continue }
-                        let ignored = Set(item.eligibleTags.filter { !env.taste.control.allows($0, source: item.source, mode: mode) }.map(TasteControl.normalizeExclusion))
-                        output.items.append(.init(item: item, post: nil, gallery: gallery, reason: seed, score: score(item, tags: tags, ignoring: ignored), rankingTags: Set(item.eligibleTags).filter { !ignored.contains(TasteControl.normalizeExclusion($0)) }))
+                        let eligible = Set(item.eligibleTags)
+                        guard eligible.contains(seed.name), !excluding.contains(item.key) else { continue }
+                        let rankingTags = eligible.filter { env.taste.control.allows($0, source: item.source, mode: mode) }
+                        output.items.append(.init(item: item, post: nil, gallery: gallery, reason: seed, score: scoringProfiles[item.source]?.score(eligibleTags: rankingTags) ?? 0, rankingTags: rankingTags))
                     }
                     if !batch.hasMore || batch.ids.isEmpty || cursor.fingerprints[seed.id] == fingerprint { output.cursor.finished.insert(seed.id) }
                     output.cursor.fingerprints[seed.id] = fingerprint
@@ -222,11 +271,30 @@ struct RecommendationService {
             }
         }
         output.cursor.hasMore = activeSeeds.contains { !output.cursor.finished.contains($0) || !(output.cursor.pendingPosts[$0] ?? []).isEmpty }
-        let grouped = Dictionary(grouping: output.items, by: { $0.item.source })
+        let items = output.items.filter { $0.post.map(env.booru.isVisible) ?? true }
+        let preferences = Dictionary(uniqueKeysWithValues: Set(items.map { $0.item.source }).map { ($0, settings(for: $0)) })
+        let ranking = Task.detached(priority: .userInitiated) { rank(items, preferences: preferences, mode: mode, shuffled: shuffled) }
+        output.items = await withTaskCancellationHandler { await ranking.value } onCancel: { ranking.cancel() }
+        try Task.checkCancellation()
+        guard env.taste.control.enabled else { return .init() }
+        output.items.removeAll { $0.post.map { !env.booru.isVisible($0) } ?? false }
+        return output
+    }
+
+    private static func savedComicIDs(_ ids: [Int64], database: AppDatabase) throws -> Set<Int64> {
+        guard !ids.isEmpty else { return [] }
+        return try database.dbWriter.read { db in
+            let placeholders = Array(repeating: "?", count: ids.count).joined(separator: ",")
+            return Set(try Int64.fetchAll(db, sql: "SELECT gallery_id FROM works WHERE gallery_id IN (\(placeholders))", arguments: StatementArguments(ids)))
+        }
+    }
+
+    private static func rank(_ candidates: [TasteRecommendation], preferences: [String: RecommendationPreferences], mode: TasteMode, shuffled: Bool) -> [TasteRecommendation] {
+        let grouped = Dictionary(grouping: candidates, by: { $0.item.source })
         // Interleave independent server decks; never compare unrelated tag profiles.
         let decks = grouped.keys.sorted().map { address -> [TasteRecommendation] in
             var items = grouped[address] ?? []
-            let preference = settings(for: address)
+            let preference = preferences[address] ?? .init()
             if preference.sort == .recommended { return mix(items, limit: items.count, shuffled: shuffled) }
             if preference.sort == .latest { items.sort { $0.item.id > $1.item.id } }
             else if mode == .booru, let sort = preference.sort.booruSort,
@@ -235,10 +303,7 @@ struct RecommendationService {
             }
             var seen = Set<String>(); return items.filter { seen.insert($0.id).inserted }
         }
-        output.items = (0..<(decks.map(\.count).max() ?? 0)).flatMap { index in decks.compactMap { $0.indices.contains(index) ? $0[index] : nil } }
-        try Task.checkCancellation()
-        guard env.taste.control.enabled else { return .init() }
-        return output
+        return (0..<(decks.map(\.count).max() ?? 0)).flatMap { index in decks.compactMap { $0.indices.contains(index) ? $0[index] : nil } }
     }
     static func loadGalleries(_ ids: [Int64], source: any ContentProviding) async throws -> [NativeGallery] {
         try await withThrowingTaskGroup(of: (Int, NativeGallery?).self) { group in

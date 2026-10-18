@@ -29,6 +29,8 @@ final class TasteController {
     private let cache = TasteAnalysisCache()
     private let library: AppDatabase
     private let images: BooruStore
+    @ObservationIgnored private var bootstrapTask: Task<Bool, Error>?
+    @ObservationIgnored private var bootstrapped = false
     init(library: AppDatabase, images: BooruStore) {
         self.library = library; self.images = images
         comics = library.tasteStore; booru = images.tasteStore
@@ -37,14 +39,22 @@ final class TasteController {
     }
     func store(_ mode: TasteMode) -> TasteStore { mode == .booru ? booru : comics }
     func bootstrap() async {
-        guard control.enabled else { return }
-        let library = library, images = images
+        guard control.enabled, !bootstrapped, !Task.isCancelled else { return }
         do {
-            try await Task.detached(priority: .utility) {
-                if try library.tasteStore.metadata(Bool.self, key: "bootstrapped") != true { try library.tasteStore.bootstrap(library.tasteLibrary()) }
-                if try images.tasteStore.metadata(Bool.self, key: "bootstrapped") != true { try images.tasteStore.bootstrap(images.tasteLibrary()) }
-            }.value
-        } catch { self.error = L10n.text("Unable to update taste analysis.") }
+            if bootstrapTask == nil {
+                let library = library, images = images
+                bootstrapTask = Task.detached(priority: .utility) {
+                    if try library.tasteStore.metadata(Bool.self, key: "bootstrapped") != true { try library.tasteStore.bootstrap(library.tasteLibrary()) }
+                    if try images.tasteStore.metadata(Bool.self, key: "bootstrapped") != true { try images.tasteStore.bootstrap(images.tasteLibrary()) }
+                    // A pause can make either store decline bootstrap after its
+                    // library read. Do not latch success until both committed it.
+                    return try library.tasteStore.metadata(Bool.self, key: "bootstrapped") == true
+                        && images.tasteStore.metadata(Bool.self, key: "bootstrapped") == true
+                }
+            }
+            bootstrapped = try await bootstrapTask?.value ?? false
+            bootstrapTask = nil
+        } catch { bootstrapTask = nil; self.error = L10n.text("Unable to update taste analysis.") }
     }
     func change(_ update: (inout TasteControl) -> Void) {
         var next = control; update(&next)
@@ -90,11 +100,16 @@ final class TasteController {
     private func awaitCacheInvalidation() { Task { await cache.invalidate() } }
     func exclude(_ tag: TasteTag) { change { $0.excluded.insert(tag.id) } }
     func snapshot(_ mode: TasteMode, period: TastePeriod, offset: Int, now: Date = Date()) async throws -> TasteSnapshot {
+        try Task.checkCancellation()
         await bootstrap()
+        try Task.checkCancellation()
         let interval = period.interval(offset: offset, now: now, timeZone: control.timeZone)
         let previous = offset < 0 ? period.interval(offset: offset - 1, now: now, timeZone: control.timeZone) : nil
         let store = store(mode)
-        let keys = try await Task.detached(priority: .utility) { try store.savedKeys() }.value
+        // Historical activity does not depend on the current library. Reading
+        // every saved ID four times during startup report preparation was wasted.
+        let keys = interval == nil ? try await Task.detached(priority: .utility) { try store.savedKeys() }.value : nil
+        try Task.checkCancellation()
         return try await cache.snapshot(store: store, control: control, period: interval, previous: previous, savedKeys: keys)
     }
     func synchronize(env: AppEnvironment) async {

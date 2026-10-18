@@ -3,9 +3,11 @@ import GRDB
 
 public struct FoldersView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var folders: [Folder] = []
+    @State private var reloadGeneration = 0
     @State private var previews: [Int64: [Work]] = [:]
     @State private var showCreateAlert = false
     @State private var newFolderName = ""
@@ -151,29 +153,35 @@ public struct FoldersView: View {
         .alert(L10n.text("Error"), isPresented: Binding(get: { editError != nil }, set: { if !$0 { editError = nil } })) {
             Button(L10n.text("OK"), role: .cancel) { editError = nil }
         } message: { Text(editError ?? "") }
-        .task {
-            do {
-                let observation = ValueObservation.tracking { db in
-                    try (
-                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM works") ?? 0,
-                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM folders") ?? 0,
-                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM folder_works") ?? 0,
-                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM artists") ?? 0,
-                        String.fetchOne(db, sql: "SELECT MAX(updated_at) FROM works") ?? ""
-                    )
-                }
-                for try await _ in observation.values(in: env.database.dbWriter) { loadFolders() }
-            } catch { loadFolders() }
+        .task(id: "\(reloadGeneration):\(env.mode == .manga && scenePhase == .active)") {
+            await observeFolders()
         }
     }
 
+    @MainActor private func observeFolders() async {
+        guard env.mode == .manga, scenePhase == .active else { return }
+        do {
+            let observation = ValueObservation.tracking { db -> FolderSnapshot in
+                let folders = try AppDatabase.fetchFolders(db)
+                let previews = try AppDatabase.fetchFolderPreviews(db)
+                return FolderSnapshot(folders: folders, previews: previews)
+            }.removeDuplicates()
+            for try await snapshot in observation.values(in: env.database.dbWriter, bufferingPolicy: .bufferingNewest(1)) {
+                try Task.checkCancellation()
+                if folders != snapshot.folders { folders = snapshot.folders }
+                previews = snapshot.previews
+            }
+        } catch is CancellationError { }
+        catch { editError = error.localizedDescription }
+    }
+
+    private struct FolderSnapshot: Equatable {
+        let folders: [Folder]
+        let previews: [Int64: [Work]]
+    }
+
     private func loadFolders() {
-        if let list = try? env.database.listFolders() {
-            self.folders = list
-        }
-        if let p = try? env.database.folderPreviews(limitPerFolder: 4) {
-            self.previews = p
-        }
+        reloadGeneration += 1
     }
 
     private func createFolder() {

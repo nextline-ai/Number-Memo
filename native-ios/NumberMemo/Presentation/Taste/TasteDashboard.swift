@@ -8,14 +8,22 @@ struct TasteDashboard: View {
     var explore: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
     @State private var bookmarks = Set<Int64>()
     @State private var saveFeedback: WorkSaveFeedback?
     @State private var opened: TasteRecommendation?
     @State private var detail: TasteTag?
+    @State private var comicPrefetchTask: Task<Void, Never>?
+    @State private var prefetchAnchor: Int?
     private var sources: [String] { mode == .comics ? ["https://manga.la"] : env.booru.selectedServers.map(\.canonicalAddress) }
     private var source: String { sources.first ?? "" }
+    private var isActiveMode: Bool { env.mode == (mode == .booru ? .booru : .manga) }
     private var feed: TasteFeedState { env.taste.feed(mode, sources: sources) }
     private var columns: [GridItem] { WorkGridLayout.columns(typeSize.isAccessibilitySize ? 1 : env.gridColumns(for: mode == .booru ? .booru : .manga)) }
+    private var lookahead: Int {
+        let count = typeSize.isAccessibilitySize ? 1 : env.gridColumns(for: mode == .booru ? .booru : .manga)
+        return (count == 0 ? 2 : count) * 2
+    }
 
     var body: some View {
         ScrollView {
@@ -68,15 +76,27 @@ struct TasteDashboard: View {
             }
         }
         .accessibilityIdentifier("taste.dashboard")
-        .task {
-            let observation = ValueObservation.tracking { db in Set(try Int64.fetchAll(db, sql: "SELECT gallery_id FROM works")) }
-            do { for try await ids in observation.values(in: env.database.dbWriter) { bookmarks = ids } } catch { }
+        .task(id: "\(mode):\(isActiveMode):\(scenePhase)") {
+            guard mode == .comics, isActiveMode, scenePhase == .active else { return }
+            let observation = ValueObservation.tracking { db in Set(try Int64.fetchAll(db, sql: "SELECT gallery_id FROM works")) }.removeDuplicates()
+            do { for try await ids in observation.values(in: env.database.dbWriter, bufferingPolicy: .bufferingNewest(1)) { bookmarks = ids } } catch { }
         }
         .transientMessage(Binding(get: { feed.sortMessage }, set: { feed.sortMessage = $0 }))
         .workSaveFeedback($saveFeedback, identifier: "taste.saveStatus")
-        .onChange(of: sources) { _, _ in feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) }
-        .onAppear { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) }
-        .onChange(of: env.taste.control.enabled) { _, enabled in if enabled { feed.ensureLoaded(mode: mode, env: env, language: comicLanguage) } }
+        .onChange(of: sources) { _, _ in ensureLoaded() }
+        .onAppear { ensureLoaded() }
+        .onDisappear { cancelPrefetch(); feed.cancelLoading() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { ensureLoaded() }
+            else { cancelPrefetch(); feed.cancelLoading() }
+        }
+        .onChange(of: env.mode) { _, _ in
+            if isActiveMode { ensureLoaded() }
+            else { cancelPrefetch(); feed.cancelLoading() }
+        }
+        .onChange(of: feed.discoverySession) { _, _ in cancelPrefetch() }
+        .onChange(of: env.booru.confirmedGoldRestrictedIDs) { _, _ in cancelPrefetch() }
+        .onChange(of: env.taste.control.enabled) { _, enabled in if enabled { ensureLoaded() } }
         .refreshable { refresh(); await feed.waitForRefresh() }
         .tasteWorkPresentation($opened, feed: feed) { .recommended($0.reason.name, session: feed.discoverySession) }
         .navigationDestination(item: $detail) { TasteTagDetail(tag: $0, mode: mode) }
@@ -132,7 +152,8 @@ struct TasteDashboard: View {
         }.buttonStyle(.plain).accessibilityIdentifier("taste.highlight")
     }
     private var works: some View {
-        Group {
+        let items = feed.visibleItems(in: env.booru)
+        return Group {
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 8) {
                     TasteSectionHeading(title: "Picked for you")
@@ -141,12 +162,13 @@ struct TasteDashboard: View {
             } else {
                 HStack { TasteSectionHeading(title: "Picked for you"); Spacer(); evidenceLink }
             }
-            if !feed.results.items.isEmpty {
-                let prefetchThresholdIndex = max(0, feed.results.items.count - 8)
+            if !items.isEmpty {
+                let prefetchThresholdIndex = max(0, items.count - lookahead)
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
-                    ForEach(Array(feed.results.items.enumerated()), id: \.element.id) { index, item in
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         TasteRecommendationCard(item: item, open: { opened = item }, toggle: { toggle(item) }, isBookmarked: bookmarks.contains(item.item.id))
                             .onAppear {
+                                guard isActiveMode, scenePhase == .active else { return }
                                 if index >= prefetchThresholdIndex && feed.results.failures.isEmpty && feed.results.cursor.hasMore && !feed.loading && !feed.loadingMore {
                                     Task { await feed.loadMore(mode: mode, env: env, language: comicLanguage) }
                                 }
@@ -159,7 +181,7 @@ struct TasteDashboard: View {
             } else if feed.results.failures.isEmpty && !feed.results.cursor.hasMore {
                 message(L10n.text("You're all caught up. Explore more works or refresh for new recommendations."), icon: "checkmark.circle", action: explore == nil ? "Try Again" : "Explore works") { if let explore { explore() } else { refresh() } }
             }
-            if feed.loading && !feed.results.items.isEmpty { ProgressView().frame(maxWidth: .infinity) }
+            if feed.loading && !items.isEmpty { ProgressView().frame(maxWidth: .infinity) }
             if feed.results.cursor.hasMore && !feed.loading && feed.snapshot != nil {
                 if feed.results.failures.isEmpty {
                     Button {
@@ -170,7 +192,7 @@ struct TasteDashboard: View {
                     }.disabled(feed.loadingMore)
                         .accessibilityIdentifier("taste.loadMore")
                 }
-            } else if !feed.loading && !feed.results.items.isEmpty {
+            } else if !feed.loading && !items.isEmpty {
                 Text(L10n.text("You've reached the end of these recommendations.")).font(.footnote).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding()
             }
             if !feed.results.failures.isEmpty {
@@ -195,8 +217,11 @@ struct TasteDashboard: View {
     }
 
     private func prefetchRecommendations(around index: Int) {
-        let items = feed.results.items
-        let lookaheadEnd = min(items.count, index + 16)
+        guard isActiveMode, scenePhase == .active, CoverQueuePolicy.allowsBackfill else { return }
+        if let anchor = prefetchAnchor, abs(index - anchor) < 4 { return }
+        prefetchAnchor = index
+        let items = feed.visibleItems(in: env.booru)
+        let lookaheadEnd = min(items.count, index + lookahead + 1)
         guard index + 1 < lookaheadEnd else { return }
         let upcoming = Array(items[(index + 1)..<lookaheadEnd])
         let booruTargets = upcoming.compactMap { item -> (URL, BooruServer)? in
@@ -208,15 +233,25 @@ struct TasteDashboard: View {
         BooruThumbnailCache.shared.prefetch(booruTargets)
         let comicGalleries = upcoming.compactMap { $0.gallery }
         if !comicGalleries.isEmpty {
-            Task.detached(priority: .utility) {
+            comicPrefetchTask?.cancel()
+            comicPrefetchTask = Task(priority: .utility) {
                 for gallery in comicGalleries {
-                    guard !Task.isCancelled else { break }
+                    guard !Task.isCancelled, CoverQueuePolicy.allowsBackfill else { break }
                     if let page = gallery.pages.first {
                         _ = try? await TasteSources.images.load(page, galleryID: gallery.id, thumbnail: true)
                     }
                 }
             }
         }
+    }
+
+    private func cancelPrefetch() {
+        comicPrefetchTask?.cancel(); comicPrefetchTask = nil; prefetchAnchor = nil
+    }
+
+    private func ensureLoaded() {
+        guard isActiveMode, scenePhase == .active else { return }
+        feed.ensureLoaded(mode: mode, env: env, language: comicLanguage)
     }
 
     private func toggle(_ item: TasteRecommendation) {

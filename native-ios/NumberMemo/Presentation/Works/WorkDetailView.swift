@@ -28,8 +28,9 @@ public struct WorkDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 if let work {
-                    WorkDetailCover(image: savedCover, loading: isChangingThumb)
-                        .id(imageReloadKey)
+                    LocalThumbnailView(path: work.thumbStatus == "ready" ? work.thumbPath : nil, revision: String(work.thumbPage ?? 1)) { image in
+                        WorkDetailCover(image: image, loading: isChangingThumb)
+                    }.id(imageReloadKey)
 
                     // Title section
                     VStack(alignment: .leading, spacing: 6) {
@@ -303,11 +304,6 @@ public struct WorkDetailView: View {
             loadData()
             loadGalleryFilesIfNeeded()
         }
-    }
-
-    private var savedCover: UIImage? {
-        guard let work, work.thumbStatus == "ready", let path = work.thumbPath else { return nil }
-        return LocalThumbnailCache.shared.image(forPath: path)
     }
 
     private func loadData() {

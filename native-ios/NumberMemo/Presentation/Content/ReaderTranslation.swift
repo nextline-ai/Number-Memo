@@ -3,7 +3,7 @@ import Vision
 import VisionKit
 import ImageIO
 
-struct ReaderTextRegion: Sendable {
+struct ReaderTextRegion: Sendable, Equatable {
     let text: String
     let bounds: CGRect
 }

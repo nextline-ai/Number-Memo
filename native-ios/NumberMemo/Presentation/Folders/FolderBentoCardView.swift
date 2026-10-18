@@ -78,23 +78,20 @@ public struct FolderBentoCardView: View {
                 Group {
                     if index < previews.count {
                         let work = previews[index]
-                        if let path = work.thumbPath,
-                           work.thumbStatus == "ready",
-                           let uiImage = LocalThumbnailCache.shared.image(forPath: path) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
-                                .id("\(work.galleryId)_\(work.thumbPage ?? 1)")
-                        } else {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(textColor.opacity(0.14))
-                                .overlay(
-                                    Text(verbatim: String(work.galleryId))
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(textColor.opacity(0.85))
-                                        .lineLimit(1)
-                                        .padding(2)
-                                )
+                        LocalThumbnailView(path: work.thumbStatus == "ready" ? work.thumbPath : nil, revision: String(work.thumbPage ?? 1)) { image in
+                            if let image {
+                                Image(uiImage: image).resizable().scaledToFill()
+                            } else {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(textColor.opacity(0.14))
+                                    .overlay(
+                                        Text(verbatim: String(work.galleryId))
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(textColor.opacity(0.85))
+                                            .lineLimit(1)
+                                            .padding(2)
+                                    )
+                            }
                         }
                     } else {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)

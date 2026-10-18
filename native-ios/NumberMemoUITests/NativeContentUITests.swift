@@ -24,6 +24,17 @@ final class NativeContentUITests: XCTestCase {
         XCTAssertTrue(read.waitForExistence(timeout: 10))
         read.tap()
         XCTAssertTrue(element(app, "reader.image").waitForExistence(timeout: 10))
+        // Cached previews can exist before fullScreenCover finishes presenting.
+        // Wait for the usable destination, not just an image in the view tree.
+        if extra.contains("--reader-help-test") {
+            expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: element(app, "reader.help.close"))
+        } else {
+            expectation(for: NSPredicate { _, _ in
+                app.images.matching(identifier: "reader.image").allElementsBoundByIndex.contains { $0.isHittable }
+                    && !app.navigationBars.allElementsBoundByIndex.contains { $0.isHittable }
+            }, evaluatedWith: app)
+        }
+        waitForExpectations(timeout: 10)
         return app
     }
     private func tap(_ app: XCUIApplication, x: CGFloat, y: CGFloat = 0.5) {
@@ -150,7 +161,7 @@ final class NativeContentUITests: XCTestCase {
 
     func testImmersiveReaderGesturesPreviewAndBookmark() {
         let app = launchReader()
-        XCTAssertEqual(app.navigationBars.count, 0)
+        XCTAssertFalse(app.navigationBars.allElementsBoundByIndex.contains { $0.isHittable })
         XCTAssertFalse(element(app, "reader.position").exists)
         capture(app, "Immersive reader without chrome")
         let image = element(app, "reader.image")
@@ -310,8 +321,8 @@ final class NativeContentUITests: XCTestCase {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
             .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)))
         sleep(1)
-        XCTAssertTrue(image.exists)
-        XCTAssertFalse(element(app, "content.read").exists, "Downward pan while zoomed must never dismiss")
+        XCTAssertTrue(image.isHittable, "The enlarged reader must remain visible and interactive")
+        XCTAssertFalse(element(app, "content.read").isHittable, "Downward pan while zoomed must never dismiss")
         XCTAssertGreaterThan(image.frame.minY, before.minY + 80, "Short pages need real vertical travel, not only bounce")
         app.swipeLeft()
         XCTAssertEqual(image.value as? String, "250%", "Horizontal pan must not turn a page")
@@ -472,6 +483,11 @@ final class NativeContentUITests: XCTestCase {
         for card in app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "content.gallery.")).allElementsBoundByIndex where card.isHittable {
             XCTAssertTrue(card.label.contains("네이티브 읽기 테스트"), "A visible card must already have its prepared metadata and cover")
         }
+        let previousY = nextPage.frame.minY
+        XCUIDevice.shared.press(.home); app.activate()
+        expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: nextPage)
+        waitForExpectations(timeout: 10)
+        XCTAssertEqual(nextPage.frame.minY, previousY, accuracy: 8, "Returning to the app must retain the loaded page and scroll position")
         capture(app, "Explore prepared thumbnails beyond the first page")
         nextPage.tap()
         XCTAssertTrue(element(app, "content.read").waitForExistence(timeout: 5))

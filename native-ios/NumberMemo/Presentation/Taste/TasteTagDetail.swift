@@ -86,7 +86,12 @@ private struct TasteEvidenceRow: View {
             HStack(spacing: 12) {
                 Group {
                     if let post { TasteArtwork(post: post) }
-                    else if let path = work?.thumbPath, let image = LocalThumbnailCache.shared.image(forPath: path) { Image(uiImage: image).resizable().scaledToFill() }
+                    else if let path = work?.thumbPath {
+                        LocalThumbnailView(path: path, revision: String(work?.thumbPage ?? 1)) { image in
+                            if let image { Image(uiImage: image).resizable().scaledToFill() }
+                            else { Color.secondary.opacity(0.1) }
+                        }
+                    }
                     else { Color.secondary.opacity(0.1).overlay { Image(systemName: mode == .booru ? "photo" : "book.closed").foregroundStyle(.secondary) } }
                 }.frame(width: 52, height: 64).clipped().clipShape(RoundedRectangle(cornerRadius: 10)).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {

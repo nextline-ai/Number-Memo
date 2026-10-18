@@ -180,11 +180,73 @@ final class ReaderUXTests: XCTestCase {
         for id in loader.ids { await loader.previews[id]?.load() }
     }
 
+    @MainActor func testPaginationDoesNotDownloadOffscreenCovers() async {
+        let source = feedSource()
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        await loader.load(GalleryQuery(), reset: false).value
+        let idleRequests = await source.imageRequests
+        XCTAssertTrue(idleRequests.isEmpty, "Loading IDs must not eagerly download all 48 covers")
+        loader.prioritizeCovers(startingAt: 20, count: 4)
+        for id: Int64 in 21...24 { await loader.previews[id]?.load() }
+        let requests = await source.imageRequests
+        XCTAssertEqual(Set(requests), Set((21...24).map(Int64.init)))
+    }
+
+    @MainActor func testCancelingOffscreenCardStopsItsUnsharedCover() async throws {
+        let source = feedSource(blocked: [1])
+        let preview = GalleryFeedPreview(id: 1, source: source, images: PageImageStore(source: source))
+        let visible = Task { await preview.load() }
+        await source.waitForImage(1)
+        visible.cancel()
+        // Let the cancellation handler release the final consumer before the
+        // simulated transport completes its otherwise uncancelable response.
+        try await Task.sleep(for: .milliseconds(20))
+        await source.release(1)
+        await visible.value
+        XCTAssertNil(preview.image, "An offscreen card must not finish decoding its obsolete response")
+        await preview.load()
+        XCTAssertNotNil(preview.image, "Returning to the card must remain retryable")
+    }
+
+    @MainActor func testCancelingLookaheadPreservesVisibleCardConsumer() async throws {
+        let source = feedSource(blocked: [1])
+        let preview = GalleryFeedPreview(id: 1, source: source, images: PageImageStore(source: source))
+        let speculative = Task { await preview.load() }
+        await source.waitForImage(1)
+        let visible = Task { await preview.load() }
+        try await Task.sleep(for: .milliseconds(20))
+        speculative.cancel()
+        try await Task.sleep(for: .milliseconds(20))
+        await source.release(1)
+        await speculative.value
+        await visible.value
+        XCTAssertNotNil(preview.image)
+        let requests = await source.imageRequests
+        XCTAssertEqual(requests, [1], "Visible and speculative consumers share one request")
+    }
+
+    @MainActor func testOffscreenCardReleasesPinnedContentAndReusesImageCache() async {
+        let source = feedSource()
+        let preview = GalleryFeedPreview(id: 1, source: source, images: PageImageStore(source: source))
+        await preview.load()
+        let image = preview.image
+        XCTAssertNotNil(image)
+        preview.discardDisplayContent()
+        XCTAssertNil(preview.image)
+        XCTAssertNil(preview.gallery)
+        await preview.load()
+        XCTAssertTrue(preview.image === image)
+        let requests = await source.imageRequests
+        XCTAssertEqual(requests, [1], "Returning to a cached card must not download again")
+    }
+
     @MainActor func testFeedPublishesImmediatelyWhileOneCoverRemainsBlocked() async throws {
         let source = feedSource(blocked: [1])
         let store = PageImageStore(source: source)
         let loader = GalleryFeedLoader(source: source, images: store)
         await loader.load(GalleryQuery(), reset: true).value
+        loader.prioritizeCovers(startingAt: 0, count: 4)
         await source.waitForImage(1)
         XCTAssertEqual(loader.ids, Array(1...24).map(Int64.init))
         XCTAssertFalse(loader.loading, "A blocked cover must never keep pagination loading")
@@ -213,6 +275,7 @@ final class ReaderUXTests: XCTestCase {
         let duplicate = loader.load(GalleryQuery(), reset: false)
         await request.value
         await duplicate.value
+        loader.prioritizeCovers(startingAt: 24, count: 4)
         await source.waitForImage(25)
         XCTAssertEqual(loader.ids, Array(1...48).map(Int64.init))
         XCTAssertFalse(loader.loading)
@@ -230,35 +293,38 @@ final class ReaderUXTests: XCTestCase {
     }
 
     @MainActor func testAllPrefetchWorkersBlockedStillAllowsNextPage() async {
-        let source = feedSource(blocked: [1, 2, 3, 4])
+        let source = feedSource(blocked: [1, 2])
         let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
         await loader.load(GalleryQuery(), reset: true).value
-        for id: Int64 in 1...4 { await source.waitForImage(id) }
+        loader.prioritizeCovers(startingAt: 0, count: 4)
+        for id: Int64 in 1...2 { await source.waitForImage(id) }
         let requests = await source.imageRequests
-        XCTAssertEqual(Set(requests), [1, 2, 3, 4])
+        XCTAssertEqual(Set(requests), [1, 2])
         let concurrency = await source.maximumActiveImages
-        XCTAssertEqual(concurrency, 4)
+        XCTAssertEqual(concurrency, 2)
         await loader.load(GalleryQuery(), reset: false).value
         XCTAssertEqual(loader.ids, Array(1...48).map(Int64.init))
         XCTAssertFalse(loader.loading)
         // A visible cell can bypass the blocked speculative queue.
         await loader.previews[25]?.load()
         XCTAssertNotNil(loader.previews[25]?.image)
-        for id: Int64 in 1...4 { await source.release(id) }
+        for id: Int64 in 1...2 { await source.release(id) }
         await loadCovers(loader)
     }
 
     @MainActor func testPrefetchPrioritizesApproachingRowsOverDistantCovers() async {
-        let source = feedSource(blocked: [1, 2, 3, 4])
+        let source = feedSource(blocked: [1, 2])
         let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
         await loader.load(GalleryQuery(), reset: true).value
-        for id: Int64 in 1...4 { await source.waitForImage(id) }
+        loader.prioritizeCovers(startingAt: 0, count: 4)
+        for id: Int64 in 1...2 { await source.waitForImage(id) }
         loader.prioritizeCovers(startingAt: 20, count: 4)
         await source.release(1)
         await source.waitForImage(21)
         let requests = await source.imageRequests
-        XCTAssertEqual(requests.dropFirst(4).first, 21)
-        for id: Int64 in 2...4 { await source.release(id) }
+        XCTAssertEqual(requests.dropFirst(2).first, 21)
+        XCTAssertFalse(requests.contains(3), "Old offscreen speculation must be discarded")
+        await source.release(2)
         await loadCovers(loader)
     }
 
@@ -266,6 +332,7 @@ final class ReaderUXTests: XCTestCase {
         let source = feedSource(blocked: [1])
         let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
         await loader.load(GalleryQuery(), reset: true).value
+        loader.prioritizeCovers(startingAt: 0, count: 4)
         await source.waitForImage(1)
         let previous = loader.previews[1]
         await loader.load(GalleryQuery(language: "english"), reset: true).value
@@ -333,6 +400,76 @@ final class ReaderUXTests: XCTestCase {
         XCTAssertEqual(before, 3)
         XCTAssertEqual(before, after)
         print("READER_CACHE_HIT_DURATION=\(duration)")
+    }
+
+    func testPrefetchBoundsIncompleteFinalSpreadAndDisabledSetting() {
+        XCTAssertEqual(PageImageStore.prefetchIndices(total: 5, current: 4, count: 3, visibleCount: 4), [4, 3])
+        XCTAssertEqual(PageImageStore.prefetchIndices(total: 6, current: 4, count: 3, visibleCount: 4), [4, 3])
+        XCTAssertEqual(PageImageStore.prefetchIndices(total: 8, current: 0, count: 2, visibleCount: 4), [0, 4, 5])
+        XCTAssertEqual(PageImageStore.prefetchIndices(total: 8, current: 0, count: 0), [])
+        XCTAssertEqual(PageImageStore.prefetchIndices(total: 0, current: 0, count: 3), [])
+        XCTAssertEqual(PageImageStore.prefetchIndices(total: 5, current: 5, count: 3), [])
+        XCTAssertEqual(PageImageStore.prefetchIndices(total: 5, current: 4, count: Int.max), [4, 3])
+    }
+
+    func testEnergyPolicySkipsSpeculationButStillLoadsRequestedPage() async throws {
+        let source = CountingContentSource()
+        let gallery = try await source.gallery(1)
+        let store = PageImageStore(source: source, allowsPrefetch: { false })
+        await store.prefetch(gallery, current: 0, count: 3)
+        let speculative = await source.requests
+        XCTAssertEqual(speculative, 0)
+        _ = try await store.load(gallery.pages[0], galleryID: 1)
+        let requested = await source.requests
+        XCTAssertEqual(requested, 1)
+    }
+
+    @MainActor func testHiddenFeedStopsCoversAndResumesWithoutReplacingResults() async throws {
+        let source = feedSource(blocked: [1, 2])
+        let loader = GalleryFeedLoader(source: source, images: PageImageStore(source: source))
+        await loader.load(GalleryQuery(), reset: true).value
+        loader.prioritizeCovers(startingAt: 0, count: 4)
+        for id: Int64 in 1...2 { await source.waitForImage(id) }
+        let first = try XCTUnwrap(loader.previews[1])
+        await loader.load(GalleryQuery(), reset: false).value
+        await loader.load(GalleryQuery(), reset: false).value
+        let pending = Task { await first.load() }
+        await Task.yield()
+        loader.suspend()
+        for id: Int64 in 1...2 { await source.release(id) }
+        await pending.value
+        XCTAssertNil(first.image)
+        XCTAssertFalse(loader.loading)
+        await loader.load(GalleryQuery(), reset: false).value
+        let offsets = await source.offsets
+        XCTAssertEqual(offsets, [0, 24, 48], "A hidden feed must not request more pages")
+        XCTAssertEqual(loader.ids, Array(1...72).map(Int64.init))
+        let restarted = expectation(description: "Earlier visible cover restarts after resume")
+        let observer = Task { await source.waitForImage(1, occurrences: 2); restarted.fulfill() }
+        loader.resume()
+        await fulfillment(of: [restarted], timeout: 3)
+        observer.cancel()
+        await loadCovers(loader)
+        XCTAssertTrue(loader.previews[1] === first)
+        XCTAssertNotNil(first.image, "A canceled cover must remain retryable on return")
+        XCTAssertTrue(loader.ids.allSatisfy { loader.previews[$0]?.image != nil })
+    }
+
+    func testDiskPageCacheSurvivesStoreRecreationWithoutDownload() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = CountingContentSource()
+        let gallery = try await source.gallery(1)
+        let firstStore = PageImageStore(source: source, diskDirectory: directory)
+        async let first = firstStore.load(gallery.pages[0], galleryID: 1)
+        async let second = firstStore.load(gallery.pages[0], galleryID: 1)
+        _ = try await (first, second)
+        let secondStore = PageImageStore(source: source, diskDirectory: directory)
+        let restored = try await secondStore.load(gallery.pages[0], galleryID: 1)
+        XCTAssertGreaterThan(restored.size.width, 0)
+        let requests = await source.requests
+        XCTAssertEqual(requests, 1)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path).count, 1)
     }
 
     func testCancellingOneConsumerKeepsSharedDownloadAlive() async throws {
@@ -433,7 +570,7 @@ private actor PreparedFeedSource: ContentProviding {
     let failedMetadata: Set<Int64>
     let failedImages: Set<Int64>
     private var gates: [Int64: CheckedContinuation<Void, Never>] = [:]
-    private var observers: [Int64: CheckedContinuation<Void, Never>] = [:]
+    private var observers: [Int64: (occurrences: Int, continuation: CheckedContinuation<Void, Never>)] = [:]
     private var activeImages = 0
     private(set) var maximumActiveImages = 0
     private(set) var imageRequests: [Int64] = []
@@ -462,20 +599,247 @@ private actor PreparedFeedSource: ContentProviding {
         activeImages += 1
         maximumActiveImages = max(maximumActiveImages, activeImages)
         defer { activeImages -= 1 }
-        observers.removeValue(forKey: galleryID)?.resume()
+        if let observer = observers[galleryID], imageRequests.filter({ $0 == galleryID }).count >= observer.occurrences {
+            observers.removeValue(forKey: galleryID)?.continuation.resume()
+        }
         if blocked.contains(galleryID) { await withCheckedContinuation { gates[galleryID] = $0 } }
         try Task.checkCancellation()
         if failedImages.contains(galleryID) { throw URLError(.timedOut) }
         return data
     }
 
-    func waitForImage(_ id: Int64) async {
-        if imageRequests.contains(id) { return }
-        await withCheckedContinuation { observers[id] = $0 }
+    func waitForImage(_ id: Int64, occurrences: Int = 1) async {
+        if imageRequests.filter({ $0 == id }).count >= occurrences { return }
+        await withCheckedContinuation { observers[id] = (occurrences, $0) }
     }
 
     func release(_ id: Int64) {
         blocked.remove(id)
         gates.removeValue(forKey: id)?.resume()
     }
+}
+
+extension ReaderUXTests {
+    @MainActor func testCachedReaderPersistsExplicitStartingPageWithoutTurningAndResumesThere() async throws {
+        let id = Int64.random(in: 1_000_000_000...2_000_000_000)
+        let progressKey = "reader_page_\(id)"
+        let preferences = ReaderPreferences.defaults
+        let settings: [String: Any] = ["reader.pagesPerSpread": 1, "reader.helpHidden": true, "reader.autoAdvance": false,
+                                      "reader.prefetch": 0, "reader.keepAwake": false, "reader.mode": ReaderMode.horizontal.rawValue]
+        let previous = settings.keys.map { ($0, preferences.object(forKey: $0)) }
+        for (key, value) in settings { preferences.set(value, forKey: key) }
+        UserDefaults.standard.set(20, forKey: progressKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: progressKey)
+            for (key, value) in previous {
+                if let value { preferences.set(value, forKey: key) } else { preferences.removeObject(forKey: key) }
+            }
+        }
+        let pages = (0..<24).map { GalleryPage(hash: String(format: "%064x", $0 + 1), name: "\($0).jpg", width: 800, height: 1200, hasAVIF: false) }
+        let gallery = NativeGallery(id: id, title: "Cached reader", artists: [], language: "", type: "", tags: [], pages: pages)
+        let source = CachedReaderFixture(gallery: gallery)
+        let images = PageImageStore(source: source, allowsPrefetch: { false })
+        let env = AppEnvironment.preview()
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        let host = UIHostingController(rootView: NativeReaderView(galleryID: id, initialPage: 5, source: source, images: images,
+                                                                savesProgress: true, search: { _ in }, exit: {}).environment(env))
+        window.rootViewController = host
+        window.isHidden = false
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while UserDefaults.standard.integer(forKey: progressKey) != 5 && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(UserDefaults.standard.integer(forKey: progressKey), 5, "Opening a cached explicit page must replace the old resume point even without turning")
+        window.rootViewController = nil
+        let reopened = UIHostingController(rootView: NativeReaderView(galleryID: id, initialPage: 1, source: source, images: images,
+                                                                    savesProgress: true, search: { _ in }, exit: {}).environment(env))
+        window.rootViewController = reopened
+        func shownPage(in controller: UIViewController) -> Int? {
+            if let pager = controller as? UIPageViewController {
+                return (pager.viewControllers?.first as? ReaderPager.PageController)?.index
+            }
+            return controller.children.lazy.compactMap { shownPage(in: $0) }.first
+        }
+        let reopenedDeadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while shownPage(in: reopened) == nil && ContinuousClock.now < reopenedDeadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(shownPage(in: reopened), 4, "A normal reopen must use the newly saved fifth page")
+    }
+
+    func testReaderStartsWithCachedThumbnailAndDistinguishesFullResolution() async throws {
+        let source = CountingContentSource()
+        let gallery = try await source.gallery(1)
+        let page = gallery.pages[0]
+        let images = PageImageStore(source: source)
+        let thumbnail = try await images.load(page, galleryID: gallery.id, thumbnail: true)
+        let preview = try XCTUnwrap(ReaderPageImage.cached(hash: page.hash, images: images))
+        XCTAssertTrue(preview.image === thumbnail)
+        XCTAssertFalse(preview.satisfies(page.hash), "A cached preview must still upgrade to full resolution")
+        let fullImage = try await images.load(page, galleryID: gallery.id)
+        let full = try XCTUnwrap(ReaderPageImage.cached(hash: page.hash, images: images))
+        XCTAssertTrue(full.image === fullImage, "Prefer a decoded full page over its thumbnail")
+        XCTAssertTrue(full.satisfies(page.hash), "Retained full pixels need no reload after lifecycle changes")
+        XCTAssertFalse(full.satisfies("another-page"))
+        let requests = await source.requests
+        XCTAssertEqual(requests, 2)
+    }
+
+    func testReaderInitialPageMatchesResumeAndSpreadRules() {
+        XCTAssertEqual(ReaderLayout.initialPage(1, saved: 7, total: 10, count: 2), 6)
+        XCTAssertEqual(ReaderLayout.initialPage(4, saved: 9, total: 10, count: 2), 2)
+        XCTAssertEqual(ReaderLayout.initialPage(100, saved: 0, total: 5, count: 2), 4)
+        XCTAssertEqual(ReaderLayout.initialPage(Int.min, saved: 0, total: 5, count: 0), 0)
+        XCTAssertEqual(ReaderLayout.initialPage(5, saved: 0, total: 0, count: 2), 0)
+    }
+
+    @MainActor func testSamePageResolutionUpgradePreservesZoomAndViewport() {
+        let page = PageScrollView()
+        page.frame = CGRect(x: 0, y: 0, width: 400, height: 800)
+        let thumbnail = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 600)).image { _ in }
+        let full = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 2400)).image { _ in }
+        page.update(image: thumbnail, contentID: "page-1")
+        page.layoutIfNeeded()
+        page.setZoomScale(2.5, animated: false)
+        page.setContentOffset(CGPoint(x: 100, y: 350), animated: false)
+        page.layoutIfNeeded()
+        let offset = page.contentOffset, imageBounds = page.imageView.bounds, imageFrame = page.imageView.frame
+        page.update(image: full, contentID: "page-1")
+        page.layoutIfNeeded()
+        XCTAssertTrue(page.imageView.image === full)
+        XCTAssertEqual(page.zoomScale, 2.5, accuracy: 0.01)
+        XCTAssertEqual(page.contentOffset, offset)
+        XCTAssertEqual(page.imageView.bounds, imageBounds)
+        XCTAssertEqual(page.imageView.frame, imageFrame)
+        page.update(image: full, contentID: "page-2")
+        page.layoutIfNeeded()
+        XCTAssertEqual(page.zoomScale, 1, accuracy: 0.01, "A different page still starts fitted to the viewport")
+    }
+
+    @MainActor private func pagerFixture(current: Binding<Int>, images: PageImageStore,
+                                         tap: @escaping (CGFloat) -> Void = { _ in }, isActive: Bool = true) -> ReaderPager {
+        let pages = (0..<6).map { GalleryPage(hash: String(format: "%064x", $0 + 1), name: "\($0).jpg", width: 800, height: 1200, hasAVIF: false) }
+        let gallery = NativeGallery(id: 1, title: "Reader", artists: [], language: "", type: "", tags: [], pages: pages)
+        return ReaderPager(gallery: gallery, images: images, vertical: false, rtl: false, current: current,
+                           tap: tap, bookmark: {}, count: 1, viewport: { _, _, _ in }, isActive: isActive)
+    }
+
+    @MainActor func testPagerReusesSpreadAndForwardsLatestActionsWithoutReplacingItsRoot() {
+        var current = 0, firstCalls = 0, latestCalls = 0
+        let binding = Binding(get: { current }, set: { current = $0 })
+        let images = PageImageStore(source: FixtureContentSource())
+        let parent = pagerFixture(current: binding, images: images, tap: { _ in firstCalls += 1 })
+        let coordinator = ReaderPager.Coordinator(parent)
+        let page = coordinator.page(0)
+        let originalContent = page.rootView
+        let controller = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal)
+        controller.setViewControllers([page], direction: .forward, animated: false)
+        coordinator.update(pagerFixture(current: binding, images: images, tap: { _ in latestCalls += 1 }), controller: controller)
+        XCTAssertTrue(coordinator.page(0) === page)
+        originalContent.tap(0.5)
+        XCTAssertEqual(firstCalls, 0)
+        XCTAssertEqual(latestCalls, 1, "Existing roots must forward through the latest parent without rebuilding")
+        coordinator.update(pagerFixture(current: binding, images: images, isActive: false), controller: controller)
+        XCTAssertFalse(page.rootView.isActive, "Lifecycle changes still reach retained image tasks")
+    }
+
+    @MainActor func testPagerHonorsPageJumpRequestedDuringInteractiveSwipe() {
+        var current = 0
+        let binding = Binding(get: { current }, set: { current = $0 })
+        let images = PageImageStore(source: FixtureContentSource())
+        let parent = pagerFixture(current: binding, images: images)
+        let coordinator = ReaderPager.Coordinator(parent)
+        let first = coordinator.page(0), swiped = coordinator.page(1)
+        let controller = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal)
+        controller.setViewControllers([first], direction: .forward, animated: false)
+        coordinator.pageViewController(controller, willTransitionTo: [swiped])
+        current = 4
+        coordinator.update(parent, controller: controller)
+        XCTAssertTrue(controller.viewControllers?.first === first)
+        controller.setViewControllers([swiped], direction: .forward, animated: false)
+        coordinator.pageViewController(controller, didFinishAnimating: true, previousViewControllers: [first], transitionCompleted: true)
+        XCTAssertEqual(current, 4, "A completed swipe must not overwrite a newer explicit page jump")
+        XCTAssertEqual((controller.viewControllers?.first as? ReaderPager.PageController)?.index, 4)
+        XCTAssertTrue(coordinator.pages.keys.allSatisfy { abs($0 - 4) <= 1 })
+    }
+
+    @MainActor func testPagerCompletedAndCancelledSwipesKeepPositionConsistent() {
+        var current = 0
+        let binding = Binding(get: { current }, set: { current = $0 })
+        let coordinator = ReaderPager.Coordinator(pagerFixture(current: binding, images: PageImageStore(source: FixtureContentSource())))
+        let first = coordinator.page(0), second = coordinator.page(1)
+        let controller = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal)
+        controller.setViewControllers([first], direction: .forward, animated: false)
+        coordinator.pageViewController(controller, willTransitionTo: [second])
+        coordinator.pageViewController(controller, didFinishAnimating: true, previousViewControllers: [first], transitionCompleted: false)
+        XCTAssertEqual(current, 0)
+        coordinator.pageViewController(controller, willTransitionTo: [second])
+        controller.setViewControllers([second], direction: .forward, animated: false)
+        coordinator.pageViewController(controller, didFinishAnimating: true, previousViewControllers: [first], transitionCompleted: true)
+        XCTAssertEqual(current, 1)
+    }
+
+    @MainActor func testPagerKeepsJumpThatArrivesBeforeSwipeDelegateCallback() {
+        var current = 0
+        let binding = Binding(get: { current }, set: { current = $0 })
+        let parent = pagerFixture(current: binding, images: PageImageStore(source: FixtureContentSource()))
+        let coordinator = ReaderPager.Coordinator(parent)
+        let first = coordinator.page(0), swiped = coordinator.page(1)
+        let controller = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal)
+        controller.setViewControllers([first], direction: .forward, animated: false)
+        current = 5
+        coordinator.pageViewController(controller, willTransitionTo: [swiped])
+        coordinator.update(parent, controller: controller)
+        controller.setViewControllers([swiped], direction: .forward, animated: false)
+        coordinator.pageViewController(controller, didFinishAnimating: true, previousViewControllers: [first], transitionCompleted: true)
+        XCTAssertEqual(current, 5)
+        XCTAssertEqual((controller.viewControllers?.first as? ReaderPager.PageController)?.index, 5)
+    }
+
+    @MainActor func testPageImageReplacementRecomputesAspectFitButUnchangedImageKeepsZoom() {
+        let page = PageScrollView()
+        page.frame = CGRect(x: 0, y: 0, width: 400, height: 800)
+        let landscape = UIGraphicsImageRenderer(size: CGSize(width: 1200, height: 400)).image { _ in }
+        let portrait = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 1200)).image { _ in }
+        page.update(image: landscape)
+        page.layoutIfNeeded()
+        page.setZoomScale(2.5, animated: false)
+        page.update(image: landscape)
+        XCTAssertEqual(page.zoomScale, 2.5, accuracy: 0.01)
+        page.update(image: portrait)
+        page.layoutIfNeeded()
+        XCTAssertEqual(page.zoomScale, 1, accuracy: 0.01)
+        XCTAssertEqual(page.imageView.bounds.height, 800, accuracy: 1)
+        XCTAssertEqual(page.imageView.bounds.width, 800 / 3, accuracy: 1)
+    }
+
+    @MainActor func testTranslationLabelsFollowImageTransformAndChangedRegionBounds() throws {
+        let view = TranslatedPageView(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 800, height: 1200)).image { _ in }
+        let regions = [ReaderTextRegion(text: "Translated", bounds: CGRect(x: 0.1, y: 0.2, width: 0.4, height: 0.1))]
+        view.configure(image, regions: regions)
+        view.layoutIfNeeded()
+        let scroll = try XCTUnwrap(view.subviews.compactMap { $0 as? PageScrollView }.first)
+        scroll.layoutIfNeeded()
+        let label = try XCTUnwrap(scroll.imageView.subviews.compactMap { $0 as? UILabel }.first)
+        let originalFrame = label.frame
+        scroll.setZoomScale(2, animated: false)
+        scroll.setContentOffset(CGPoint(x: 50, y: 80), animated: false)
+        view.configure(image, regions: regions)
+        XCTAssertTrue(scroll.imageView.subviews.first === label)
+        XCTAssertEqual(label.frame, originalFrame, "Zoom and pan transform the existing image hierarchy")
+        view.configure(image, regions: [.init(text: "Translated", bounds: CGRect(x: 0.1, y: 0.5, width: 0.4, height: 0.1))])
+        let moved = try XCTUnwrap(scroll.imageView.subviews.compactMap { $0 as? UILabel }.first)
+        XCTAssertNotEqual(moved.frame, originalFrame, "Equal text at new OCR bounds must not retain stale positioning")
+    }
+}
+
+private struct CachedReaderFixture: ContentProviding {
+    let gallery: NativeGallery
+    func cachedGallery(_ id: Int64) -> NativeGallery? { id == gallery.id ? gallery : nil }
+    func gallery(_ id: Int64) async throws -> NativeGallery { throw ContentError.unavailable(503) }
+    func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch { .init(ids: [], hasMore: false) }
+    func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data { throw ContentError.unavailable(503) }
 }

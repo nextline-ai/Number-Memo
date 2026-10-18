@@ -1,8 +1,86 @@
 import XCTest
 import GRDB
+import Observation
 @testable import NumberMemo
 
 final class BooruLibraryTests: XCTestCase {
+    func testGoldRestrictionsHideCachedLibraryWithoutDeletingSavedEvidence() throws {
+        let store = try BooruStore(), firstServer = BooruServer.presets[0], secondServer = BooruServer.presets[2]
+        try store.saveServer(firstServer); try store.saveServer(secondServer)
+        let folder = try store.saveFolder(name: "Saved")
+        let first = BooruFixtureSource.post(12403879, server: firstServer, tags: ["scenery"])
+        let second = BooruFixtureSource.post(12403879, server: secondServer, tags: ["scenery"])
+        try store.saveFavorite(first, folderID: folder); try store.saveFavorite(second, folderID: folder)
+        XCTAssertEqual(Set(store.visibleFavorites().map(\.id)), [first.id, second.id])
+        XCTAssertEqual(store.visibleFavorites(folderID: folder, query: "scenery").count, 2)
+        let savedIDs = store.favoriteIDs, revision = store.revision
+        let evidenceCount = try store.database.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM taste_events") }
+        let changed = expectation(description: "Cached library observes temporary visibility changes")
+        withObservationTracking { _ = store.visibleFavorites(folderID: folder, query: "scenery") } onChange: { changed.fulfill() }
+        store.recordGoldRestriction(first)
+        store.recordGoldRestriction(first)
+        wait(for: [changed], timeout: 1)
+        XCTAssertFalse(store.isVisible(first)); XCTAssertTrue(store.isVisible(second))
+        XCTAssertEqual(store.visibleFavorites().map(\.id), [second.id])
+        XCTAssertEqual(store.visibleFavorites(folderID: folder, query: "scenery").map(\.id), [second.id])
+        XCTAssertEqual(store.favoriteIDs, savedIDs)
+        XCTAssertEqual(store.favorites(serverID: firstServer.id), [first])
+        XCTAssertEqual(store.folderID(for: first), folder)
+        XCTAssertEqual(store.revision, revision, "Skipping an inaccessible post must not invalidate every database snapshot")
+        XCTAssertEqual(try store.database.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM taste_events") }, evidenceCount)
+        store.clearGoldRestrictions(serverID: firstServer.id)
+        XCTAssertEqual(Set(store.visibleFavorites().map(\.id)), savedIDs)
+    }
+
+    func testGoldRestrictionsAreSessionOnlyAndResetOnlyForChangedServer() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".sqlite")
+        defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }
+        let store = try BooruStore(path: url.path), first = BooruServer.presets[0], second = BooruServer.presets[2]
+        try store.saveServer(first); try store.saveServer(second)
+        store.recordGoldRestrictions(serverID: first.id, postIDs: [0, -1, 42, 42])
+        store.recordGoldRestrictions(serverID: second.id, postIDs: [42])
+        XCTAssertEqual(store.confirmedGoldRestrictedIDs, [first.id + ":42", second.id + ":42"])
+        try store.refresh()
+        XCTAssertEqual(store.confirmedGoldRestrictedIDs.count, 2, "Library refresh and app resumption must not retry already confirmed restrictions")
+        XCTAssertTrue(try BooruStore(path: url.path).confirmedGoldRestrictedIDs.isEmpty)
+        try store.saveServer(first)
+        XCTAssertEqual(store.confirmedGoldRestrictedIDs, [second.id + ":42"], "A credentials save can change access even if the server payload is unchanged")
+        store.recordGoldRestrictions(serverID: "nested:server", postIDs: [42])
+        store.clearGoldRestrictions(serverID: "nested")
+        XCTAssertTrue(store.confirmedGoldRestrictedIDs.contains("nested:server:42"))
+        store.clearGoldRestrictions()
+        XCTAssertTrue(store.confirmedGoldRestrictedIDs.isEmpty)
+    }
+
+    func testLibrarySnapshotsTrackFavoriteMovesFiltersAndDirectSyncWrites() throws {
+        let store = try BooruStore(), server = BooruServer.presets[0]
+        try store.saveServer(server)
+        let folder = try store.saveFolder(name: "Saved"), other = try store.saveFolder(name: "Other")
+        let post = BooruFixtureSource.post(91, server: server, tags: ["scenery"])
+        XCTAssertTrue(store.favoriteIDs.isEmpty)
+        XCTAssertTrue(store.visibleFavorites().isEmpty)
+        try store.saveFavorite(post, folderID: folder)
+        XCTAssertTrue(store.isFavorite(post))
+        XCTAssertEqual(store.visibleFavorites(folderID: folder), [post])
+        XCTAssertNotNil(store.favoriteSavedDates()[post.id])
+        try store.setBlacklist("scenery", serverID: server.id)
+        XCTAssertTrue(store.visibleFavorites().isEmpty)
+        try store.setBlacklist("", serverID: server.id)
+        try store.moveFavorites([post], folderID: other)
+        XCTAssertTrue(store.visibleFavorites(folderID: folder).isEmpty)
+        XCTAssertEqual(store.visibleFavorites(folderID: other), [post])
+        let before = try XCTUnwrap(store.folders().first { $0.id == other })
+        let updatedColor = before.color == 0xFF123456 ? Int64(0xFF654321) : Int64(0xFF123456)
+        try store.database.write { db in
+            try db.execute(sql: "UPDATE folders SET color = ? WHERE id = ?", arguments: [updatedColor, other])
+            try db.execute(sql: "DELETE FROM favorites")
+        }
+        store.invalidateSnapshots()
+        XCTAssertEqual(store.folders().first { $0.id == other }?.color, updatedColor)
+        XCTAssertTrue(store.favoriteIDs.isEmpty)
+        XCTAssertTrue(store.visibleFavorites(folderID: other).isEmpty)
+    }
+
     func testLegacyImportFoldersAreRepairedOnUpgradeAndReimport() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".sqlite")
         defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }

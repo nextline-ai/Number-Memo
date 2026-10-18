@@ -151,6 +151,41 @@ private struct SplashScreenOverlay: UIViewRepresentable {
 
 // MARK: - Main Application
 
+@MainActor private final class BackgroundLibrarySync {
+    private var task: Task<Void, Never>?
+    private var identifier: UIBackgroundTaskIdentifier = .invalid
+    private var generation = UUID()
+
+    func start(env: AppEnvironment) {
+        guard task == nil else { return }
+        identifier = UIApplication.shared.beginBackgroundTask(withName: "Save library to iCloud") { [weak self] in
+            Task { @MainActor in self?.cancel() }
+        }
+        guard identifier != .invalid else { return }
+        let token = UUID(); generation = token
+        task = Task { [weak self] in
+            defer { self?.finish(generation: token) }
+            do {
+                // The foreground task is being cancelled by scenePhase; let it
+                // release its sync lock before saving the final local changes.
+                while env.sync.syncing { try await Task.sleep(for: .milliseconds(100)) }
+                try Task.checkCancellation()
+                await env.sync.synchronize(env: env)
+            } catch { }
+        }
+    }
+    func cancel() { task?.cancel(); finish() }
+    private func finish(generation token: UUID? = nil) {
+        guard token == nil || token == generation else { return }
+        generation = UUID()
+        task = nil
+        if identifier != .invalid {
+            UIApplication.shared.endBackgroundTask(identifier)
+            identifier = .invalid
+        }
+    }
+}
+
 @main
 struct NumberMemoApp: App {
 
@@ -172,6 +207,24 @@ struct NumberMemoApp: App {
     @State private var isSplashScreenVisible = true
     @State private var isResumeSplashVisible = false
     @State private var showChargingSplash = false
+    @State private var backgroundSync = BackgroundLibrarySync()
+    @State private var launchThermalAllowed = ProcessInfo.processInfo.thermalState != .serious && ProcessInfo.processInfo.thermalState != .critical
+    @SwiftUI.AppStorage("booru.rating", store: ReaderPreferences.booruDefaults) private var launchRating: BooruRating = .all
+    private struct LaunchRequest: Hashable {
+        let active: Bool
+        let query: GalleryQuery?
+        let site: String
+        let servers: [BooruServer]
+        let rating: BooruRating
+    }
+    private var launchRequest: LaunchRequest {
+        let enabled = !isContentUITest || ProcessInfo.processInfo.arguments.contains("--launch-warmup-test")
+        let servers = env.booru.selectedServers
+        let rating = BooruRating.options(for: servers).contains(launchRating) ? launchRating : .all
+        return LaunchRequest(active: enabled && scenePhase == .active && launchThermalAllowed && env.isOnboardingCompleted,
+                             query: env.isSiteVerified ? env.launchMangaQuery : nil, site: env.mangaSiteAddress,
+                             servers: servers, rating: rating)
+    }
     private var splashEnabled: Bool { !isContentUITest || ProcessInfo.processInfo.arguments.contains("--splash-ui-test") }
     #if os(iOS) && !targetEnvironment(macCatalyst)
     @State private var previousBatteryState: UIDevice.BatteryState = .unknown
@@ -222,6 +275,12 @@ struct NumberMemoApp: App {
                 }
                 #endif
             }
+            .task(id: launchRequest) {
+                let request = launchRequest
+                guard request.active else { return }
+                await env.launchFeeds.run(mangaQuery: request.query, site: request.site, servers: request.servers,
+                                          rating: request.rating, preferredMode: env.mode)
+            }
             .task(id: "\(scenePhase):\(env.sync.enabled):\(isSplashScreenVisible):\(isResumeSplashVisible)") {
                 guard !isContentUITest, scenePhase == .active, !isSplashScreenVisible, !isResumeSplashVisible else { return }
                 env.pruneSearchHistory()
@@ -229,17 +288,27 @@ struct NumberMemoApp: App {
                 while !Task.isCancelled {
                     if env.sync.enabled {
                         await env.sync.synchronize(env: env)
+                        guard !Task.isCancelled else { return }
                         await env.taste.synchronize(env: env)
                     }
                     if prepareReports { await env.taste.prepareCompletedReports(); prepareReports = false }
                     guard env.sync.enabled else { return }
-                    do { try await Task.sleep(for: .seconds(15)) } catch { return }
+                    do { try await Task.sleep(for: .seconds(60)) } catch { return }
                 }
             }
             .onChange(of: scenePhase, initial: true) { _, phase in
-                guard !isContentUITest, phase == .background, env.sync.enabled else { return }
-                let taskID = UIApplication.shared.beginBackgroundTask(withName: "Save library to iCloud", expirationHandler: nil)
-                Task { await env.sync.synchronize(env: env); if taskID != .invalid { UIApplication.shared.endBackgroundTask(taskID) } }
+                guard !isContentUITest else { return }
+                env.setCoverQueueActive(phase == .active)
+                if phase == .active { backgroundSync.cancel() }
+                else if phase == .background, env.sync.enabled { backgroundSync.start(env: env) }
+            }
+            .onChange(of: env.mode) { _, _ in env.setCoverQueueActive(scenePhase == .active) }
+            .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+                env.setCoverQueueActive(scenePhase == .active)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
+                launchThermalAllowed = ProcessInfo.processInfo.thermalState != .serious && ProcessInfo.processInfo.thermalState != .critical
+                env.setCoverQueueActive(scenePhase == .active)
             }
             .preferredColorScheme(env.appTheme.colorScheme)
             .environment(\.locale, Locale(identifier: L10n.language))

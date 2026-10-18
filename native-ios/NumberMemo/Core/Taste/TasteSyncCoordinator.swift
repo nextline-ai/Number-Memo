@@ -20,6 +20,7 @@ final class TasteSyncCoordinator {
     private var seen: Set<String> = []
 
     func synchronize(controller: TasteController, librarySync: LibraryCloudSync) async {
+        guard !Task.isCancelled else { return }
         guard !syncing, librarySync.enabled else { status = L10n.text("Sync Off"); return }
         syncing = true; defer { syncing = false }
         do {
@@ -76,7 +77,8 @@ final class TasteSyncCoordinator {
             if winner != controller.control { controller.apply(winner, remote: true) }
             guard !incompleteControl else { status = L10n.text("Downloading analysis history…"); return }
             let device = try controller.comics.metadata(String.self, key: "device") ?? UUID().uuidString
-            let controlData = try JSONEncoder().encode(controller.control)
+            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+            let controlData = try encoder.encode(controller.control)
             let controlURL = root.appendingPathComponent("taste-control-" + device + ".json")
             if try controller.comics.metadata(String.self, key: "control-upload-" + account) != tasteDigest(controlData) {
                 try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(controlData, to: controlURL, ubiquitous: true) }.value
@@ -107,21 +109,23 @@ final class TasteSyncCoordinator {
                 } catch { failures += 1 }
             }
             if controller.control.enabled {
+                let monthFormatter = ISO8601DateFormatter()
+                func month(_ event: TasteEvent) -> String { String(monthFormatter.string(from: Date(timeIntervalSince1970: event.at)).prefix(7)) }
                 for store in stores {
                     let pending = try store.pending()
-                    let firstMonth = pending.first.map { String(ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: $0.at)).prefix(7)) }
-                    var events = pending.filter { String(ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: $0.at)).prefix(7)) == firstMonth }
+                    let firstMonth = pending.first.map(month)
+                    var events = pending.filter { month($0) == firstMonth }
                     let reports = try store.pendingReports()
                     guard !events.isEmpty || !reports.isEmpty else { continue }
                     let generation = controller.control.generation
                     var chunk = TasteSyncChunk(mode: store.mode, epoch: epoch, events: events, reports: reports)
-                    var data = try JSONEncoder().encode(chunk)
+                    var data = try encoder.encode(chunk)
                     while data.count > 1024 * 1024 && events.count > 1 {
-                        events.removeLast(); chunk.events = events; data = try JSONEncoder().encode(chunk)
+                        events.removeLast(); chunk.events = events; data = try encoder.encode(chunk)
                     }
                     guard data.count <= 8 * 1024 * 1024 else { throw BooruError.invalidResponse }
-                    let month = events.first.map { String(ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: $0.at)).prefix(7)) } ?? "reports"
-                    let name = "taste-" + month + "-" + device + "-" + store.mode.rawValue + "-" + tasteDigest(data) + ".json"
+                    let monthKey = events.first.map(month) ?? "reports"
+                    let name = "taste-" + monthKey + "-" + device + "-" + store.mode.rawValue + "-" + tasteDigest(data) + ".json"
                     let url = root.appendingPathComponent(epoch, isDirectory: true).appendingPathComponent(name)
                     guard await valid(librarySync, container: container, account: account), controller.control.enabled, controller.control.cloudEnabled, controller.control.generation == generation else { return }
                     try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(data, to: url, ubiquitous: true) }.value

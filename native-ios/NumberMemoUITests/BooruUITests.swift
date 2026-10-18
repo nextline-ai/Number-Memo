@@ -68,8 +68,14 @@ final class BooruUITests: XCTestCase {
             XCTAssertTrue(media.waitForExistence(timeout: 5))
             let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label IN %@", ["ready", "playing", "ended", "error"]), object: element(app, "booru.mediaStatus"))
             XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
-            media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            if !element(app, "booru.menuClose").waitForExistence(timeout: 1) { media.twoFingerTap() }
+            let playback = app.buttons.matching(NSPredicate(format: "label IN %@", ["Play", "재생", "Pause", "일시 정지"])).firstMatch
+            if playback.exists {
+                // Native video controls expose the playable surface reliably;
+                // their remote WebView accessibility frame can be only 10pt tall.
+                playback.twoFingerTap()
+            } else {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
             XCTAssertTrue(element(app, "booru.menuClose").waitForExistence(timeout: 5))
         }
     }
@@ -458,6 +464,13 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Explore"].isSelected)
         XCTAssertEqual(search.value as? String, "scenery mountain")
         XCTAssertTrue(element(app, "booru.post.103").exists)
+        let paginatedPost = element(app, "booru.post.103")
+        let previousY = paginatedPost.frame.minY
+        XCUIDevice.shared.press(.home); app.activate()
+        expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: paginatedPost)
+        waitForExpectations(timeout: 10)
+        XCTAssertEqual(search.value as? String, "scenery mountain")
+        XCTAssertEqual(paginatedPost.frame.minY, previousY, accuracy: 8, "Returning to the app must retain search, loaded pages and scroll position")
         app.tabBars.buttons["Tags"].tap(); selectMode(app, "manga")
         XCTAssertTrue(app.tabBars.buttons["Artists"].isSelected)
         selectMode(app, "booru")
@@ -728,6 +741,53 @@ final class BooruUITests: XCTestCase {
             XCTAssertEqual(element(app, "booru.favorite").label, label)
             element(app, "booru.menuClose").tap()
         }
+    }
+
+    func testGoldRestrictedImageIsSkippedWithoutErrorAndRemovedFromCurrentFeed() {
+        let app = launch(extra: ["--booru-gold-test"])
+        let first = element(app, "booru.post.101")
+        XCTAssertTrue(first.waitForExistence(timeout: 10)); first.tap()
+        openMenu(app)
+        element(app, "booru.next").tap()
+        let state = element(app, "booru.viewerState")
+        expectation(for: NSPredicate(format: "label == '102:fit'"), evaluatedWith: state)
+        waitForExpectations(timeout: 10)
+        expectation(for: NSPredicate(format: "label == 'ready'"), evaluatedWith: element(app, "booru.mediaStatus"))
+        waitForExpectations(timeout: 10)
+        XCTAssertFalse(app.staticTexts["Unable to Load"].exists)
+        XCTAssertFalse(element(app, "booru.toast").exists)
+        openMenu(app)
+        element(app, "booru.previous").tap()
+        expectation(for: NSPredicate(format: "label == '101:fit'"), evaluatedWith: state)
+        waitForExpectations(timeout: 10)
+        element(app, "booru.close").tap()
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "booru.post.12403879").exists)
+        XCTAssertTrue(element(app, "booru.post.102").exists)
+    }
+
+    func testJumpingToCurrentViewerPageKeepsReadyMediaAndNotes() {
+        let app = launch()
+        let first = element(app, "booru.post.101")
+        XCTAssertTrue(first.waitForExistence(timeout: 10)); first.tap()
+        let status = element(app, "booru.mediaStatus")
+        expectation(for: NSPredicate(format: "label == 'ready'"), evaluatedWith: status)
+        waitForExpectations(timeout: 10)
+        let note = app.webViews.buttons["Note 1"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 10))
+        openMenu(app)
+        element(app, "booru.position").tap()
+        let jump = app.alerts["Go to Page"]
+        XCTAssertTrue(jump.waitForExistence(timeout: 5))
+        XCTAssertEqual(jump.textFields.firstMatch.value as? String, "1")
+        jump.buttons["Go"].tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: jump)
+        waitForExpectations(timeout: 5)
+        XCTAssertEqual(status.label, "ready")
+        XCTAssertEqual(element(app, "booru.viewerState").label, "101:fit")
+        XCTAssertTrue(element(app, "booru.menuClose").exists, "A same-page jump preserves the reader menu")
+        element(app, "booru.menuClose").tap()
+        XCTAssertTrue(note.waitForExistence(timeout: 5), "A same-page jump preserves loaded notes")
     }
 
     func testViewerGesturesAndIndependentSettings() {

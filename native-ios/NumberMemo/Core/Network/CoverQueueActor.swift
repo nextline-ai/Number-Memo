@@ -1,6 +1,20 @@
 import Foundation
 import SwiftUI
 
+enum CoverQueuePolicy {
+    static func allowsBackfill(lowPowerMode: Bool, thermalState: ProcessInfo.ThermalState) -> Bool {
+        guard !lowPowerMode else { return false }
+        switch thermalState {
+        case .nominal, .fair: return true
+        case .serious, .critical: return false
+        @unknown default: return false
+        }
+    }
+    static var allowsBackfill: Bool {
+        allowsBackfill(lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled, thermalState: ProcessInfo.processInfo.thermalState)
+    }
+}
+
 @Observable
 public final class CoverQueueState: @unchecked Sendable {
     public var isRunning: Bool = false
@@ -49,13 +63,6 @@ public actor CoverQueueActor {
             state.gone = 0
         }
 
-        defer {
-            isRunning = false
-            Task { @MainActor in
-                state.isRunning = false
-            }
-        }
-
         do {
             let total = try database.countNeedingFill()
             await MainActor.run { state.total = total }
@@ -64,17 +71,21 @@ public actor CoverQueueActor {
 
             repeat {
                 kickAgain = false
-                while !isPaused && !Task.isCancelled {
+                while !isPaused && !Task.isCancelled && CoverQueuePolicy.allowsBackfill {
                     let batch = try database.worksNeedingFill(limit: 6, exclude: attempted)
                     if batch.isEmpty { break }
 
                     for work in batch {
-                        if isPaused || Task.isCancelled { break }
+                        if isPaused || Task.isCancelled || !CoverQueuePolicy.allowsBackfill { break }
                         attempted.insert(work.galleryId)
 
                         do {
                             try await fetchOne(work.galleryId)
                             await MainActor.run { state.processed += 1 }
+                        } catch is CancellationError {
+                            break
+                        } catch let error as URLError where error.code == .cancelled {
+                            break
                         } catch let error as URLError where error.code == .fileDoesNotExist {
                             await MainActor.run { state.gone += 1 }
                             try? database.setThumb(galleryId: work.galleryId, status: "gone")
@@ -86,16 +97,21 @@ public actor CoverQueueActor {
                         }
 
                         // Politeness delay
-                        try? await Task.sleep(nanoseconds: 150_000_000)
+                        do { try await Task.sleep(for: .milliseconds(150)) } catch { break }
                     }
                 }
-            } while kickAgain && !isPaused
+            } while kickAgain && !isPaused && !Task.isCancelled && CoverQueuePolicy.allowsBackfill
         } catch {
             // Error handling
         }
+        // Finish publishing before a replacement run can start. A detached
+        // cleanup could previously mark a new run as stopped.
+        isRunning = false
+        await MainActor.run { state.isRunning = false }
     }
 
     public func fetchOne(_ galleryId: Int64) async throws {
+        try Task.checkCancellation()
         var existing = try database.getWork(galleryId: galleryId)
 
         // If title or tags are missing, check offline catalog first
@@ -131,6 +147,7 @@ public actor CoverQueueActor {
         }
 
         let gallery = try await MangaContentSource.shared.gallery(galleryId)
+        try Task.checkCancellation()
         guard try database.getWork(galleryId: galleryId) != nil else { return }
         _ = try database.upsertWork(
             galleryId: galleryId, title: needTitle ? gallery.title : nil,
@@ -140,6 +157,7 @@ public actor CoverQueueActor {
         if needCover, !gallery.pages.isEmpty {
             let page = min(max(1, existing?.thumbPage ?? 1), gallery.pages.count)
             let image = try await images.load(gallery.pages[page - 1], galleryID: galleryId, thumbnail: true)
+            try Task.checkCancellation()
             guard try database.getWork(galleryId: galleryId) != nil, let data = image.jpegData(compressionQuality: 0.9) else { return }
             let file = thumbsDir.appendingPathComponent("native_\(galleryId).jpg")
             try data.write(to: file, options: .atomic)

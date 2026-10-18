@@ -53,6 +53,70 @@ final class GalleryIDParserTests: XCTestCase {
         XCTAssertEqual(createdColors.count, 20, "All 20 folders must have unique colors")
     }
 
+    func testCancelledVioletImportStopsBeforeOpeningTheSource() async throws {
+        let database = try AppDatabase.inMemory()
+        let importer = VioletImportService(appDb: database)
+        let task = Task.detached {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try importer.importUserDb(path: "/source-that-must-not-be-opened.db")
+        }
+        do { _ = try await task.value; XCTFail("Expected cancellation") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertTrue(try database.listWorks().isEmpty)
+    }
+
+    func testCancelledCatalogImportCommitsOnlyTheCompletedBatch() async throws {
+        let database = try AppDatabase.inMemory()
+        let importer = VioletImportService(appDb: database)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("data.db").path
+        let source = try DatabaseQueue(path: path)
+        try await source.write { db in
+            try db.execute(sql: """
+                CREATE TABLE MangaColumnModel (
+                    Id INTEGER PRIMARY KEY, Title TEXT, Type TEXT, Artists TEXT,
+                    Characters TEXT, Groups TEXT, Language TEXT, Series TEXT, Tags TEXT, Published TEXT
+                );
+                WITH RECURSIVE ids(value) AS (SELECT 1 UNION ALL SELECT value + 1 FROM ids WHERE value < 2005)
+                INSERT INTO MangaColumnModel (Id, Title) SELECT value, 'Work ' || value FROM ids;
+                """)
+        }
+        let task = Task.detached {
+            try importer.importDataDb(path: path) { _ in
+                // The first atomic batch completed; cancel before the next one.
+                withUnsafeCurrentTask { $0?.cancel() }
+            }
+        }
+        do { _ = try await task.value; XCTFail("Expected cancellation") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertEqual(try database.catalogCount(), 1000)
+    }
+
+    func testBackgroundBackupExportPreservesLibraryFieldsAndSeparateOutputs() async throws {
+        let database = try AppDatabase.inMemory()
+        let folder = try database.createFolder(name: "Backup folder", color: 0xFF123456)
+        _ = try database.upsertWork(galleryId: 1234, folderId: folder.id, title: "Backup title", artists: "Artist", tags: "tag:test")
+        try database.setNote(galleryId: 1234, note: "My note")
+        try database.setThumbPage(galleryId: 1234, page: 3)
+        _ = try database.addFavoriteArtist(name: "Artist")
+        let first = try await Task.detached { try MangaLibraryBackup.export(database: database) }.value
+        let second = try await Task.detached { try MangaLibraryBackup.export(database: database) }.value
+        defer { try? FileManager.default.removeItem(at: first); try? FileManager.default.removeItem(at: second) }
+        XCTAssertNotEqual(first, second)
+        let json = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: first)) as? [String: Any])
+        XCTAssertEqual(json["version"] as? Int, 2)
+        let work = try XCTUnwrap((json["works"] as? [[String: Any]])?.first)
+        XCTAssertEqual(work["gallery_id"] as? Int, 1234)
+        XCTAssertEqual(work["title"] as? String, "Backup title")
+        XCTAssertEqual(work["note"] as? String, "My note")
+        XCTAssertEqual(work["tags"] as? String, "tag:test")
+        XCTAssertEqual(work["thumb_page"] as? Int, 3)
+        XCTAssertEqual(work["folders"] as? [String], ["Backup folder"])
+        XCTAssertEqual((json["artists"] as? [[String: Any]])?.first?["name"] as? String, "Artist")
+    }
+
     func testVioletUserDbImportRoutesToCorrectFolders() throws {
         let appDb = try AppDatabase.inMemory()
         let importer = VioletImportService(appDb: appDb)

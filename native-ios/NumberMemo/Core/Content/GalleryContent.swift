@@ -42,6 +42,7 @@ struct NativeGallery: Identifiable, Sendable {
     let pages: [GalleryPage]
 
     static func parse(_ data: Data, id: Int64) throws -> NativeGallery {
+        try Task.checkCancellation()
         guard id > 0, data.count <= 4_000_000, var text = String(data: data, encoding: .utf8) else {
             throw ContentError.invalidResponse
         }
@@ -55,21 +56,28 @@ struct NativeGallery: Identifiable, Sendable {
               let files = json["files"] as? [[String: Any]], !files.isEmpty, files.count <= 10_000 else {
             throw ContentError.invalidResponse
         }
-        let pages = try files.map { file -> GalleryPage in
+        let pages = try files.enumerated().map { index, file -> GalleryPage in
+            if index % 32 == 0 { try Task.checkCancellation() }
             guard let hash = file["hash"] as? String,
-                  hash.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil,
+                  validPageHash(hash),
                   let name = file["name"] as? String, !name.isEmpty else { throw ContentError.unsupportedFormat }
             return GalleryPage(hash: hash, name: name,
                                width: (file["width"] as? NSNumber)?.intValue ?? 0,
                                height: (file["height"] as? NSNumber)?.intValue ?? 0,
                                hasAVIF: (file["hasavif"] as? NSNumber)?.boolValue ?? false)
         }
+        try Task.checkCancellation()
         let japanese = (json["japanese_title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = japanese?.isEmpty == false ? japanese! : (json["title"] as? String ?? L10n.text("Work %@", String(describing: id)))
         return NativeGallery(id: id, title: decodeEntities(title),
                              artists: (json["artists"] as? [[String: Any]] ?? []).compactMap { $0["artist"] as? String },
                              language: json["language"] as? String ?? "", type: json["type"] as? String ?? "",
                              tags: Self.parseTags(json["tags"]), pages: pages)
+    }
+
+    private static func validPageHash(_ hash: String) -> Bool {
+        let bytes = hash.utf8
+        return bytes.count == 64 && bytes.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
     }
 
     static func parseTags(_ value: Any?) -> [String] {
@@ -85,14 +93,16 @@ struct NativeGallery: Identifiable, Sendable {
         return ["1", "true"].contains((value as? String ?? "").lowercased())
     }
 
+    private static let namedEntities = ["amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": " "]
+    private static let entityRegex = try! NSRegularExpression(pattern: #"&(#x[0-9a-fA-F]+|#[0-9]+|[a-z]+);"#)
+
     static func decodeEntities(_ input: String) -> String {
-        let named = ["amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": " "]
-        let regex = try! NSRegularExpression(pattern: #"&(#x[0-9a-fA-F]+|#[0-9]+|[a-z]+);"#)
+        guard input.contains("&") else { return input }
         let source = input as NSString
         var result = input
-        for match in regex.matches(in: input, range: NSRange(location: 0, length: source.length)).reversed() {
+        for match in entityRegex.matches(in: input, range: NSRange(location: 0, length: source.length)).reversed() {
             let token = source.substring(with: match.range(at: 1))
-            var replacement = named[token]
+            var replacement = namedEntities[token]
             if token.hasPrefix("#") {
                 let hex = token.hasPrefix("#x")
                 if let code = UInt32(token.dropFirst(hex ? 2 : 1), radix: hex ? 16 : 10), let scalar = UnicodeScalar(code) {

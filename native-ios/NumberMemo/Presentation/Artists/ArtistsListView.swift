@@ -3,6 +3,7 @@ import GRDB
 
 public struct ArtistsListView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var artists: [ArtistMemo] = []
     @State private var selectedBrowserItem: IdentifiableURL?
@@ -50,25 +51,22 @@ public struct ArtistsListView: View {
         .fullScreenCover(item: $selectedBrowserItem) { item in
             ContentEntryView(initialUrl: item.url)
         }
-        .task {
+        .task(id: env.mode == .manga && scenePhase == .active) {
+            guard env.mode == .manga, scenePhase == .active else { return }
             do {
                 let observation = ValueObservation.tracking { db in
-                    try [Row.fetchAll(db, sql: "SELECT * FROM works"), Row.fetchAll(db, sql: "SELECT * FROM folders"), Row.fetchAll(db, sql: "SELECT * FROM folder_works"), Row.fetchAll(db, sql: "SELECT * FROM artists")]
+                    try ArtistMemo.order(ArtistMemo.Columns.name.asc).fetchAll(db)
                 }
-                for try await _ in observation.values(in: env.database.dbWriter) { loadArtists() }
-            } catch { loadArtists() }
-        }
-    }
-
-    private func loadArtists() {
-        if let list = try? env.database.listArtists() {
-            self.artists = list
+                for try await updatedArtists in observation.removeDuplicates().values(in: env.database.dbWriter, bufferingPolicy: .bufferingNewest(1)) {
+                    try Task.checkCancellation()
+                    artists = updatedArtists
+                }
+            } catch { }
         }
     }
 
     private func removeArtist(_ name: String) {
         try? env.database.removeFavoriteArtist(name: name)
-        loadArtists()
     }
 }
 

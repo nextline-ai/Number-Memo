@@ -79,14 +79,18 @@ struct TasteArtwork: View {
     var post: BooruPost? = nil
     var gallery: NativeGallery? = nil
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
     @State private var cover: UIImage?
+    @State private var loadedHash: String?
     @State private var failed = false
 
     init(post: BooruPost? = nil, gallery: NativeGallery? = nil) {
         self.post = post
         self.gallery = gallery
         if let gallery, let page = gallery.pages.first {
-            _cover = State(initialValue: TasteSources.images.cachedImage(hash: page.hash, thumbnail: true))
+            let image = TasteSources.images.cachedImage(hash: page.hash, thumbnail: true)
+            _cover = State(initialValue: image)
+            _loadedHash = State(initialValue: image == nil ? nil : page.hash)
         }
     }
 
@@ -103,15 +107,19 @@ struct TasteArtwork: View {
             }
         }
         .accessibilityHidden(true)
-        .task(id: gallery?.id) {
-            guard let gallery, let page = gallery.pages.first else { return }
-            if cover == nil, let cached = TasteSources.images.cachedImage(hash: page.hash, thumbnail: true) {
-                cover = cached
-                return
+        .task(id: "\(gallery?.id ?? 0):\(env.mode):\(scenePhase)") {
+            guard env.mode == .manga, scenePhase == .active, let gallery, let page = gallery.pages.first else { return }
+            guard cover == nil || loadedHash != page.hash else { return }
+            if loadedHash != page.hash { cover = nil }
+            failed = false
+            do {
+                let image = try await TasteSources.images.load(page, galleryID: gallery.id, thumbnail: true)
+                try Task.checkCancellation()
+                cover = image; loadedHash = page.hash
             }
-            do { cover = try await TasteSources.images.load(page, galleryID: gallery.id, thumbnail: true) }
             catch { if !Task.isCancelled { failed = true } }
         }
+        .onDisappear { cover = nil; loadedHash = nil }
     }
 }
 
@@ -167,10 +175,10 @@ struct TasteOpenedWork: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         if let post = item.post, let server = env.booru.servers.first(where: { $0.canonicalAddress == item.item.source }) {
-            BooruPostView(post: viewerPosition ?? post, posts: feed?.results.items.compactMap(\.post) ?? [post], server: server, source: TasteSources.booru,
+            BooruPostView(post: viewerPosition ?? post, posts: feed?.visibleItems(in: env.booru).compactMap(\.post) ?? [post].filter(env.booru.isVisible), server: server, source: TasteSources.booru,
                 loadMore: feed.map { feed in {
                     await feed.loadMore(mode: .booru, env: env, language: "all")
-                    return BooruViewerBatch(posts: feed.results.items.compactMap(\.post), hasMore: feed.results.cursor.hasMore && feed.results.failures.isEmpty, failure: feed.results.failures.isEmpty ? nil : L10n.text("Unable to Load"))
+                    return BooruViewerBatch(posts: feed.visibleItems(in: env.booru).compactMap(\.post), hasMore: feed.results.cursor.hasMore && feed.results.failures.isEmpty, failure: feed.results.failures.isEmpty ? nil : L10n.text("Unable to Load"))
                 } }, positionChanged: { viewerPosition = $0 }, contextForPost: { post in
                     guard let feed, let recommendation = feed.results.items.first(where: { $0.post?.id == post.id }) else { return context }
                     return .recommended(recommendation.reason.name, session: feed.discoverySession)

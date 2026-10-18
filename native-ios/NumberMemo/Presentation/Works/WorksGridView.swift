@@ -3,12 +3,14 @@ import GRDB
 
 public struct WorksGridView: View {
     @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
 
     public let folder: Folder?
     public let artist: String?
 
     @State private var works: [Work] = []
+    @State private var reloadGeneration = 0
     @State private var similarity: VisualSimilaritySeed?
     @State private var selecting = false
     @State private var selection = Set<Int64>()
@@ -58,7 +60,7 @@ public struct WorksGridView: View {
                         .padding(.top, 40)
                     } else {
                         LazyVGrid(columns: columns, spacing: 16) {
-                            ForEach(Array(works.enumerated()), id: \.element.id) { index, work in
+                            ForEach(works) { work in
                                 WorkCardView(work: work)
                                     .id(work.galleryId)
                                     .accessibilityIdentifier("works.card.\(work.galleryId)")
@@ -74,13 +76,7 @@ public struct WorksGridView: View {
                                     .contextMenu {
                                         workContextMenu(for: work)
                                     }
-                                    .onAppear {
-                                        let lookaheadEnd = min(works.count, index + 16)
-                                        if index + 1 < lookaheadEnd {
-                                            let paths = works[(index + 1)..<lookaheadEnd].compactMap(\.thumbPath)
-                                            LocalThumbnailCache.shared.prefetch(paths: paths)
-                                        }
-                                    }
+
                             }
                         }
                         .padding(16)
@@ -98,9 +94,6 @@ public struct WorksGridView: View {
                 .allowsHitTesting(isSearchBarVisible).accessibilityHidden(!isSearchBarVisible)
         }
         .animation(isSearchBarVisible ? .spring(response: 0.35, dampingFraction: 0.86) : .easeInOut(duration: 0.32), value: isSearchBarVisible)
-        .onChange(of: searchText) { _, _ in
-            loadWorks()
-        }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(isPushed)
@@ -252,15 +245,32 @@ public struct WorksGridView: View {
             NavigationPopGestureEnabler().frame(width: 0, height: 0)
             #endif
         }
-        .task {
-            do {
-                let observation = ValueObservation.tracking { db in
-                    try [Row.fetchAll(db, sql: "SELECT * FROM works"), Row.fetchAll(db, sql: "SELECT * FROM folders"), Row.fetchAll(db, sql: "SELECT * FROM folder_works"), Row.fetchAll(db, sql: "SELECT * FROM artists")]
-                }
-                for try await _ in observation.values(in: env.database.dbWriter) { loadWorks() }
-            } catch { loadWorks() }
+        .task(id: WorksQuery(query: searchText, revision: reloadGeneration, active: env.mode == .manga && scenePhase == .active)) {
+            await observeWorks()
         }
         }
+    }
+
+    @MainActor private func observeWorks() async {
+        guard env.mode == .manga, scenePhase == .active else { return }
+        let query = searchText
+        let folderID = folder?.id
+        let selectedArtist = artist
+        do {
+            // Cancel superseded searches before scanning a large local library.
+            if !query.isEmpty { try await Task.sleep(for: .milliseconds(150)) }
+            let observation = ValueObservation.tracking { db -> WorkSnapshot in
+                let works = try AppDatabase.fetchWorks(db, folderId: folderID, query: query, artist: selectedArtist)
+                let folders = try AppDatabase.fetchFolders(db)
+                return WorkSnapshot(works: works, folders: folders)
+            }.removeDuplicates()
+            for try await snapshot in observation.values(in: env.database.dbWriter, bufferingPolicy: .bufferingNewest(1)) {
+                try Task.checkCancellation()
+                works = snapshot.works
+                if allFolders != snapshot.folders { allFolders = snapshot.folders }
+            }
+        } catch is CancellationError { }
+        catch { showToast(error.localizedDescription) }
     }
 
     private func openManga(for galleryId: Int64) {
@@ -268,18 +278,19 @@ public struct WorksGridView: View {
         activeBrowserUrl = urlString
     }
 
+    private struct WorkSnapshot: Equatable {
+        let works: [Work]
+        let folders: [Folder]
+    }
+
+    private struct WorksQuery: Hashable {
+        let query: String
+        let revision: Int
+        let active: Bool
+    }
+
     private func loadWorks() {
-        do {
-            self.works = try env.database.listWorks(
-                folderId: folder?.id,
-                query: searchText.isEmpty ? nil : searchText,
-                artist: artist
-            )
-            self.allFolders = (try? env.database.listFolders()) ?? []
-            LocalThumbnailCache.shared.prefetch(paths: self.works.prefix(16).compactMap(\.thumbPath))
-        } catch {
-            self.works = []
-        }
+        reloadGeneration += 1
     }
 
     private func moveWork(_ work: Work, to targetFolder: Folder) {

@@ -41,6 +41,37 @@ final class LibrarySyncTests: XCTestCase {
         try a.apply(la.changes); try b.apply(lb.changes)
         la.baseline = try a.snapshot(); lb.baseline = try b.snapshot()
     }
+    @MainActor func testSnapshotCacheReusesIdleLibraryAndIncludesEditsAndPreferences() throws {
+        let adapter = try adapter(), cache = LibrarySyncSnapshotCache()
+        _ = try cache.snapshot(adapter)
+        let first = try cache.snapshot(adapter)
+        let warmedCount = cache.snapshotCount
+        XCTAssertEqual(try cache.snapshot(adapter), first)
+        XCTAssertEqual(cache.snapshotCount, warmedCount)
+        _ = try adapter.manga.upsertWork(galleryId: 123, title: "New work")
+        let edited = try cache.snapshot(adapter)
+        XCTAssertTrue(edited.values.contains { $0.table == "manga.works" && $0.values["gallery_id"] == .integer(123) })
+        adapter.mangaDefaults.set("ko", forKey: "app.language")
+        let preferences = try cache.snapshot(adapter)
+        XCTAssertTrue(preferences.values.contains { $0.table == "preferences.manga" && $0.values["key"] == .text("app.language") })
+        try adapter.manga.deleteWork(galleryId: 123)
+        XCTAssertFalse(try cache.snapshot(adapter).values.contains { $0.table == "manga.works" })
+    }
+    @MainActor func testSnapshotCacheDetectsExternalDatabaseConnectionWrites() throws {
+        let original = try adapter(), cache = LibrarySyncSnapshotCache()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("library.sqlite").path
+        let manga = try AppDatabase.open(at: path)
+        _ = try manga.upsertWork(galleryId: 456, title: "Before")
+        let adapter = LibrarySyncAdapter(manga: manga, booru: original.booru, mangaDefaults: original.mangaDefaults, booruDefaults: original.booruDefaults)
+        _ = try cache.snapshot(adapter); _ = try cache.snapshot(adapter)
+        let external = try DatabaseQueue(path: path)
+        try external.write { try $0.execute(sql: "UPDATE works SET title = 'Shared edit' WHERE gallery_id = 456") }
+        let row = try XCTUnwrap(cache.snapshot(adapter).values.first { $0.table == "manga.works" })
+        XCTAssertEqual(row.values["title"], .text("Shared edit"))
+    }
     func testLegacyCloudImportRepairPropagatesToAnotherDevice() throws {
         let a = try adapter(), b = try adapter()
         let backup = try AnimeBoxesBackup.parse(BooruUITestSupport.importFixture)

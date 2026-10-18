@@ -240,6 +240,16 @@ final class NativeContentTests: XCTestCase {
         XCTAssertThrowsError(try SearchIndexNode(Data([0, 0, 0, 1])))
     }
 
+    func testBinaryIDsDecodeSlicedDataAndUnsignedValues() throws {
+        let sliced = Data([99, 99, 0, 0, 0, 1, 255, 255, 255, 255]).dropFirst(2)
+        XCTAssertEqual(try BinaryCursor.ids(sliced), [1, 4_294_967_295])
+        XCTAssertEqual(try BinaryCursor.ids(Data()), [])
+        let values = Array(1...100_000).map(UInt32.init)
+        var data = Data(capacity: values.count * 4)
+        for value in values { withUnsafeBytes(of: value.bigEndian) { data.append(contentsOf: $0) } }
+        XCTAssertEqual(try BinaryCursor.ids(data), values.map(Int64.init))
+    }
+
     func testBoundedImageDecodeAndCache() async throws {
         let fixture = FixtureContentSource()
         let gallery = try await fixture.gallery(900000001)
@@ -338,4 +348,337 @@ private final class SuggestionFixtureURLProtocol: URLProtocol {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+}
+
+extension NativeContentTests {
+    func testGalleryHashValidationPreservesLowercaseASCIIAndPageOrder() throws {
+        let hash = String(repeating: "0123456789abcdef", count: 4)
+        let files = (0..<96).map { ["hash": hash, "name": "\($0).jpg"] }
+        let json = try JSONSerialization.data(withJSONObject: ["title": "Pages", "files": files])
+        let document = Data("var galleryinfo = ".utf8) + json
+        let gallery = try NativeGallery.parse(document, id: 1)
+        XCTAssertEqual(gallery.pages.map(\.name), (0..<96).map { "\($0).jpg" })
+        XCTAssertTrue(gallery.pages.allSatisfy { $0.hash == hash })
+        for invalid in [String(hash.dropLast()), hash + "a", hash.uppercased(),
+                        String(repeating: "g", count: 64), String(repeating: "é", count: 32)] {
+            let invalidJSON = try JSONSerialization.data(withJSONObject: ["files": [["hash": invalid, "name": "1.jpg"]]])
+            XCTAssertThrowsError(try NativeGallery.parse(Data("var galleryinfo = ".utf8) + invalidJSON, id: 1)) { error in
+                guard case ContentError.unsupportedFormat = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        }
+    }
+
+    @MainActor func testCancelledGalleryParsingStopsBeforeDocumentWork() async throws {
+        let json = try JSONSerialization.data(withJSONObject: ["files": [["hash": sampleHash, "name": "1.jpg"]]])
+        let document = Data("var galleryinfo = ".utf8) + json
+        let task = Task { try NativeGallery.parse(document, id: 1) }
+        task.cancel()
+        do { _ = try await task.value; XCTFail("Canceled metadata must not continue parsing") }
+        catch { XCTAssertTrue(error is CancellationError) }
+    }
+
+    func testEntityDecoderPreservesUnicodeAndUnknownEntities() {
+        XCTAssertEqual(NativeGallery.decodeEntities("제목 📖"), "제목 📖")
+        XCTAssertEqual(NativeGallery.decodeEntities("&#x1F4D6; &amp; &#65; &unknown; &#xD800; &amp;lt;"),
+                       "📖 & A &unknown; &#xD800; &lt;")
+        XCTAssertEqual(NativeGallery.decodeEntities("&quot;&apos;&nbsp;&lt;&gt;"), "\"' <>")
+    }
+
+    func testGalleryMetadataConsumersShareOneDownloadAndCachedResult() async throws {
+        let fixture = GalleryDocumentFixture()
+        defer { fixture.close() }
+        let source = fixture.source()
+        let first = Task { try await source.gallery(fixture.id) }
+        let second = Task { try await source.gallery(fixture.id) }
+        try await waitForGalleryCondition { await source.galleryConsumerCount(fixture.id) == 2 && fixture.requestCount == 1 }
+        fixture.complete()
+        let a = try await first.value, b = try await second.value
+        XCTAssertEqual(a.id, b.id)
+        XCTAssertEqual(a.title, "Shared metadata")
+        XCTAssertEqual(a.pages.count, 1)
+        XCTAssertNotNil(source.cachedGallery(fixture.id))
+        _ = try await source.gallery(fixture.id)
+        XCTAssertEqual(fixture.requestCount, 1, "Concurrent cards and detail views should download and parse metadata once")
+    }
+
+    func testCancellingOneGalleryConsumerReturnsWhileAnotherKeepsDownload() async throws {
+        let fixture = GalleryDocumentFixture()
+        defer { fixture.close() }
+        let source = fixture.source()
+        let first = Task { try await source.gallery(fixture.id) }
+        let second = Task { try await source.gallery(fixture.id) }
+        try await waitForGalleryCondition { await source.galleryConsumerCount(fixture.id) == 2 && fixture.requestCount == 1 }
+        first.cancel()
+        do { _ = try await first.value; XCTFail("Canceled consumer must finish without waiting for the other consumer") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        let remaining = await source.galleryConsumerCount(fixture.id)
+        XCTAssertEqual(remaining, 1)
+        XCTAssertEqual(fixture.stoppedCount, 0)
+        fixture.complete()
+        let result = try await second.value
+        XCTAssertEqual(result.id, fixture.id)
+        XCTAssertEqual(fixture.requestCount, 1)
+    }
+
+    func testCancellingLastGalleryConsumerStopsDownloadAndAllowsRetry() async throws {
+        let fixture = GalleryDocumentFixture()
+        defer { fixture.close() }
+        let source = fixture.source()
+        let first = Task { try await source.gallery(fixture.id) }
+        try await waitForGalleryCondition { fixture.requestCount == 1 }
+        first.cancel()
+        do { _ = try await first.value; XCTFail("Expected cancellation") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        try await waitForGalleryCondition { fixture.stoppedCount == 1 }
+        XCTAssertNil(source.cachedGallery(fixture.id))
+        let retry = Task { try await source.gallery(fixture.id) }
+        try await waitForGalleryCondition { fixture.requestCount == 2 }
+        fixture.complete()
+        let result = try await retry.value
+        XCTAssertEqual(result.id, fixture.id)
+        let remaining = await source.galleryConsumerCount(fixture.id)
+        XCTAssertEqual(remaining, 0)
+    }
+
+    private func waitForGalleryCondition(_ condition: () async -> Bool) async throws {
+        for _ in 0..<200 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Timed out waiting for controlled gallery request")
+        throw URLError(.timedOut)
+    }
+}
+
+extension NativeContentTests {
+    @MainActor func testLaunchWarmsTenComicCoversOnceAndRetainsNativePagination() async throws {
+        let source = LaunchComicSource(data: launchPixel())
+        let images = PageImageStore(source: source, diskCapacity: 0)
+        let warmup = LaunchFeedWarmup(manga: source, booru: BooruFixtureSource(), images: images)
+        let query = GalleryQuery(language: "english", text: "tag:scenery -tag:spoiler")
+        await warmup.run(mangaQuery: query, site: "custom.example", servers: [], rating: .all)
+        let calls = await source.listCalls, galleries = await source.galleryIDs, thumbnails = await source.thumbnailIDs
+        XCTAssertEqual(calls.map(\.offset), [0])
+        XCTAssertEqual(calls.map(\.count), [24], "The API page stays intact; only cover speculation is capped")
+        XCTAssertEqual(calls.map(\.query), [query])
+        XCTAssertEqual(Set(galleries), Set((1...10).map(Int64.init)))
+        XCTAssertEqual(Set(thumbnails), Set((1...10).map(Int64.init)))
+        let originalLoads = await source.originalImages
+        XCTAssertEqual(originalLoads, 0)
+        XCTAssertNotNil(images.cachedImage(hash: "launch-1", thumbnail: true))
+
+        let loader = GalleryFeedLoader(source: source, images: images, startup: warmup)
+        await loader.load(query, reset: true, useLaunchPage: true, site: "custom.example").value
+        XCTAssertEqual(loader.ids, (1...24).map(Int64.init))
+        let initialCalls = await source.listCalls
+        XCTAssertEqual(initialCalls.count, 1, "The first visible feed must reuse the warmed page")
+        await loader.load(query, reset: false).value
+        XCTAssertEqual(loader.ids, (1...48).map(Int64.init))
+        loader.suspend(); loader.resume()
+        await warmup.run(mangaQuery: query, site: "custom.example", servers: [], rating: .all)
+        let resumedCalls = await source.listCalls, resumedThumbnails = await source.thumbnailIDs
+        XCTAssertEqual(resumedCalls.map(\.offset), [0, 24])
+        XCTAssertEqual(resumedThumbnails.count, 10, "Returning from another app must not restart completed warmup")
+        XCTAssertEqual(loader.ids.count, 48)
+        XCTAssertTrue(loader.didLoad)
+
+        await source.setVersion(1)
+        await loader.load(query, reset: true).value
+        XCTAssertEqual(loader.ids, (101...124).map(Int64.init), "Pull refresh must fetch fresh results using the remembered site key")
+        let refreshedCalls = await source.listCalls
+        XCTAssertEqual(refreshedCalls.map(\.offset), [0, 24, 0])
+    }
+
+    @MainActor func testCancelledInitialComicConsumerCanReuseWarmPageOnResume() async throws {
+        let source = LaunchComicSource(data: launchPixel(), blocked: true)
+        let warmup = LaunchFeedWarmup(manga: source, booru: BooruFixtureSource())
+        let query = GalleryQuery(), key = LaunchFeedWarmup.MangaKey(site: "manga.la", query: query)
+        let cache = warmup.mangaPages
+        let background = Task { try await warmup.mangaPage(query: query, site: "manga.la") }
+        try await waitForLaunch { await cache.consumerCount(for: key) == 1 }
+        let initial = Task { try await warmup.mangaPage(query: query, site: "manga.la", initialConsumer: true) }
+        try await waitForLaunch { await cache.consumerCount(for: key) == 2 }
+        initial.cancel()
+        try await waitForLaunch { await cache.consumerCount(for: key) == 1 }
+        await source.unblock()
+        _ = try await background.value
+        do { _ = try await initial.value; XCTFail("Expected the hidden initial consumer to cancel") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        let resumed = try await warmup.mangaPage(query: query, site: "manga.la", initialConsumer: true)
+        XCTAssertEqual(resumed.ids.count, 24)
+        let calls = await source.listCalls
+        XCTAssertEqual(calls.count, 1, "Cancellation cannot consume the initial warm-page handoff")
+    }
+
+    @MainActor func testSuspendedLaunchStopsQueuedCoversAndResumesWithoutReloadingThePage() async throws {
+        let source = LaunchComicSource(data: launchPixel(), blockedImages: true)
+        let warmup = LaunchFeedWarmup(manga: source, booru: BooruFixtureSource())
+        let query = GalleryQuery()
+        let first = Task { await warmup.run(mangaQuery: query, site: "manga.la", servers: [], rating: .all) }
+        try await waitForLaunch { await source.thumbnailIDs.count == 2 }
+        first.cancel(); await first.value
+        let stopped = await source.thumbnailIDs
+        XCTAssertEqual(stopped.count, 2, "A canceled launch must not start queued thumbnail work")
+        await source.allowImages()
+        await warmup.run(mangaQuery: query, site: "manga.la", servers: [], rating: .all)
+        let calls = await source.listCalls, thumbnails = await source.thumbnailIDs
+        XCTAssertEqual(calls.count, 1, "App activation resumes unfinished covers using the first page already fetched")
+        XCTAssertEqual(Set(thumbnails), Set((1...10).map(Int64.init)))
+        let completedCount = thumbnails.count
+        await warmup.run(mangaQuery: query, site: "manga.la", servers: [], rating: .all)
+        let repeated = await source.thumbnailIDs
+        XCTAssertEqual(repeated.count, completedCount)
+    }
+
+    func testLaunchPageCacheRejectsLateCancelledResultsAfterRefresh() async throws {
+        let cache = LaunchPageCache<String, Int>(), source = LaunchValueGate()
+        let old = Task { try await cache.value(for: "page") { await source.load() } }
+        try await waitForLaunch { await source.requests == 1 }
+        await cache.invalidate("page")
+        let current = Task { try await cache.value(for: "page") { await source.load() } }
+        try await waitForLaunch { await source.requests == 2 }
+        await source.release(request: 2, value: 20)
+        let currentValue = try await current.value
+        XCTAssertEqual(currentValue, 20)
+        await source.release(request: 1, value: 10)
+        do { _ = try await old.value; XCTFail("Invalidated work must not publish late results") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        let cached = try await cache.value(for: "page") { await source.load() }
+        XCTAssertEqual(cached, 20)
+        let requests = await source.requests
+        XCTAssertEqual(requests, 2)
+    }
+
+    @MainActor func testEmptyComicFeedRemainsLoadedAcrossSuspension() async {
+        let source = LaunchComicSource(data: launchPixel(), empty: true)
+        let loader = GalleryFeedLoader(source: source)
+        await loader.load(GalleryQuery(), reset: true).value
+        loader.suspend(); loader.resume()
+        XCTAssertTrue(loader.didLoad, "A completed empty feed must be distinguishable from a canceled initial request")
+        XCTAssertTrue(loader.ids.isEmpty)
+        XCTAssertFalse(loader.hasMore)
+        let calls = await source.listCalls
+        XCTAssertEqual(calls.count, 1)
+    }
+
+    @MainActor private func launchPixel() -> Data {
+        UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { context in
+            UIColor.blue.setFill(); context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        }.pngData()!
+    }
+    private func waitForLaunch(_ condition: @Sendable () async -> Bool) async throws {
+        for _ in 0..<200 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTFail("Timed out waiting for launch fixture")
+        throw URLError(.timedOut)
+    }
+}
+
+private actor LaunchComicSource: ContentProviding {
+    struct ListCall: Sendable { let query: GalleryQuery; let offset: Int; let count: Int }
+    private let data: Data
+    private let empty: Bool
+    private var blocked: Bool
+    private var blockedImages: Bool
+    private var version = 0
+    private(set) var listCalls: [ListCall] = []
+    private(set) var galleryIDs: [Int64] = []
+    private(set) var thumbnailIDs: [Int64] = []
+    private(set) var originalImages = 0
+    init(data: Data, blocked: Bool = false, empty: Bool = false, blockedImages: Bool = false) {
+        self.data = data; self.blocked = blocked; self.empty = empty; self.blockedImages = blockedImages
+    }
+    func unblock() { blocked = false }
+    func allowImages() { blockedImages = false }
+    func setVersion(_ value: Int) { version = value }
+    func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch {
+        listCalls.append(.init(query: query, offset: offset, count: count))
+        while blocked { try await Task.sleep(for: .milliseconds(5)) }
+        return GalleryBatch(ids: empty ? [] : (1...count).map { Int64(version * 100 + offset + $0) }, hasMore: !empty)
+    }
+    func gallery(_ id: Int64) async throws -> NativeGallery {
+        galleryIDs.append(id)
+        return .init(id: id, title: "Launch \(id)", artists: [], language: "english", type: "manga", tags: [],
+                     pages: [.init(hash: "launch-\(id)", name: "1.png", width: 8, height: 8, hasAVIF: false)])
+    }
+    func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data {
+        if thumbnail { thumbnailIDs.append(galleryID) } else { originalImages += 1 }
+        while blockedImages { try await Task.sleep(for: .milliseconds(5)) }
+        try await Task.sleep(for: .milliseconds(5))
+        return data
+    }
+    func suggestions(for token: String) async throws -> [TagSuggestion] { [] }
+}
+
+private actor LaunchValueGate {
+    private(set) var requests = 0
+    private var continuations: [Int: CheckedContinuation<Int, Never>] = [:]
+    func load() async -> Int {
+        requests += 1
+        let request = requests
+        return await withCheckedContinuation { continuations[request] = $0 }
+    }
+    func release(request: Int, value: Int) { continuations.removeValue(forKey: request)?.resume(returning: value) }
+}
+
+private final class GalleryDocumentFixture: @unchecked Sendable {
+    let id = Int64.random(in: 10_000_000...9_000_000_000)
+    private let lock = NSLock()
+    private var pending: [GalleryDocumentURLProtocol] = []
+    private var requests = 0
+    private var stopped = 0
+    var requestCount: Int { lock.withLock { requests } }
+    var stoppedCount: Int { lock.withLock { stopped } }
+
+    init() { GalleryDocumentURLProtocol.register(self) }
+    func source() -> MangaContentSource {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [GalleryDocumentURLProtocol.self]
+        return MangaContentSource(transport: ContentTransport(configuration: configuration))
+    }
+    func begin(_ request: GalleryDocumentURLProtocol) {
+        lock.withLock { pending.append(request); requests += 1 }
+    }
+    func stop(_ request: GalleryDocumentURLProtocol) {
+        lock.withLock {
+            if pending.contains(where: { $0 === request }) { stopped += 1 }
+            pending.removeAll { $0 === request }
+        }
+    }
+    func complete() {
+        let requests = lock.withLock { let copy = pending; pending.removeAll(); return copy }
+        let data = Data(("var galleryinfo = {\"title\":\"Shared metadata\",\"files\":[{\"hash\":\"" + String(repeating: "a", count: 64) + "\",\"name\":\"1.jpg\",\"width\":100,\"height\":150}]};").utf8)
+        for request in requests { request.complete(data) }
+    }
+    func close() {
+        let requests = lock.withLock { let copy = pending; pending.removeAll(); return copy }
+        for request in requests { request.fail() }
+        GalleryDocumentURLProtocol.unregister(id)
+    }
+}
+
+private final class GalleryDocumentURLProtocol: URLProtocol {
+    private static let registryLock = NSLock()
+    nonisolated(unsafe) private static var registry: [Int64: GalleryDocumentFixture] = [:]
+    private var fixture: GalleryDocumentFixture?
+    static func register(_ fixture: GalleryDocumentFixture) { registryLock.withLock { registry[fixture.id] = fixture } }
+    static func unregister(_ id: Int64) { registryLock.withLock { _ = registry.removeValue(forKey: id) } }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let id = request.url.flatMap { Int64($0.deletingPathExtension().lastPathComponent) }
+        fixture = Self.registryLock.withLock { id.flatMap { Self.registry[$0] } }
+        guard let fixture else { fail(); return }
+        fixture.begin(self)
+    }
+    override func stopLoading() { fixture?.stop(self) }
+    func complete(_ data: Data) {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/javascript"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    func fail() { client?.urlProtocol(self, didFailWithError: URLError(.cancelled)) }
 }

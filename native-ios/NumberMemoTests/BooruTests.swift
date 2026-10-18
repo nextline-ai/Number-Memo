@@ -252,7 +252,7 @@ final class BooruTests: XCTestCase {
                 return (500, "{}")
             }
             XCTAssertNil(items.first { $0.name == "only" })
-            return (200, "[{\"id\":41,\"score\":999}]")
+            return (200, "[{\"id\":41,\"score\":999,\"file_url\":\"https://cdn.example.com/a.jpg\"}]")
         }
         let batch = try await client.posts(server: dan, query: "landscape order:score rating:general", page: 0)
         XCTAssertEqual(calls, 2); XCTAssertEqual(batch.posts.map(\.postID), [41])
@@ -391,6 +391,19 @@ final class BooruTests: XCTestCase {
         XCTAssertEqual(loader.posts.map(\.postID), [101, 102, 103])
         XCTAssertFalse(loader.hasMore)
     }
+
+    @MainActor func testFeedProjectionTracksPaginationAndBlacklistEdits() async {
+        let loader = BooruFeedLoader(), server = BooruServer.presets[0], source = BooruFixtureSource()
+        loader.setBlacklists([server.id: "id:101"])
+        await loader.load(server: server, source: source, query: "", reset: true)
+        XCTAssertEqual(loader.visiblePosts, loader.posts.filter { $0.postID != 101 })
+        await loader.load(server: server, source: source, query: "", reset: false)
+        XCTAssertEqual(loader.visiblePosts.map(\.postID), [102, 103])
+        loader.setBlacklists([server.id: "id:102\nid:103"])
+        XCTAssertEqual(loader.visiblePosts.map(\.postID), [101])
+        loader.setBlacklists([:])
+        XCTAssertEqual(loader.visiblePosts, loader.posts)
+    }
     @MainActor func testStaleSearchCannotReplaceNewerResults() async {
         let source = DelayedBooruSource()
         let loader = BooruFeedLoader()
@@ -437,13 +450,136 @@ final class BooruTests: XCTestCase {
         let client = mocked { request in
             let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
             let fields = Set((items.first { $0.name == "only" }?.value ?? "").split(separator: ",").map(String.init))
-            XCTAssertEqual(fields, Set(["id", "file_url", "large_file_url", "preview_file_url", "image_width", "image_height", "tag_string", "tag_string_artist", "tag_string_meta", "rating", "score", "file_ext", "pool_ids", "fav_count", "up_score", "comment_count"]))
+            XCTAssertEqual(fields, Set(["id", "file_url", "large_file_url", "preview_file_url", "image_width", "image_height", "tag_string", "tag_string_artist", "tag_string_meta", "rating", "score", "file_ext", "pool_ids", "fav_count", "up_score", "comment_count", "is_banned"]))
             return (200, #"[{"id":101,"file_url":"https://cdn.example.com/a.jpg","preview_file_url":"https://cdn.example.com/p.jpg","tag_string":"scenery","tag_string_artist":"artist","rating":"g","file_ext":"jpg"}]"#)
         }
         let result = try await client.posts(server: dan, query: "scenery", page: 0)
         XCTAssertEqual(result.posts.first?.tags, ["scenery"])
         XCTAssertEqual(result.posts.first?.artists, ["artist"])
         XCTAssertNotNil(result.posts.first?.fileURL)
+    }
+
+    func testGoldAccessDetectionRequiresAnExplicitPostGate() {
+        let gate = "<html><div id='content'><section class='image-container note-container'><p><a href='/user_upgrades/new'>You need a gold account to see this image</a>.</p></section></div></html>"
+        XCTAssertEqual(BooruPostAccessError.detect(Data(gate.utf8), server: dan), .goldRequired)
+        XCTAssertEqual(BooruPostAccessError.detect(Data(#"{"success":false,"message":"You need a Gold account to see this image."}"#.utf8), server: dan), .goldRequired)
+        XCTAssertEqual(BooruPostAccessError.detect(Data("This post requires a Gold account.".utf8), server: dan), .goldRequired)
+        for text in [
+            "<html><div id='comments'>You need a gold account to see this image</div><section class='image-container'><img src='/image.jpg'></section></html>",
+            "<section class='image-container'><img src='/image.jpg'><p>You need a gold account to see this image</p></section>",
+            "<section class='image-container'><p>This page has been removed because of a takedown request or rule violation.</p></section>",
+            "<section class='image-container'><p>This image is unavailable in safe mode.</p></section>",
+            #"{"success":false,"message":"Gold members can search more tags."}"#,
+            #"{"id":12403879,"is_banned":true,"is_visible":false,"tag_string":"restricted_tag"}"#,
+            "Forbidden", "<html>Just a moment...</html>"
+        ] { XCTAssertNil(BooruPostAccessError.detect(Data(text.utf8), server: dan), text) }
+        var other = dan; other.engine = .gelbooru
+        XCTAssertNil(BooruPostAccessError.detect(Data(gate.utf8), server: other))
+    }
+
+    func testDanbooruGoldRowsAreFilteredWithoutChangingNativePageSizeOrRepeatingChecks() async throws {
+        let rows: [[String: Any]] = (1...39).map { ["id": $0, "file_url": "https://cdn.example.com/\($0).jpg"] }
+            + [["id": 12_403_879, "is_banned": false]]
+        let json = String(data: try JSONSerialization.data(withJSONObject: rows), encoding: .utf8)!
+        var documentCalls = 0
+        let client = mocked { request in
+            if request.url!.path.hasSuffix("posts.json") { return (200, json) }
+            documentCalls += 1
+            XCTAssertTrue(request.url!.path.hasSuffix("posts/12403879"))
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "text/html", "The access gate exists in HTML, not Danbooru's projected JSON")
+            return (200, "<section class='image-container'><p>You need a gold account to see this image.</p></section>")
+        }
+        let first = try await client.posts(server: dan, query: "", page: 0)
+        XCTAssertEqual(first.posts.count, 39)
+        XCTAssertEqual(first.goldRestrictedIDs, [12_403_879])
+        XCTAssertEqual(first.sourcePostCount, 40)
+        XCTAssertTrue(first.hasMore)
+        _ = try await client.posts(server: dan, query: "", page: 0)
+        do {
+            _ = try await client.details(server: dan, post: BooruDecoder.post(["id": 12_403_879], server: dan))
+            XCTFail("A saved preview-only post must use the same confirmed restriction")
+        } catch { XCTAssertEqual(error as? BooruPostAccessError, .goldRequired) }
+        XCTAssertEqual(documentCalls, 1, "Feed refreshes and opening the same missing-media post share a short access result cache")
+    }
+
+    func testDanbooruAccessFailuresAndRemovedPostsRemainInFeed() async throws {
+        var checks = 0
+        let client = mocked { request in
+            if request.url!.path.hasSuffix("posts.json") {
+                return (200, #"[{"id":101,"is_banned":false},{"id":102,"is_banned":true}]"#)
+            }
+            checks += 1
+            XCTAssertTrue(request.url!.path.hasSuffix("posts/101"))
+            return (403, "<html>Forbidden</html>")
+        }
+        for _ in 0..<2 {
+            let batch = try await client.posts(server: dan, query: "", page: 0)
+            XCTAssertEqual(batch.posts.map(\.postID), [101, 102])
+            XCTAssertTrue(batch.goldRestrictedIDs.isEmpty)
+        }
+        XCTAssertEqual(checks, 2, "An inconclusive access failure must not become a cached hidden post")
+    }
+
+    @MainActor func testGoldAccessCacheRetriesAfterBrowserValidationChanges() async throws {
+        var server = dan; server.id = UUID().uuidString
+        var restricted = true, calls = 0
+        let client = mocked { _ in
+            calls += 1
+            return (200, restricted
+                ? "<section class='image-container'>You need a gold account to see this image.</section>"
+                : "<section class='image-container'><img src='https://cdn.example.com/a.jpg'></section>")
+        }
+        let post = try BooruDecoder.post(["id": 101], server: server)
+        do { _ = try await client.details(server: server, post: post); XCTFail("Expected Gold restriction") }
+        catch { XCTAssertEqual(error as? BooruPostAccessError, .goldRequired) }
+        restricted = false
+        BooruBrowserSession.clearChallenge(for: server)
+        _ = try await client.details(server: server, post: post)
+        XCTAssertEqual(calls, 2)
+    }
+
+    func testExplicitGoldHTTPErrorIsTypedButGenericForbiddenIsNot() async throws {
+        let client = mocked { _ in (403, #"{"success":false,"message":"You need a gold account to see this image."}"#) }
+        do { _ = try await client.posts(server: dan, query: "id:12403879", page: 0); XCTFail("Expected typed access error") }
+        catch { XCTAssertEqual(error as? BooruPostAccessError, .goldRequired) }
+        let generic = mocked { _ in (403, #"{"success":false,"message":"Forbidden"}"#) }
+        do { _ = try await generic.posts(server: dan, query: "", page: 0); XCTFail("Expected verification error") }
+        catch BooruError.validationRequired { }
+        catch { XCTFail("Unexpected error: \(error)") }
+    }
+
+    @MainActor func testGoldOnlyFeedPageAdvancesAndReportsRestrictedIDs() async {
+        let source = GoldPageSource(), loader = BooruFeedLoader(), server = dan
+        var blocked: [(String, [Int64])] = []
+        await loader.load(servers: [server], source: source, query: "", reset: true, onGoldRestricted: { blocked.append(($0, $1)) })
+        XCTAssertTrue(loader.posts.isEmpty)
+        XCTAssertTrue(loader.hasMore)
+        XCTAssertEqual(blocked.first?.0, server.id)
+        XCTAssertEqual(blocked.first?.1, [12_403_879])
+        await loader.load(servers: [server], source: source, query: "", reset: false)
+        XCTAssertEqual(loader.posts.map(\.postID), [101])
+        XCTAssertFalse(loader.hasMore)
+        let pages = await source.pages
+        XCTAssertEqual(pages, [0, 1])
+    }
+
+    @MainActor func testRepeatingGoldOnlyPageStopsInsteadOfDrainingForever() async {
+        let source = GoldPageSource(repeating: true), loader = BooruFeedLoader(), server = dan
+        await loader.load(servers: [server], source: source, query: "", reset: true)
+        XCTAssertTrue(loader.hasMore)
+        await loader.load(servers: [server], source: source, query: "", reset: false)
+        XCTAssertFalse(loader.hasMore)
+        await loader.load(servers: [server], source: source, query: "", reset: false)
+        let pages = await source.pages
+        XCTAssertEqual(pages, [0, 1])
+    }
+
+    func testGoldOnlySortedPageDoesNotTriggerUnsupportedSortFallback() async throws {
+        let source = GoldPageSource()
+        let result = try await BooruSortValidation.posts(source: source, server: dan, query: "", page: 0, sort: .popular)
+        XCTAssertEqual(result.goldRestrictedIDs, [12_403_879])
+        let pages = await source.pages
+        XCTAssertEqual(pages, [0], "A filtered result is still a valid nonempty native page")
     }
 
     func testGelbooruDetailsAndNotesShareOneDocumentButMediaRefreshStaysFresh() async throws {
@@ -503,6 +639,88 @@ final class BooruTests: XCTestCase {
         XCTAssertFalse(loader.hasMore)
     }
 
+    @MainActor func testLaunchWarmupKeepsNativeServerPagesAndCapsAllBooruThumbnailsAtTwenty() async throws {
+        let first = BooruServer(id: "warm-dan", name: "Dan", baseURL: URL(string: "https://dan.example")!, engine: .danbooru)
+        let second = BooruServer(id: "warm-legacy", name: "Legacy", baseURL: URL(string: "https://legacy.example")!, engine: .oldGelbooru)
+        let probe = LaunchBooruWorkProbe()
+        let source = LaunchBooruSource(nativeCounts: [first.id: 40, second.id: 20], probe: probe)
+        let warmup = LaunchFeedWarmup(manga: ContentUITestSupport.source, booru: source, thumbnail: { url, server in
+            try await probe.perform(stage: "thumbnail", key: server.id + ":" + url.absoluteString)
+        })
+        let task = Task { await warmup.run(mangaQuery: nil, site: "manga.la", servers: [first, second], rating: .all) }
+        for _ in 0..<200 {
+            if await probe.started("page").count == 2 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let firstRequests = await source.requests
+        XCTAssertEqual(firstRequests.count, 2)
+        XCTAssertEqual(Set(firstRequests.map(\.serverID)), Set([first.id, second.id]))
+        XCTAssertTrue(firstRequests.allSatisfy { $0.page == 0 })
+        await probe.release("page")
+        for _ in 0..<200 {
+            if await probe.started("thumbnail").count == 2 { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let inFlightThumbnails = await probe.started("thumbnail")
+        XCTAssertEqual(inFlightThumbnails.count, 2, "Only two thumbnail workers may start while their results are held")
+        let peak = await probe.peak
+        XCTAssertLessThanOrEqual(peak, 2, "List and thumbnail work share the same concurrency budget")
+        await probe.release("thumbnail")
+        await task.value
+        let thumbnailKeys = await probe.started("thumbnail")
+        XCTAssertEqual(thumbnailKeys.count, 20, "The cap applies across all servers, not once per server")
+        XCTAssertEqual(Set(thumbnailKeys).count, 20)
+        XCTAssertTrue(thumbnailKeys.allSatisfy { $0.contains("/preview/") })
+        XCTAssertTrue(thumbnailKeys.contains { $0.hasPrefix(first.id + ":") })
+        XCTAssertTrue(thumbnailKeys.contains { $0.hasPrefix(second.id + ":") })
+        await warmup.run(mangaQuery: nil, site: "manga.la", servers: [first, second], rating: .all)
+        let repeatedRequests = await source.requests
+        let repeatedThumbnails = await probe.started("thumbnail")
+        XCTAssertEqual(repeatedRequests, firstRequests)
+        XCTAssertEqual(repeatedThumbnails, thumbnailKeys)
+        let firstPage = try await warmup.booruPage(server: first, query: "", rating: .all, sort: .latest)
+        let secondPage = try await warmup.booruPage(server: second, query: "", rating: .all, sort: .latest)
+        XCTAssertEqual(firstPage.posts.count, 40, "Preview limits must not truncate the native page consumed by the feed")
+        XCTAssertEqual(secondPage.posts.count, 20)
+        let finalRequests = await source.requests
+        XCTAssertEqual(finalRequests, firstRequests, "Warmup and cached consumers must never advance to page one")
+    }
+
+    @MainActor func testLaunchBooruPageFeedsInitialLoadButRefreshAndPaginationStayFresh() async {
+        let server = BooruServer(id: "warm-refresh", name: "Refresh", baseURL: URL(string: "https://refresh.example")!, engine: .danbooru)
+        let source = LaunchBooruSource(nativeCounts: [server.id: 40])
+        let warmup = LaunchFeedWarmup(manga: ContentUITestSupport.source, booru: source, thumbnail: { _, _ in })
+        await warmup.run(mangaQuery: nil, site: "manga.la", servers: [server], rating: .all)
+        let loader = BooruFeedLoader()
+        await loader.load(servers: [server], source: source, query: "", reset: true, startup: warmup, useLaunchPage: true)
+        let initialRequests = await source.requests
+        XCTAssertEqual(initialRequests.map(\.page), [0])
+        XCTAssertEqual(loader.posts.count, 40)
+        XCTAssertEqual(loader.posts.first?.postID, 10_040)
+        XCTAssertTrue(loader.hasMore)
+        await loader.load(servers: [server], source: source, query: "", reset: false, startup: warmup)
+        let pagedRequests = await source.requests
+        XCTAssertEqual(pagedRequests.map(\.page), [0, 1], "Consuming the warmed page must advance the loader cursor exactly once")
+        XCTAssertEqual(loader.posts.count, 80)
+        XCTAssertFalse(loader.hasMore)
+        await source.setVersion(2)
+        await loader.load(servers: [server], source: source, query: "", reset: true, startup: warmup)
+        XCTAssertEqual(loader.posts.count, 40)
+        XCTAssertEqual(loader.posts.first?.postID, 20_040, "Pull-to-refresh must not restore the old launch snapshot")
+        XCTAssertTrue(loader.hasMore)
+        await loader.load(servers: [server], source: source, query: "", reset: false, startup: warmup)
+        let refreshedRequests = await source.requests
+        XCTAssertEqual(refreshedRequests.map(\.page), [0, 1, 0, 1])
+        XCTAssertEqual(loader.posts.count, 80)
+        XCTAssertTrue(loader.posts.allSatisfy { $0.postID >= 20_000 })
+        XCTAssertFalse(loader.hasMore)
+        let reopened = BooruFeedLoader()
+        await reopened.load(servers: [server], source: source, query: "", reset: true, startup: warmup, useLaunchPage: true)
+        XCTAssertEqual(reopened.posts.first?.postID, 20_040)
+        let reopenedRequests = await source.requests
+        XCTAssertEqual(reopenedRequests.map(\.page), [0, 1, 0, 1, 0], "A later feed instance must not reuse an already-consumed launch snapshot")
+    }
+
     private func mocked(_ handler: @escaping (URLRequest) -> (Int, String)) -> BooruClient {
         BooruURLProtocol.handler = handler
         let config = URLSessionConfiguration.ephemeral
@@ -547,5 +765,70 @@ private actor GatedBooruSource: BooruProviding {
     func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
     func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
     func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+
+private actor LaunchBooruWorkProbe {
+    private var released = Set<String>()
+    private var waiting: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private var starts: [String: [String]] = [:]
+    private var active = 0
+    private(set) var peak = 0
+    func perform(stage: String, key: String) async throws {
+        active += 1; peak = max(peak, active)
+        starts[stage, default: []].append(key)
+        defer { active -= 1 }
+        if !released.contains(stage) {
+            await withCheckedContinuation { waiting[stage, default: []].append($0) }
+        }
+        try Task.checkCancellation()
+    }
+    func started(_ stage: String) -> [String] { starts[stage] ?? [] }
+    func release(_ stage: String) {
+        released.insert(stage)
+        for continuation in waiting.removeValue(forKey: stage) ?? [] { continuation.resume() }
+    }
+}
+
+private actor LaunchBooruSource: BooruProviding {
+    struct Request: Equatable, Sendable { let serverID: String; let query: String; let page: Int }
+    private let nativeCounts: [String: Int]
+    private let probe: LaunchBooruWorkProbe?
+    private var version: Int64 = 1
+    private(set) var requests: [Request] = []
+    init(nativeCounts: [String: Int], probe: LaunchBooruWorkProbe? = nil) {
+        self.nativeCounts = nativeCounts; self.probe = probe
+    }
+    func setVersion(_ value: Int64) { version = value }
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        requests.append(Request(serverID: server.id, query: query, page: page))
+        let version = version, count = nativeCounts[server.id] ?? 40
+        if let probe { try await probe.perform(stage: "page", key: server.id + ":" + String(page)) }
+        let posts = (0..<count).map { index -> BooruPost in
+            let id = version * 10_000 + Int64(page * 1_000 + 40 - index)
+            var post = BooruFixtureSource.post(id, server: server)
+            post.previewURL = URL(string: "https://warm.example/preview/" + server.id + "/" + String(id) + ".jpg")!
+            return post
+        }
+        return .init(posts: posts, hasMore: page == 0)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+
+private actor GoldPageSource: BooruProviding {
+    let repeating: Bool
+    private(set) var pages: [Int] = []
+    init(repeating: Bool = false) { self.repeating = repeating }
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        pages.append(page)
+        if page == 0 || repeating { return .init(posts: [], hasMore: true, goldRestrictedIDs: [12_403_879]) }
+        return .init(posts: [BooruFixtureSource.post(101, server: server)], hasMore: false)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { try await posts(server: server, query: "", page: page) }
     func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
 }

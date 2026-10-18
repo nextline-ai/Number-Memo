@@ -30,6 +30,7 @@ final class LibraryCloudSync {
     private var device: String
     private var needsUpload = false
     private var accessGeneration = 0
+    @ObservationIgnored private let snapshotCache = LibrarySyncSnapshotCache()
     @ObservationIgnored private let resolveContainer: @Sendable () async -> URL?
 
     init(defaults: UserDefaults = .standard, resolveContainer: @escaping @Sendable () async -> URL? = {
@@ -61,7 +62,7 @@ final class LibraryCloudSync {
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
 
     func synchronize(env: AppEnvironment) async {
-        guard enabled, !syncing else { return }
+        guard enabled, !syncing, !Task.isCancelled else { return }
         #if DEBUG
         guard !ContentUITestSupport.enabled && !ContentUITestSupport.unitTestsEnabled else { status = L10n.text("Sync Off"); return }
         #endif
@@ -93,6 +94,7 @@ final class LibraryCloudSync {
             requestDownloads()
             let generation = accessGeneration
             let incoming = try await Task.detached(priority: .utility) { try CloudLibraryFiles.readState(in: root) }.value
+            try Task.checkCancellation()
             guard await availableContainer() == container, generation == accessGeneration,
                   enabled, account == accountID, let currentToken = FileManager.default.ubiquityIdentityToken,
                   Self.digest(try NSKeyedArchiver.archivedData(withRootObject: currentToken, requiringSecureCoding: false)) == accountID else { return }
@@ -102,35 +104,55 @@ final class LibraryCloudSync {
             cloudDocumentCount = incoming.documentCount
             let before = ledger.changes
             var next = ledger
-            next.capture(try adapter.snapshot(), device: device)
+            next.capture(try snapshotCache.snapshot(adapter), device: device)
             let captured = next.changes
             for document in incoming.documents { next.merge(document.changes) }
-            next.changes = try LibrarySyncAdapter.mediaFreeChanges(next.changes)
+            // Local snapshots are already sanitized. Only incoming edits need
+            // the expensive favorite-payload normalization pass.
+            if next.changes != captured { next.changes = try LibrarySyncAdapter.mediaFreeChanges(next.changes) }
             if next.changes != captured {
                 try adapter.apply(next.changes)
                 // Older cloud documents may still contain the shared Anime Boxes
                 // destination. Publish this repair as new row changes too.
-                next.baseline = try adapter.snapshot()
+                next.baseline = try snapshotCache.snapshot(adapter)
                 try env.booru.organizeLegacyImports()
-                next.capture(try adapter.snapshot(), device: device)
+                next.capture(try snapshotCache.snapshot(adapter), device: device)
                 try env.booru.refresh()
                 env.reloadSyncedPreferences()
                 env.database.syncFoldersToAppGroup()
                 env.startCoverQueue()
             }
-            next.baseline = try adapter.snapshot()
-            let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-            try encoder.encode(next).write(to: local, options: .atomic)
-            AppStorage.excludeFromBackup(local)
+            // capture already saved the current baseline when no remote rows
+            // changed; a second full scan used to run on every 15-second poll.
+            let saveLedger = needsUpload || before != next.changes || ledger.baseline != next.baseline
+            // Keep merged clocks before yielding for serialization. Cancellation
+            // after applying remote rows must not recapture them as fresh local edits.
             ledger = next
             needsUpload = needsUpload || before != ledger.changes
-            let data = try encoder.encode(LibrarySyncDocument(changes: ledger.changes))
-            documentBytes = data.count
-            if needsUpload {
-                let destination = root.appendingPathComponent("library-" + device + ".json")
-                guard await availableContainer() == container, generation == accessGeneration, enabled else { return }
-                try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(data, to: destination, ubiquitous: true) }.value
+            if saveLedger {
+                let savedLedger = next
+                try await Task.detached(priority: .utility) {
+                    let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+                    try encoder.encode(savedLedger).write(to: local, options: .atomic)
+                    AppStorage.excludeFromBackup(local)
+                }.value
+                try Task.checkCancellation()
                 guard generation == accessGeneration, enabled else { return }
+            }
+            if needsUpload {
+                let document = LibrarySyncDocument(changes: ledger.changes)
+                let data = try await Task.detached(priority: .utility) {
+                    let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+                    return try encoder.encode(document)
+                }.value
+                try Task.checkCancellation()
+                documentBytes = data.count
+                let destination = root.appendingPathComponent("library-" + device + ".json")
+                guard await availableContainer() == container, generation == accessGeneration, enabled,
+                      currentAccountIs(accountID) else { return }
+                try await Task.detached(priority: .utility) { try CloudLibraryFiles.write(data, to: destination, ubiquitous: true) }.value
+                try Task.checkCancellation()
+                guard generation == accessGeneration, enabled, currentAccountIs(accountID) else { return }
                 needsUpload = false
             }
             guard generation == accessGeneration, enabled, let currentToken = FileManager.default.ubiquityIdentityToken,
@@ -140,7 +162,7 @@ final class LibraryCloudSync {
                 let values = try destination.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey])
                 return values.isUbiquitousItem == true && values.ubiquitousItemIsUploaded == true
             }.value
-            guard enabled else { return }
+            guard enabled, generation == accessGeneration, currentAccountIs(accountID) else { return }
             if incoming.unreadableFiles > 0 {
                 status = L10n.text("Some iCloud files could not be read. Other changes were merged. Try syncing again.")
             } else if incoming.pendingDownloads || query.isGathering || !uploaded {
@@ -149,6 +171,8 @@ final class LibraryCloudSync {
                 lastSynced = Date()
                 status = L10n.text("iCloud Sync On")
             }
+        } catch is CancellationError {
+            return
         } catch {
             guard enabled else { return }
             status = L10n.text("Unable to sync now. Your data is saved on this device.")
@@ -157,10 +181,10 @@ final class LibraryCloudSync {
 
     /// Never treat a previously resolved local iCloud directory as current access.
     func availableContainer() async -> URL? {
-        guard enabled else { return nil }
+        guard enabled, !Task.isCancelled else { return nil }
         let generation = accessGeneration
         let container = await resolveContainer()
-        guard enabled, generation == accessGeneration else { return nil }
+        guard enabled, generation == accessGeneration, !Task.isCancelled else { return nil }
         guard let container else {
             invalidateAccess()
             status = L10n.text("iCloud Drive is unavailable. Your data is saved on this device.")
@@ -169,11 +193,18 @@ final class LibraryCloudSync {
         return container
     }
 
+    private func currentAccountIs(_ accountID: String) -> Bool {
+        guard let token = FileManager.default.ubiquityIdentityToken,
+              let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: false) else { return false }
+        return Self.digest(data) == accountID
+    }
+
     private func invalidateAccess() {
         accessGeneration += 1
         query.stop(); queryStarted = false
         cloudRoot = nil; account = nil; ledgerURL = nil
         ledger = .init()
+        snapshotCache.invalidate()
         needsUpload = false
         cloudBytes = nil; cloudDocumentCount = 0
     }

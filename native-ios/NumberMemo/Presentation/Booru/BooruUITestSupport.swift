@@ -44,6 +44,11 @@ actor BooruFixtureSource: BooruProviding {
         if ProcessInfo.processInfo.arguments.contains("--booru-media-test") {
             return .init(posts: [Self.post(104, server: server), Self.post(105, server: server)], hasMore: false)
         }
+        if ProcessInfo.processInfo.arguments.contains("--booru-gold-test") {
+            var restricted = Self.post(12403879, server: server)
+            restricted.previewURL = nil; restricted.sampleURL = nil; restricted.fileURL = nil
+            return .init(posts: [Self.post(101, server: server), restricted, Self.post(102, server: server)], hasMore: false)
+        }
         if ProcessInfo.processInfo.arguments.contains("--challenge-scroll-test") {
             return .init(posts: (101 + page * 40..<141 + page * 40).map { Self.post(Int64($0), server: server) }, hasMore: page < 2)
         }
@@ -65,6 +70,12 @@ actor BooruFixtureSource: BooruProviding {
     }
     func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] {
         [.init(id: 1, x: 120, y: 90, width: 700, height: 180, body: "A mountain in the morning.")]
+    }
+    func details(server: BooruServer, post: BooruPost) async throws -> BooruPost {
+        if ProcessInfo.processInfo.arguments.contains("--booru-gold-test"), post.postID == 12403879 {
+            throw BooruPostAccessError.goldRequired
+        }
+        return post
     }
 }
 #endif

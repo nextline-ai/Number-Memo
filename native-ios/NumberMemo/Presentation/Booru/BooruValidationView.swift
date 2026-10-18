@@ -4,6 +4,7 @@ import WebKit
 extension Notification.Name { static let booruClientValidated = Notification.Name("booruClientValidated") }
 
 struct BooruValidationView: View {
+    @Environment(AppEnvironment.self) private var env
     let server: BooruServer
     let initialURL: URL
     @Environment(\.dismiss) private var dismiss
@@ -48,17 +49,18 @@ struct BooruValidationView: View {
                 ToolbarItem(placement: .topBarLeading) { Button(L10n.text("Reload"), systemImage: "arrow.clockwise") { model.load(model.address ?? initialURL) }.labelStyle(.iconOnly) }
                 ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { dismiss() }.accessibilityIdentifier("booru.validationDone") }
             }
-            .task { model.load(initialURL) }
+            .task { model.setActive(true); model.load(initialURL) }
             .confirmationDialog(L10n.text("Reset Cookies?"), isPresented: $confirmReset, titleVisibility: .visible) {
                 Button(L10n.text("Reset Cookies"), role: .destructive) {
-                    Task { await BooruBrowserSession.reset(server); model.load(initialURL) }
+                    Task { await BooruBrowserSession.reset(server); env.booru.clearGoldRestrictions(serverID: server.id); model.load(initialURL) }
                 }
             } message: { Text(L10n.text("Website cookies and cached website data for this server will be removed. Your favorites and API key are kept.")) }
             .onDisappear {
-                model.cancelRetries()
+                model.setActive(false)
                 if model.canAdoptSession {
                     BooruWebTransport.adopt(model.webView, server: server)
                     BooruBrowserSession.clearChallenge(for: server)
+                    env.booru.clearGoldRestrictions(serverID: server.id)
                     NotificationCenter.default.post(name: .booruClientValidated, object: server.id)
                 }
             }
@@ -83,7 +85,14 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
     private var retryTask: Task<Void, Never>?
     private var retryCount = 0
     private var requestedURL: URL?
+    private var active = true
     func cancelRetries() { retryTask?.cancel(); retryTask = nil; monitorTask?.cancel(); monitorTask = nil }
+    func setActive(_ value: Bool) {
+        active = value
+        webView.setAllMediaPlaybackSuspended(!value, completionHandler: nil)
+        if !value { cancelRetries() }
+        else if loading || challengePresent { startMonitoring() }
+    }
     init(server: BooruServer) {
         self.server = server
         let config = WKWebViewConfiguration()
@@ -100,7 +109,20 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
         // Returning to the embedded browser reclaims its navigation delegate.
         BooruWebTransport.release(webView, server: server)
         webView.navigationDelegate = self; webView.uiDelegate = self
+        webView.setAllMediaPlaybackSuspended(!active, completionHandler: nil)
         error = nil; loading = true; challengeStalled = false; challengePresent = false; inspectedPage = false
+        startMonitoring()
+        #if DEBUG
+        if BooruUITestSupport.enabled {
+            webView.loadHTMLString("<html><meta name='viewport' content='width=device-width'><body><h2>Client verification</h2><p>Validation browser is ready.</p></body></html>", baseURL: server.baseURL)
+            return
+        }
+        #endif
+        webView.load(URLRequest(url: url ?? server.baseURL))
+    }
+    private func startMonitoring() {
+        monitorTask?.cancel()
+        guard active else { return }
         monitorTask = Task { [weak self] in
             let start = Date()
             while !Task.isCancelled {
@@ -110,18 +132,17 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
                 if Date().timeIntervalSince(start) >= 25 && (self.challengePresent || !self.inspectedPage || self.loading) {
                     self.challengeStalled = true
                     self.loading = false
-                } else if self.inspectedPage && !self.challengePresent && !self.loading { self.challengeStalled = false }
+                } else if self.inspectedPage && !self.challengePresent && !self.loading {
+                    self.challengeStalled = false
+                    return
+                }
             }
         }
-        #if DEBUG
-        if BooruUITestSupport.enabled {
-            webView.loadHTMLString("<html><meta name='viewport' content='width=device-width'><body><h2>Client verification</h2><p>Validation browser is ready.</p></body></html>", baseURL: server.baseURL)
-            return
-        }
-        #endif
-        webView.load(URLRequest(url: url ?? server.baseURL))
     }
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) { loading = true; error = nil; inspectedPage = false }
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        loading = true; error = nil; inspectedPage = false
+        startMonitoring()
+    }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         loading = false; address = webView.url
         canGoBack = webView.canGoBack; canGoForward = webView.canGoForward
@@ -142,10 +163,10 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { failed(error) }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { failed(error) }
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { loading = false; error = L10n.text("Unable to Load") }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { cancelRetries(); loading = false; error = L10n.text("Unable to Load") }
     private func failed(_ error: Error) {
         if (error as? URLError)?.code == .cancelled { return }
-        if BooruConnectionRetry.isTransient(error), retryCount < 2, let url = requestedURL {
+        if active, BooruConnectionRetry.isTransient(error), retryCount < 2, let url = requestedURL {
             retryCount += 1
             let delay = retryCount * 500
             loading = true; self.error = nil
@@ -157,7 +178,7 @@ final class BooruValidationModel: NSObject, WKNavigationDelegate, WKUIDelegate {
             }
             return
         }
-        loading = false; self.error = BooruConnectionMessage.describe(error)
+        cancelRetries(); loading = false; self.error = BooruConnectionMessage.describe(error)
     }
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url else { decisionHandler(.cancel); return }
@@ -176,6 +197,7 @@ struct BooruValidationWebView: UIViewRepresentable {
 }
 
 struct BooruCookiesView: View {
+    @Environment(AppEnvironment.self) private var env
     let server: BooruServer
     @State private var cookies: [HTTPCookie] = []
     @State private var confirmReset = false
@@ -209,7 +231,7 @@ struct BooruCookiesView: View {
         .confirmationDialog(L10n.text("Reset Cookies?"), isPresented: $confirmReset, titleVisibility: .visible) {
             Button(L10n.text("Reset Cookies"), role: .destructive) {
                 resetting = true
-                Task { await BooruBrowserSession.reset(server); await reload(); resetting = false }
+                Task { await BooruBrowserSession.reset(server); env.booru.clearGoldRestrictions(serverID: server.id); await reload(); resetting = false }
             }
         } message: { Text(L10n.text("Website cookies and cached website data for this server will be removed. Your favorites and API key are kept.")) }
     }

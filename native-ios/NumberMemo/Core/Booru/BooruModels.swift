@@ -261,6 +261,48 @@ struct BooruNote: Identifiable, Equatable, Sendable {
 struct BooruBatch: Sendable {
     let posts: [BooruPost]
     let hasMore: Bool
+    var goldRestrictedIDs: [Int64] = []
+    var sourcePostCount: Int { posts.count + goldRestrictedIDs.count }
+}
+
+/// Only an explicit server access notice may silently remove a post. Missing
+/// media, a generic 403, removed posts and safe-mode restrictions are ambiguous.
+enum BooruPostAccessError: Error, Equatable, Sendable {
+    case goldRequired
+
+    static func detect(_ data: Data, server: BooruServer) -> Self? {
+        guard server.engine == .danbooru, data.count <= 12_000_000 else { return nil }
+        let prefix = String(decoding: data.prefix(128), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard prefix.hasPrefix("{") || prefix.hasPrefix("<") || prefix.hasPrefix("you ") || prefix.hasPrefix("this ") else { return nil }
+        if prefix.hasPrefix("{"), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return detect(object, server: server)
+        }
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        // Danbooru renders the gate in its image container. A comment, tag,
+        // navigation link or upgrade advertisement must not hide a usable post.
+        for match in BooruHTML.matches("<(section|div)\\b([^>]*\\bclass\\s*=\\s*[\"'][^\"']*\\bimage-container\\b[^\"']*[\"'][^>]*)>(.*?)</\\1\\s*>", text) {
+            let attributes = BooruHTML.attributes(match[2])
+            let classes = (attributes["class"] ?? "").split(whereSeparator: \.isWhitespace)
+            if classes.contains("image-container"), BooruHTML.matches("<(?:img|video|picture)\\b", match[3]).isEmpty,
+               isGoldNotice(BooruHTML.plainText(match[3])) { return .goldRequired }
+        }
+        // Some image endpoints return a bare text error instead of JSON/HTML.
+        if !text.contains("<"), isGoldNotice(text) { return .goldRequired }
+        return nil
+    }
+
+    static func detect(_ row: [String: Any], server: BooruServer) -> Self? {
+        guard server.engine == .danbooru else { return nil }
+        for key in ["message", "error", "reason"] {
+            if let message = row[key] as? String, isGoldNotice(message) { return .goldRequired }
+        }
+        return nil
+    }
+
+    private static func isGoldNotice(_ text: String) -> Bool {
+        let text = text.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        return text.range(of: #"\b(?:you (?:need|must have) (?:a )?gold account to (?:see|view) this (?:image|post)|this (?:image|post) requires (?:a )?gold account)\b"#, options: .regularExpression) != nil
+    }
 }
 
 struct BooruCompletion: Equatable {
@@ -289,6 +331,7 @@ struct BooruBlacklist {
         }.filter { !$0.isEmpty && !$0[0].hasPrefix("#") }
     }
     func contains(_ post: BooruPost) -> Bool {
+        guard !rules.isEmpty else { return false }
         let tags = Set(post.tags.map { $0.lowercased() })
         return rules.contains { rule in
             rule.allSatisfy { term in
@@ -374,12 +417,12 @@ enum BooruSortValidation {
             guard isSortRejection(error) else { throw error }
             // A successful identical query without the sort operator establishes
             // that the rejected condition was the sort, not an offline server.
-            if let baseline = try? await source.posts(server: server, query: query, page: page), !baseline.posts.isEmpty { throw UnsupportedBooruSort() }
+            if let baseline = try? await source.posts(server: server, query: query, page: page), baseline.sourcePostCount > 0 { throw UnsupportedBooruSort() }
             throw error
         }
-        if sorted.posts.isEmpty && page == 0 && !sort.restrictsPeriod {
+        if sorted.sourcePostCount == 0 && page == 0 && !sort.restrictsPeriod {
             let baseline = try await source.posts(server: server, query: query, page: page)
-            if !baseline.posts.isEmpty { throw UnsupportedBooruSort() }
+            if baseline.sourcePostCount > 0 { throw UnsupportedBooruSort() }
         }
         let scores = sorted.posts.compactMap { sort.metric($0) }
         if scores.count == sorted.posts.count && Set(scores).count > 1 && zip(scores, scores.dropFirst()).contains(where: { $0 < $1 }) { throw UnsupportedBooruSort() }

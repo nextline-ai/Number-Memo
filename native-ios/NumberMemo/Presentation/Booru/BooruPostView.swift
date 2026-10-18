@@ -6,6 +6,69 @@ struct BooruViewerBatch {
     var failure: String? = nil
 }
 
+/// Keep activity in shared state so an in-flight response reads the latest
+/// lifecycle, rather than the scenePhase captured by its starting View value.
+@MainActor @Observable final class BooruViewerPagination {
+    var isActive = false
+    private(set) var isLoading = false
+    var hasMore = true
+    private(set) var requestedFromID: String?
+    var wantsNext: Bool { requestedFromID != nil }
+
+    func requestAdvance(from id: String) { requestedFromID = id }
+    func cancelAdvance() { requestedFromID = nil }
+    func beginRequest() -> Bool {
+        guard isActive, !isLoading, hasMore else { return false }
+        isLoading = true
+        return true
+    }
+    func finishRequest() { isLoading = false }
+    func takeAdvance(currentID: String, nextExists: Bool) -> Bool {
+        guard let requestedFromID else { return false }
+        guard requestedFromID == currentID else { cancelAdvance(); return false }
+        guard isActive else { return false }
+        guard nextExists else {
+            if !isLoading { cancelAdvance() }
+            return false
+        }
+        cancelAdvance()
+        return true
+    }
+}
+
+struct BooruViewerAccessNavigation {
+    enum Destination: Equatable { case post(Int), loadMore, close }
+    private(set) var restrictedIDs = Set<String>()
+    private(set) var pendingID: String?
+    private(set) var direction = 1
+    private var requestedMore = false
+
+    mutating func moved(_ delta: Int) {
+        if delta != 0 { direction = delta < 0 ? -1 : 1 }
+        pendingID = nil; requestedMore = false
+    }
+    mutating func restrict(_ id: String) {
+        restrictedIDs.insert(id)
+        guard pendingID != id else { return }
+        pendingID = id; requestedMore = false
+    }
+    func candidate(in ids: [String], startingAt index: Int, direction: Int, excluding: Set<String>) -> Int? {
+        var index = index
+        while ids.indices.contains(index) {
+            if !restrictedIDs.contains(ids[index]), !excluding.contains(ids[index]) { return index }
+            index += direction < 0 ? -1 : 1
+        }
+        return nil
+    }
+    mutating func destination(in ids: [String], current: Int, canLoadMore: Bool, excluding: Set<String>) -> Destination {
+        if let next = candidate(in: ids, startingAt: current + direction, direction: direction, excluding: excluding) { return .post(next) }
+        if direction > 0, canLoadMore, !requestedMore { requestedMore = true; return .loadMore }
+        if let previous = candidate(in: ids, startingAt: current - direction, direction: -direction, excluding: excluding) { return .post(previous) }
+        if canLoadMore, !requestedMore { requestedMore = true; return .loadMore }
+        return .close
+    }
+}
+
 struct BooruPostView: View {
     @Environment(\.discoveryContext) private var discovery
     @State private var posts: [BooruPost]
@@ -13,26 +76,30 @@ struct BooruPostView: View {
     var positionChanged: (BooruPost) -> Void
     var contextForPost: ((BooruPost) -> DiscoveryContext)?
     private var activeDiscovery: DiscoveryContext { contextForPost?(post) ?? discovery }
-    @State private var loadingMore = false
+    @State private var pagination = BooruViewerPagination()
+    @State private var accessNavigation = BooruViewerAccessNavigation()
     @State private var pagingTask: Task<Void, Never>?
-    @State private var wantsNext = false
-    @State private var hasMorePages = true
+    private var loadingMore: Bool { pagination.isLoading }
+    private var wantsNext: Bool { pagination.wantsNext }
+    private var hasMorePages: Bool { pagination.hasMore }
     private let initialServer: BooruServer
     private var server: BooruServer { store.servers.first { $0.id == post.serverID } ?? initialServer }
     let source: any BooruProviding
     var challenge: ChallengeSessionController?
     @Environment(BooruStore.self) private var store
+    @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
     @State private var post: BooruPost
     @State private var notes: [BooruNote] = []
     @State private var notesError: String?
+    @State private var loadedNotesKey: String?
     @Environment(\.scenePhase) private var scenePhase
     @State private var menuVisible = false
     @SwiftUI.AppStorage("booru.videoMenuHintSeen", store: ReaderPreferences.booruDefaults) private var videoMenuHintSeen = false
     @State private var readerSettings = false
     @State private var filing = false
     @State private var translation: ReaderTranslationRequest?
-    @State private var viewport = CGRect(x: 0, y: 0, width: 1, height: 1)
+    @State private var viewport = BooruViewerViewport()
     @State private var zoomed = false
     @State private var toast: String?
     @State private var saveFeedback: WorkSaveFeedback?
@@ -55,6 +122,7 @@ struct BooruPostView: View {
     @State private var info = false
     @State private var selectedNote: BooruNote?
     @State private var mediaStatus = "loading"
+    @State private var loadingIndicatorID: String?
     @State private var retry = 0
     @State private var refreshedMediaID: String?
     init(post: BooruPost, posts: [BooruPost], server: BooruServer, source: any BooruProviding, loadMore: (() async -> BooruViewerBatch)? = nil, positionChanged: @escaping (BooruPost) -> Void = { _ in }, contextForPost: ((BooruPost) -> DiscoveryContext)? = nil, challenge: ChallengeSessionController? = nil) {
@@ -64,13 +132,24 @@ struct BooruPostView: View {
         _showNotes = State(initialValue: ReaderPreferences.booruDefaults.object(forKey: "booru.showNotes") as? Bool ?? true)
     }
     private var index: Int { posts.firstIndex(where: { $0.id == post.id }) ?? 0 }
+    private var isActive: Bool { !exiting && env.mode == .booru && scenePhase == .active }
+    private var mediaActive: Bool {
+        isActive && store.isVisible(post) && !accessNavigation.restrictedIDs.contains(post.id) && translation == nil && !info && !readerSettings && !filing && !showJump && selectedNote == nil
+    }
+    private var resolvesMissingMedia: Bool { server.engine.usesGelbooruPages || server.engine == .danbooru }
+    private var mediaReady: Bool { ["ready", "playing", "ended"].contains(mediaStatus) }
+    private var waitingForMedia: Bool { mediaStatus == "loading" || loadingMore && wantsNext }
+    private var mayLoadNotes: Bool { isActive && (mediaReady || info) }
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
-                if post.viewerURL(original: original) != nil {
-                    BooruMediaView(post: post, server: server, original: original, active: scenePhase == .active, notes: notes, showNotes: showNotes,
-                                   onNote: { selectedNote = $0 }, onStatus: { mediaStatus = $0 }, onGesture: gesture).ignoresSafeArea().id("\(server.id)-\(retry)")
+                if post.viewerURL(original: original) != nil || resolvesMissingMedia && mediaStatus != "unavailable" {
+                    BooruMediaView(post: post, server: server, original: original, active: mediaActive, failed: mediaStatus == "error", notes: notes, showNotes: showNotes,
+                                   onNote: { selectedNote = $0 }, onStatus: { [postID = post.id] status in
+                                       if post.id == postID, !accessNavigation.restrictedIDs.contains(postID) { mediaStatus = status }
+                                   }, onGesture: gesture, onGoldRequired: { [postID = post.id] in skipGoldRestricted(postID) })
+                        .ignoresSafeArea().id("\(server.id)-\(retry)")
                     #if DEBUG
                     if BooruUITestSupport.enabled || BooruUITestSupport.liveEnabled {
                         Text("\(post.postID):\(zoomed ? "zoomed" : "fit")").font(.caption2).foregroundStyle(.white).accessibilityIdentifier("booru.viewerState").frame(maxHeight: .infinity, alignment: .bottom).allowsHitTesting(false)
@@ -80,7 +159,7 @@ struct BooruPostView: View {
                             .allowsHitTesting(false)
                     }
                     #endif
-                    if mediaStatus == "loading" || loadingMore && wantsNext { ProgressView().tint(.white).allowsHitTesting(false) }
+                    if loadingIndicatorID == post.id && waitingForMedia && isActive { ProgressView().tint(.white).allowsHitTesting(false) }
                     if mediaStatus == "error" {
                         ContentUnavailableView {
                             Label(L10n.text("Unable to Load"), systemImage: "photo.badge.exclamationmark")
@@ -89,8 +168,6 @@ struct BooruPostView: View {
                             Link(L10n.text("Open on Website"), destination: server.pageURL(postID: post.postID))
                         }.padding(.bottom, 240).background(.black.opacity(0.8))
                     }
-                } else if server.engine.usesGelbooruPages && mediaStatus != "error" {
-                    ProgressView().tint(.white)
                 } else {
                     ContentUnavailableView(L10n.text("Media Unavailable"), systemImage: "lock", description: Text(L10n.text("The server did not provide a media URL. Check your server account access.")))
                 }
@@ -98,7 +175,7 @@ struct BooruPostView: View {
                 VStack {
                     if let toast { Text(toast).font(.subheadline.bold()).padding(12).background(.regularMaterial, in: Capsule()).accessibilityIdentifier("booru.toast") }
                     Spacer()
-                    if menuVisible || mediaStatus == "error" || post.displayURL == nil { quickMenu }
+                    if menuVisible || mediaStatus == "error" || mediaStatus == "unavailable" || post.viewerURL(original: original) == nil && !resolvesMissingMedia { quickMenu }
                     else if pageNumber { Text("\(index + 1) / \(posts.count)").font(.caption.monospacedDigit()).padding(6).background(.black.opacity(0.5), in: Capsule()) }
                 }.padding(16)
             }
@@ -133,12 +210,22 @@ struct BooruPostView: View {
             .toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar)
             .interactiveDismissDisabled()
             .task(id: post.id) {
+                if store.confirmedGoldRestrictedIDs.contains(post.id) { skipGoldRestricted(post.id); return }
                 try? store.observeTaste(post, context: activeDiscovery)
                 positionChanged(post)
             }
-            .task(id: "\(post.id):\(posts.count):\(loadOriginal)") { await preloadNeighbors() }
-            .onChange(of: post.id, initial: true) { _, _ in
-                if index >= posts.count - 5 { requestMore() }
+            .task(id: "\(post.id):\(waitingForMedia):\(isActive)") {
+                loadingIndicatorID = nil
+                guard isActive, waitingForMedia else { return }
+                do { try await Task.sleep(for: .milliseconds(150)); try Task.checkCancellation() }
+                catch { return }
+                loadingIndicatorID = post.id
+            }
+            .task(id: "\(post.id):\(posts.count):\(loadOriginal):\(mediaActive):\(mediaReady)") { await preloadNeighbors() }
+            .task(id: "\(post.id):\(mediaReady):\(isActive)") {
+                guard isActive, mediaReady, index >= posts.count - 5 else { return }
+                do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
+                requestMore()
             }
             .sheet(isPresented: $filing) { BooruFolderPicker(post: post).environment(\.discoveryContext, activeDiscovery) }
             .sheet(isPresented: $readerSettings) { ReaderSettingsView(booru: true) }
@@ -148,9 +235,22 @@ struct BooruPostView: View {
                 Button(L10n.text("Cancel"), role: .cancel) {}
             }
             .onAppear { previousIdleTimer = UIApplication.shared.isIdleTimerDisabled; UIApplication.shared.isIdleTimerDisabled = keepAwake }
+            .onChange(of: isActive, initial: true) { _, active in
+                pagination.isActive = active
+                if active { completePendingAdvance() }
+            }
+            .onChange(of: store.confirmedGoldRestrictedIDs) { _, ids in
+                if ids.contains(post.id) { skipGoldRestricted(post.id) }
+            }
             .onChange(of: keepAwake) { _, value in UIApplication.shared.isIdleTimerDisabled = value }
-            .onDisappear { UIApplication.shared.isIdleTimerDisabled = previousIdleTimer; pagingTask?.cancel() }
-            .onChange(of: loadOriginal) { _, value in original = value; mediaStatus = "loading" }
+            .onDisappear {
+                UIApplication.shared.isIdleTimerDisabled = previousIdleTimer
+                pagination.isActive = false; pagination.cancelAdvance(); pagingTask?.cancel()
+            }
+            .onChange(of: loadOriginal) { _, value in original = value }
+            .onChange(of: original) { previous, value in
+                if post.viewerURL(original: previous) != post.viewerURL(original: value) { mediaStatus = "loading" }
+            }
             .onChange(of: defaultNotes) { _, value in showNotes = value }
             .onChange(of: post.isVideo, initial: true) { _, video in
                 if video && !videoMenuHintSeen { videoMenuHintSeen = true; toast = L10n.text("Tap with two fingers for the video menu") }
@@ -160,8 +260,8 @@ struct BooruPostView: View {
                 guard toast != nil else { return }
                 do { try await Task.sleep(for: .seconds(2)); toast = nil } catch {}
             }
-            .task(id: "\(translation?.id.uuidString ?? ""):\(filing):\(autoAdvance):\(autoSeconds):\(post.id):\(menuVisible):\(readerSettings):\(info):\(showJump):\(selectedNote?.id ?? 0):\(zoomed):\(scenePhase):\(mediaStatus)") {
-                guard autoAdvance, translation == nil, !filing, scenePhase == .active, !menuVisible, !readerSettings, !info, !showJump, selectedNote == nil, !zoomed, ["ready", "ended"].contains(mediaStatus) else { return }
+            .task(id: "\(translation?.id.uuidString ?? ""):\(filing):\(autoAdvance):\(autoSeconds):\(post.id):\(menuVisible):\(readerSettings):\(info):\(showJump):\(selectedNote?.id ?? 0):\(zoomed):\(isActive):\(mediaStatus)") {
+                guard autoAdvance, isActive, translation == nil, !filing, !menuVisible, !readerSettings, !info, !showJump, selectedNote == nil, !zoomed, ["ready", "ended"].contains(mediaStatus) else { return }
                 do {
                     try await Task.sleep(for: .seconds(min(120, max(2, autoSeconds))))
                     try Task.checkCancellation()
@@ -182,20 +282,32 @@ struct BooruPostView: View {
             }
             .task(id: post.id + ":\(retry)") {
                 notes = []; notesError = nil
-                if server.engine.usesGelbooruPages && post.viewerURL(original: original) == nil {
+                if resolvesMissingMedia && post.viewerURL(original: original) == nil {
                     do {
                         let resolved = try await source.details(server: server, post: post)
                         try Task.checkCancellation()
                         post = resolved; positionChanged(resolved)
                         if let i = posts.firstIndex(where: { $0.id == resolved.id }) { posts[i] = resolved }
+                        if resolved.viewerURL(original: original) == nil { mediaStatus = "unavailable" }
                         if let folder = store.folderID(for: post) { try store.saveFavorite(post, folderID: folder) }
-                    } catch { if !Task.isCancelled { mediaStatus = "error"; toast = BooruConnectionMessage.describe(error) } }
+                    } catch {
+                        if !Task.isCancelled {
+                            if error as? BooruPostAccessError == .goldRequired { skipGoldRestricted(post.id) }
+                            else { mediaStatus = "error"; toast = BooruConnectionMessage.describe(error) }
+                        }
+                    }
                 }
+            }
+            .task(id: "\(post.id):\(retry):\(mayLoadNotes)") {
+                let key = "\(post.id):\(retry)"
+                guard mayLoadNotes, loadedNotesKey != key else { return }
                 do {
                     let result = try await source.notes(server: server, postID: post.postID)
                     try Task.checkCancellation()
-                    notes = result
-                } catch { if !Task.isCancelled { notesError = error.localizedDescription } }
+                    notes = result; loadedNotesKey = key
+                } catch {
+                    if !Task.isCancelled { notesError = error.localizedDescription; loadedNotesKey = key }
+                }
             }
             .sheet(isPresented: $info) { details }
             .sheet(item: $selectedNote) { note in
@@ -247,7 +359,7 @@ struct BooruPostView: View {
             menuButton(L10n.text(store.isFavorite(post) ? "Remove Favorite" : "Add Favorite"), icon: store.isFavorite(post) ? "heart.fill" : "heart", id: "favorite", compact: compact) { toggleFavorite() }
             menuButton(L10n.text("Save to Folder"), icon: "folder", id: "folder", compact: compact) { filing = true }
             menuButton(L10n.text("Translate"), icon: "translate", id: "translate", compact: compact) {
-                menuVisible = false; translation = .init(index: index, rect: viewport)
+                menuVisible = false; translation = .init(index: index, rect: viewport.rect)
             }.disabled(post.isVideo || mediaStatus != "ready")
             menuButton(L10n.text("Exit"), icon: "rectangle.portrait.and.arrow.right", id: "close", compact: compact) { closeViewer() }
             menuButton(L10n.text("Notes"), icon: showNotes ? "text.bubble.fill" : "text.bubble", id: "notes", compact: compact) { showNotes.toggle() }
@@ -271,6 +383,7 @@ struct BooruPostView: View {
     private func closeViewer() {
         guard !exiting else { return }
         exiting = true
+        pagination.isActive = false; pagination.cancelAdvance()
         dismiss()
     }
     private func gesture(_ gesture: BooruMediaGesture) {
@@ -284,8 +397,8 @@ struct BooruPostView: View {
         case .hold:
             toggleFavorite()
         case .dismiss: if !zoomed { closeViewer() }
-        case .zoom(let value): zoomed = value
-        case .viewport(let rect): viewport = rect
+        case .zoom(let value): if zoomed != value { zoomed = value }
+        case .viewport(let rect): viewport.rect = rect
         }
     }
     private var details: some View {
@@ -304,7 +417,7 @@ struct BooruPostView: View {
                     LabeledContent(L10n.text("Format"), value: post.fileExtension.uppercased())
                     LabeledContent(L10n.text("Score"), value: String(post.score))
                     if !post.isVideo && !post.isAnimated {
-                        Toggle(L10n.text("Original Image"), isOn: $original).onChange(of: original) { _, _ in mediaStatus = "loading" }
+                        Toggle(L10n.text("Original Image"), isOn: $original)
                     }
                     Link(L10n.text("Open on Website"), destination: server.pageURL(postID: post.postID))
                 }
@@ -378,23 +491,55 @@ struct BooruPostView: View {
         if !store.savedTags(serverID: server.id, kind: kind).contains(tag) { store.perform { try store.toggleTag(tag, serverID: server.id, kind: kind) } }
     }
     private func move(_ delta: Int) {
-        let next = index + delta
-        guard posts.indices.contains(next) else {
-            if delta > 0, loadMore != nil, hasMorePages { wantsNext = true; requestMore() }
+        guard pagination.isActive else { return }
+        let next = accessNavigation.candidate(in: posts.map(\.id), startingAt: index + delta,
+                                             direction: delta < 0 ? -1 : 1, excluding: store.confirmedGoldRestrictedIDs)
+        guard let next else {
+            if delta > 0, loadMore != nil, hasMorePages { pagination.requestAdvance(from: post.id); requestMore() }
+            else { pagination.cancelAdvance() }
             return
         }
-        if next >= posts.count - 4 { requestMore() }
-        wantsNext = false
-        viewport = CGRect(x: 0, y: 0, width: 1, height: 1); translation = nil
-        post = posts[next]; original = loadOriginal; mediaStatus = "loading"; zoomed = false; notes = []
+        pagination.cancelAdvance()
+        accessNavigation.moved(delta)
+        // The jump alert dismisses independently. Retain the ready document,
+        // crop and notes when its selected page has not changed.
+        guard next != index else { return }
+        selectPost(at: next)
+    }
+    private func selectPost(at next: Int) {
+        viewport.rect = CGRect(x: 0, y: 0, width: 1, height: 1); translation = nil
+        post = posts[next]; original = loadOriginal; mediaStatus = "loading"; zoomed = false; notes = []; loadedNotesKey = nil
         positionChanged(post)
     }
+    private func skipGoldRestricted(_ id: String) {
+        guard !exiting, post.id == id else { return }
+        store.recordGoldRestriction(post)
+        accessNavigation.restrict(id)
+        pagination.cancelAdvance()
+        mediaStatus = "restricted"
+        continueAfterRestriction()
+    }
+    private func continueAfterRestriction() {
+        guard pagination.isActive, !pagination.isLoading, accessNavigation.pendingID == post.id else { return }
+        let destination = accessNavigation.destination(in: posts.map(\.id), current: index,
+                                                       canLoadMore: loadMore != nil && hasMorePages,
+                                                       excluding: store.confirmedGoldRestrictedIDs)
+        switch destination {
+        case .post(let next):
+            let direction = accessNavigation.direction
+            accessNavigation.moved(direction)
+            selectPost(at: next)
+        case .loadMore: requestMore()
+        case .close: closeViewer()
+        }
+    }
     private func requestMore() {
-        guard !loadingMore, loadMore != nil, hasMorePages else { return }
-        loadingMore = true
+        guard loadMore != nil, pagination.beginRequest() else { return }
         pagingTask = Task {
             await extendFeed()
-            loadingMore = false
+            pagination.finishRequest()
+            guard !Task.isCancelled else { return }
+            completePendingAdvance()
         }
     }
     private func extendFeed() async {
@@ -403,39 +548,44 @@ struct BooruPostView: View {
         guard !Task.isCancelled else { return }
         var seen = Set(posts.map(\.id))
         posts += batch.posts.filter { seen.insert($0.id).inserted }
-        hasMorePages = batch.hasMore
+        pagination.hasMore = batch.hasMore
         if let failure = batch.failure { toast = failure }
-        if wantsNext {
-            wantsNext = false
-            if index + 1 < posts.count { move(1) }
-        }
+    }
+    private func completePendingAdvance() {
+        if accessNavigation.pendingID == post.id { continueAfterRestriction(); return }
+        let next = accessNavigation.candidate(in: posts.map(\.id), startingAt: index + 1, direction: 1,
+                                             excluding: store.confirmedGoldRestrictedIDs)
+        if pagination.takeAdvance(currentID: post.id, nextExists: next != nil), let next { move(next - index) }
     }
     private func preloadNeighbors() async {
         #if DEBUG
         if BooruUITestSupport.enabled { return }
         #endif
-        // Give foreground media a brief moment to initiate its request first
-        try? await Task.sleep(for: .milliseconds(50))
+        guard mediaActive, mediaReady, !ProcessInfo.processInfo.isLowPowerModeEnabled,
+              ProcessInfo.processInfo.thermalState == .nominal || ProcessInfo.processInfo.thermalState == .fair else { return }
+        // Wait for a settled page; fast swipes should not fetch four originals.
+        try? await Task.sleep(for: .milliseconds(200))
         guard !Task.isCancelled else { return }
-        // Preload next 3 posts forward first, then 1 backward. Encoded-byte cache deduplicates in-flight/cached loads.
-        for offset in [1, 2, 3, -1] {
+        let next = index + 1
+        guard posts.indices.contains(next) else { return }
+        var item = posts[next]
+        guard let host = store.servers.first(where: { $0.id == item.serverID }) else { return }
+        if item.viewerURL(original: loadOriginal) == nil, host.engine.usesGelbooruPages,
+           let resolved = try? await source.details(server: host, post: item) {
             guard !Task.isCancelled else { return }
-            let next = index + offset
-            guard posts.indices.contains(next) else { continue }
-            var item = posts[next]
-            guard let host = store.servers.first(where: { $0.id == item.serverID }) else { continue }
-            if item.viewerURL(original: loadOriginal) == nil, host.engine.usesGelbooruPages,
-               let resolved = try? await source.details(server: host, post: item) {
-                guard !Task.isCancelled else { return }
-                item = resolved
-                if let i = posts.firstIndex(where: { $0.id == item.id }) { posts[i] = item }
-            }
-            if !item.isVideo, let url = item.viewerURL(original: loadOriginal) {
-                _ = try? await BooruViewerImageCache.shared.data(url: url, server: host)
-            }
+            item = resolved
+            if let i = posts.firstIndex(where: { $0.id == item.id }) { posts[i] = item }
+        }
+        if !item.isVideo, let url = item.viewerURL(original: loadOriginal) {
+            await BooruViewerImageCache.shared.prefetch(url: url, server: host)
         }
     }
 
+}
+
+/// Panning updates the next translation crop without rebuilding the viewer.
+private final class BooruViewerViewport {
+    var rect = CGRect(x: 0, y: 0, width: 1, height: 1)
 }
 
 /// Two fingers reach the app menu without intercepting a video's native play,

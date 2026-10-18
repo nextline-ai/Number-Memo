@@ -8,13 +8,18 @@ import CryptoKit
 enum BooruBrowserSession {
     private static var stores: [String: WKWebsiteDataStore] = [:]
     private static var challengedPages: [String: URL] = [:]
+    private static var accessRevisions: [String: UInt] = [:]
 
     static func challengePage(for server: BooruServer) -> URL? { challengedPages[server.id] }
     static func recordChallenge(_ url: URL, server: BooruServer) {
         guard BooruWebTransport.sameOrigin(url, server.baseURL) else { return }
         challengedPages[server.id] = url
     }
-    static func clearChallenge(for server: BooruServer) { challengedPages.removeValue(forKey: server.id) }
+    static func clearChallenge(for server: BooruServer) {
+        challengedPages.removeValue(forKey: server.id)
+        accessRevisions[server.id, default: 0] &+= 1
+    }
+    static func accessRevision(for server: BooruServer) -> UInt { accessRevisions[server.id] ?? 0 }
     nonisolated static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
 
     private static var nativeAgentTask: Task<String, Never>?

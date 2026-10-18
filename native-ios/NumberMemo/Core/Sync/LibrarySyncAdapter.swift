@@ -1,6 +1,59 @@
 import Foundation
 import GRDB
 
+/// Cheap change tokens avoid re-decoding the entire library on idle sync polls.
+/// Read on the writer connection: total_changes is connection-local, while
+/// data_version also detects edits from the share extension or another connection.
+@MainActor
+final class LibrarySyncSnapshotCache {
+    private struct DatabaseVersion: Equatable {
+        let identity: ObjectIdentifier
+        let local: Int64
+        let external: Int64
+    }
+    private struct Signature: Equatable {
+        let manga: DatabaseVersion
+        let booru: DatabaseVersion
+        let preferences: [String: Data]
+    }
+    private var signature: Signature?
+    private var rows: [String: LibrarySyncRow] = [:]
+    private(set) var snapshotCount = 0
+
+    func snapshot(_ adapter: LibrarySyncAdapter) throws -> [String: LibrarySyncRow] {
+        let before = try signature(for: adapter)
+        if signature == before { return rows }
+        let next = try adapter.snapshot()
+        snapshotCount += 1
+        let after = try signature(for: adapter)
+        // A concurrent database edit must be read by the next pass.
+        signature = before == after ? after : nil
+        rows = next
+        return next
+    }
+
+    func invalidate() { signature = nil; rows.removeAll() }
+
+    private func signature(for adapter: LibrarySyncAdapter) throws -> Signature {
+        func version(_ writer: any DatabaseWriter) throws -> DatabaseVersion {
+            try writer.writeWithoutTransaction { db in
+                .init(identity: ObjectIdentifier(writer),
+                      local: try Int64.fetchOne(db, sql: "SELECT total_changes()") ?? 0,
+                      external: try Int64.fetchOne(db, sql: "PRAGMA data_version") ?? 0)
+            }
+        }
+        var preferences: [String: Data] = [:]
+        for (mode, defaults, keys) in [("manga", adapter.mangaDefaults, LibrarySyncAdapter.commonPreferences), ("booru", adapter.booruDefaults, LibrarySyncAdapter.booruPreferences)] {
+            for key in keys {
+                if let value = defaults.object(forKey: key) {
+                    preferences[mode + ":" + key] = try PropertyListSerialization.data(fromPropertyList: ["value": value], format: .binary, options: 0)
+                }
+            }
+        }
+        return try .init(manga: version(adapter.manga.dbWriter), booru: version(adapter.booru.database), preferences: preferences)
+    }
+}
+
 /// Explicit allowlists keep caches, API keys, cookies, onboarding and device layout local.
 struct LibrarySyncAdapter {
     let manga: AppDatabase
@@ -213,6 +266,7 @@ struct LibrarySyncAdapter {
                 for (position, id) in (order + others).enumerated() { try db.execute(sql: "UPDATE folders SET position = ? WHERE id = ?", arguments: [position, id]) }
             }
         }
+        booru.invalidateSnapshots()
         for change in values where change.row.table.hasPrefix("preferences.") {
             let isBooru = change.row.table == "preferences.booru"
             guard let key = change.row.values["key"]?.string, (isBooru ? Self.booruPreferences : Self.commonPreferences).contains(key) else { continue }

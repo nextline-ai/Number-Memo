@@ -16,6 +16,7 @@ final class TasteFeedState {
     var sortMessage: String?
     private(set) var pageVersion = 0
     @ObservationIgnored private var work: Task<Void, Never>?
+    @ObservationIgnored private var paginationWork: Task<Void, Never>?
     private var generation = UUID()
     private var shown: [String] = []
     private var seedOffset = -1
@@ -37,19 +38,30 @@ final class TasteFeedState {
         self.booruSource = booruSource; self.comicSource = comicSource
     }
 
+    /// Project session access changes without replacing the recommendation
+    /// deck, pagination cursor, or persisted taste evidence.
+    func visibleItems(in store: BooruStore) -> [TasteRecommendation] {
+        let hidden = store.confirmedGoldRestrictedIDs
+        return hidden.isEmpty ? results.items : results.items.filter { $0.post.map { !hidden.contains($0.id) } ?? true }
+    }
+
     func ensureLoaded(mode: TasteMode, env: AppEnvironment, language: String) {
         guard !initialized, env.taste.control.enabled else { return }
         refresh(mode: mode, env: env, language: language)
     }
     func clear() {
-        work?.cancel(); work = nil; generation = UUID()
+        cancelLoading()
         snapshot = nil; report = nil; results = .init(); error = nil; sortMessage = nil; appliedPreferences = nil; previousSorts = [:]
         loading = false; loadingMore = false; initialized = false; shown = []; seedOffset = -1
     }
-    func applyExclusions(_ control: TasteControl, mode: TasteMode) {
-        work?.cancel(); work = nil; generation = UUID()
-        loading = false; loadingMore = false
+    func cancelLoading() {
+        work?.cancel(); work = nil
+        paginationWork?.cancel(); paginationWork = nil
+        generation = UUID(); loading = false; loadingMore = false
         if snapshot == nil { initialized = false }
+    }
+    func applyExclusions(_ control: TasteControl, mode: TasteMode) {
+        cancelLoading()
         if var filtered = snapshot {
             filtered.tags.removeAll { !control.allows($0.name, source: $0.source, mode: mode) }
             filtered.previousTagCounts = filtered.previousTagCounts.filter { key, _ in
@@ -64,6 +76,7 @@ final class TasteFeedState {
 
     func refresh(mode: TasteMode, env: AppEnvironment, language: String) {
         guard env.taste.control.enabled, mode == .comics || !(sourceAddresses ?? env.booru.selectedServers.map(\.canonicalAddress)).isEmpty else { return }
+        paginationWork?.cancel(); paginationWork = nil
         work?.cancel(); let token = UUID(); generation = token
         discoverySession = UUID().uuidString
         seedOffset += 1
@@ -127,8 +140,16 @@ final class TasteFeedState {
         guard !loading, !loadingMore, results.cursor.hasMore, let snapshot, env.taste.control.enabled else { return }
         loadingMore = true
         let token = generation, selection = seedOffset
-        defer { if token == generation { loadingMore = false } }
+        let task = Task { await appendPage(mode: mode, env: env, language: language, snapshot: snapshot, token: token, selection: selection) }
+        paginationWork = task
+        await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+    }
+
+    private func appendPage(mode: TasteMode, env: AppEnvironment, language: String, snapshot: TasteSnapshot, token: UUID, selection: Int) async {
+        defer { if token == generation { loadingMore = false; paginationWork = nil } }
         do {
+            try Task.checkCancellation()
+            guard token == generation else { return }
             var next = results.cursor
             var added: [TasteRecommendation] = []
             var failures: [String] = []

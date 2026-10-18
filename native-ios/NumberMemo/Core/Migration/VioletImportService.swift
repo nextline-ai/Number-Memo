@@ -144,112 +144,122 @@ public final class VioletImportService: Sendable {
     // MARK: - User DB Import
 
     public func importUserDb(path: String) throws -> (folders: Int, works: Int, artists: Int) {
+        try Task.checkCancellation()
         let src = try Self.openReadOnlyDb(at: path)
         var folderCount = 0
         var workCount = 0
         var artistCount = 0
 
-        try src.read { db in
-            let groups = try Row.fetchAll(db, sql: "SELECT * FROM BookmarkGroup ORDER BY Gorder ASC, Id ASC")
-            var groupMap: [Int64: Int64] = [:]
-            var assignedColors: Set<Int64> = []
+        // Read one consistent source snapshot, then process it on the importing
+        // task so cancellation checks retain their task context.
+        let (groups, articles, artistRows) = try src.read { db in
+            try (
+                Row.fetchAll(db, sql: "SELECT * FROM BookmarkGroup ORDER BY Gorder ASC, Id ASC"),
+                Row.fetchAll(db, sql: "SELECT * FROM BookmarkArticle ORDER BY DateTime DESC, Id DESC"),
+                db.tableExists("BookmarkArtist") ? Row.fetchAll(db, sql: "SELECT * FROM BookmarkArtist") : []
+            )
+        }
+        var groupMap: [Int64: Int64] = [:]
+        var assignedColors: Set<Int64> = []
 
-            for group in groups {
-                guard let violetId = Self.safeInt64(from: group, column: "Id")
-                    ?? Self.safeInt64(from: group, column: "id") else { continue }
-                var name = Self.safeString(from: group, column: "Name")
-                    ?? Self.safeString(from: group, column: "name") ?? L10n.text("Folders")
-                let rawColor = Self.safeInt64(from: group, column: "Color")
-                    ?? Self.safeInt64(from: group, column: "color")
-                if name == "violet_default" { name = "미분류" }
+        for group in groups {
+            try Task.checkCancellation()
+            guard let violetId = Self.safeInt64(from: group, column: "Id")
+                ?? Self.safeInt64(from: group, column: "id") else { continue }
+            var name = Self.safeString(from: group, column: "Name")
+                ?? Self.safeString(from: group, column: "name") ?? L10n.text("Folders")
+            let rawColor = Self.safeInt64(from: group, column: "Color")
+                ?? Self.safeInt64(from: group, column: "color")
+            if name == "violet_default" { name = "미분류" }
 
-                let colorInt: Int64
-                if let raw = rawColor, raw != 4294940672, raw != 0, !assignedColors.contains(raw) {
-                    colorInt = raw
-                } else {
-                    colorInt = appDb.nextUniqueFolderColor(excluding: assignedColors)
-                }
-                assignedColors.insert(colorInt)
-
-                let desc = Self.safeString(from: group, column: "Description")
-                let folder = try appDb.createFolder(name: name, description: desc, color: colorInt, violetGroupId: violetId)
-                if let folderId = folder.id {
-                    groupMap[violetId] = folderId
-                    folderCount += 1
-                }
+            let colorInt: Int64
+            if let raw = rawColor, raw != 4294940672, raw != 0, !assignedColors.contains(raw) {
+                colorInt = raw
+            } else {
+                colorInt = appDb.nextUniqueFolderColor(excluding: assignedColors)
             }
+            assignedColors.insert(colorInt)
 
-            let defaultFolder = try appDb.ensureDefaultFolder()
-            let defaultFolderId = defaultFolder.id ?? 1
-
-            if groupMap[1] == nil { groupMap[1] = defaultFolderId }
-            if groupMap[0] == nil { groupMap[0] = defaultFolderId }
-
-            let articles = try Row.fetchAll(db, sql: "SELECT * FROM BookmarkArticle ORDER BY DateTime DESC, Id DESC")
-            for article in articles {
-                guard let galleryId = Self.safeInt64(from: article, column: "Article")
-                    ?? Self.safeInt64(from: article, column: "article")
-                    ?? Self.safeInt64(from: article, column: "GalleryId")
-                    ?? Self.safeInt64(from: article, column: "Id") else { continue }
-
-                let rawGroupId = Self.safeInt64(from: article, column: "GroupId")
-                    ?? Self.safeInt64(from: article, column: "group_id")
-                    ?? Self.safeInt64(from: article, column: "Group")
-
-                let targetFolderId: Int64
-                if let rawGroupId, let mapped = groupMap[rawGroupId] {
-                    targetFolderId = mapped
-                } else {
-                    targetFolderId = defaultFolderId
-                }
-
-                let catalog = try appDb.getCatalog(galleryId: galleryId)
-                let bookmarkedAt = Self.safeString(from: article, column: "DateTime")
-
-                _ = try appDb.upsertWork(
-                    galleryId: galleryId,
-                    folderId: targetFolderId,
-                    title: catalog?.title,
-                    artists: catalog?.artists,
-                    language: catalog?.language,
-                    type: catalog?.type,
-                    series: catalog?.series,
-                    groups: catalog?.groups,
-                    tags: catalog?.tags,
-                    publishedAt: catalog?.published,
-                    bookmarkedAt: bookmarkedAt,
-                    metadataSource: catalog != nil ? "catalog" : nil,
-                    catalogMatched: catalog != nil
-                )
-                workCount += 1
-            }
-
-            // Prune works from defaultFolderId if they belong to any other folder
-            try? appDb.dbWriter.write { db in
-                try db.execute(sql: """
-                DELETE FROM folder_works
-                WHERE folder_id = ?
-                  AND work_id IN (SELECT work_id FROM folder_works WHERE folder_id != ?)
-                """, arguments: [defaultFolderId, defaultFolderId])
-            }
-
-            if try db.tableExists("BookmarkArtist") {
-                let artistRows = try Row.fetchAll(db, sql: "SELECT * FROM BookmarkArtist")
-                for row in artistRows {
-                    guard let name = Self.safeString(from: row, column: "Artist"), !name.isEmpty else { continue }
-                    let isGroup = Int(Self.safeInt64(from: row, column: "IsGroup") ?? 0)
-                    _ = try appDb.addFavoriteArtist(name: name, kind: isGroup)
-                    artistCount += 1
-                }
+            let desc = Self.safeString(from: group, column: "Description")
+            let folder = try appDb.createFolder(name: name, description: desc, color: colorInt, violetGroupId: violetId)
+            if let folderId = folder.id {
+                groupMap[violetId] = folderId
+                folderCount += 1
             }
         }
 
+        try Task.checkCancellation()
+        let defaultFolder = try appDb.ensureDefaultFolder()
+        let defaultFolderId = defaultFolder.id ?? 1
+
+        if groupMap[1] == nil { groupMap[1] = defaultFolderId }
+        if groupMap[0] == nil { groupMap[0] = defaultFolderId }
+
+        for article in articles {
+            try Task.checkCancellation()
+            guard let galleryId = Self.safeInt64(from: article, column: "Article")
+                ?? Self.safeInt64(from: article, column: "article")
+                ?? Self.safeInt64(from: article, column: "GalleryId")
+                ?? Self.safeInt64(from: article, column: "Id") else { continue }
+
+            let rawGroupId = Self.safeInt64(from: article, column: "GroupId")
+                ?? Self.safeInt64(from: article, column: "group_id")
+                ?? Self.safeInt64(from: article, column: "Group")
+
+            let targetFolderId: Int64
+            if let rawGroupId, let mapped = groupMap[rawGroupId] {
+                targetFolderId = mapped
+            } else {
+                targetFolderId = defaultFolderId
+            }
+
+            let catalog = try appDb.getCatalog(galleryId: galleryId)
+            let bookmarkedAt = Self.safeString(from: article, column: "DateTime")
+
+            _ = try appDb.upsertWork(
+                galleryId: galleryId,
+                folderId: targetFolderId,
+                title: catalog?.title,
+                artists: catalog?.artists,
+                language: catalog?.language,
+                type: catalog?.type,
+                series: catalog?.series,
+                groups: catalog?.groups,
+                tags: catalog?.tags,
+                publishedAt: catalog?.published,
+                bookmarkedAt: bookmarkedAt,
+                metadataSource: catalog != nil ? "catalog" : nil,
+                catalogMatched: catalog != nil
+            )
+            workCount += 1
+        }
+
+        try Task.checkCancellation()
+        // Prune works from defaultFolderId if they belong to any other folder
+        try? appDb.dbWriter.write { db in
+            try db.execute(sql: """
+            DELETE FROM folder_works
+            WHERE folder_id = ?
+              AND work_id IN (SELECT work_id FROM folder_works WHERE folder_id != ?)
+            """, arguments: [defaultFolderId, defaultFolderId])
+        }
+
+        for row in artistRows {
+            try Task.checkCancellation()
+            guard let name = Self.safeString(from: row, column: "Artist"), !name.isEmpty else { continue }
+            let isGroup = Int(Self.safeInt64(from: row, column: "IsGroup") ?? 0)
+            _ = try appDb.addFavoriteArtist(name: name, kind: isGroup)
+            artistCount += 1
+        }
+
+        try Task.checkCancellation()
         return (folderCount, workCount, artistCount)
     }
 
     // MARK: - Targeted Fast Match (내 보관함 작품만 즉시 매칭)
 
     public func matchAndFillWorks(fromDataDb path: String) throws -> (matched: Int, totalWorks: Int) {
+        try Task.checkCancellation()
         let allTargetIds = try appDb.listAllGalleryIds()
         guard !allTargetIds.isEmpty else {
             return (0, 0)
@@ -266,6 +276,7 @@ public final class VioletImportService: Sendable {
         var matchedTotal = 0
 
         for chunkStart in stride(from: 0, to: allTargetIds.count, by: chunkSize) {
+            try Task.checkCancellation()
             let chunkEnd = min(chunkStart + chunkSize, allTargetIds.count)
             let idChunk = Array(allTargetIds[chunkStart..<chunkEnd])
             let placeholders = Array(repeating: "?", count: idChunk.count).joined(separator: ",")
@@ -284,6 +295,7 @@ public final class VioletImportService: Sendable {
             batch.reserveCapacity(rows.count)
 
             for row in rows {
+                try Task.checkCancellation()
                 guard let id = Self.safeInt64(from: row, column: "Id") else { continue }
                 let title = Self.unescapeHtml(Self.safeString(from: row, column: "Title"))
                 let type = Self.safeString(from: row, column: "Type")
@@ -309,18 +321,21 @@ public final class VioletImportService: Sendable {
                 ))
             }
 
+            try Task.checkCancellation()
             if !batch.isEmpty {
                 let updated = try appDb.applyCatalogBatchToWorks(batch)
                 matchedTotal += updated
             }
         }
 
+        try Task.checkCancellation()
         return (matchedTotal, allTargetIds.count)
     }
 
     // MARK: - Full Catalog Import (수십만 건 전체 저장)
 
     public func importDataDb(path: String, progress: (@Sendable (Int) -> Void)? = nil) throws -> Int {
+        try Task.checkCancellation()
         let src = try Self.openReadOnlyDb(at: path)
         let tableName = try src.read { db -> String in
             guard let name = try Self.findCatalogTable(in: db) else {
@@ -333,6 +348,7 @@ public final class VioletImportService: Sendable {
         var total = 0
 
         while true {
+            try Task.checkCancellation()
             let chunk = try src.read { db in
                 let sql = """
                 SELECT Id, Title, Type, Artists, Characters, Groups, Language, Series, Tags, Published
@@ -349,6 +365,7 @@ public final class VioletImportService: Sendable {
             batch.reserveCapacity(chunk.count)
 
             for row in chunk {
+                try Task.checkCancellation()
                 guard let id = Self.safeInt64(from: row, column: "Id") else { continue }
                 lastId = id
 
@@ -376,11 +393,13 @@ public final class VioletImportService: Sendable {
                 ))
             }
 
+            try Task.checkCancellation()
             try appDb.upsertCatalogBatch(batch)
             total += batch.count
             progress?(total)
         }
 
+        try Task.checkCancellation()
         try appDb.applyCatalogToWorks()
         return total
     }

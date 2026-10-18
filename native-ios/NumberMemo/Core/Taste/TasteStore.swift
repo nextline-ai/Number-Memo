@@ -23,7 +23,10 @@ struct TasteStore: Sendable {
         try Data.fetchOne(db, sql: "SELECT value FROM taste_meta WHERE key = ?", arguments: [key]).map { try JSONDecoder().decode(type, from: $0) }
     }
     static func put<T: Encodable>(_ value: T, key: String, db: Database) throws {
-        try db.execute(sql: "INSERT OR REPLACE INTO taste_meta VALUES (?, ?)", arguments: [key, try JSONEncoder().encode(value)])
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        // Idle sync persists its seen-file set repeatedly. Keep equal metadata
+        // from dirtying SQLite/WAL and invalidating library snapshot caches.
+        try db.execute(sql: "INSERT INTO taste_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value WHERE value != excluded.value", arguments: [key, try encoder.encode(value)])
     }
     static func control(_ db: Database) throws -> TasteControl { try get(TasteControl.self, key: "control", db: db) ?? .init() }
     func savedKeys() throws -> Set<String> {

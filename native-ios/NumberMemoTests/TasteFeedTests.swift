@@ -2,6 +2,163 @@ import XCTest
 @testable import NumberMemo
 
 final class TasteFeedTests: XCTestCase {
+    @MainActor func testGoldOnlyRecommendationPagesAdvanceAndRepeatedRestrictedPagesStop() async throws {
+        for repeatsRestrictedPage in [false, true] {
+            let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+            try env.booru.saveServer(server); try env.booru.select(server)
+            let source = GoldRestrictedTasteSource(repeatsRestrictedPage: repeatsRestrictedPage)
+            let snapshot = TasteSnapshot(tags: [TasteTag(source: server.canonicalAddress, name: "scenery", general: 5)], saves: 5, opens: 0, searches: 0, activity: [:], digest: "gold", period: nil)
+            let first = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source)
+            XCTAssertTrue(first.items.isEmpty); XCTAssertTrue(first.failures.isEmpty)
+            XCTAssertTrue(first.cursor.hasMore, "A page with only restricted rows still advances the source cursor")
+            XCTAssertEqual(env.booru.confirmedGoldRestrictedIDs, [server.id + ":201"])
+            let second = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, cursor: first.cursor)
+            XCTAssertEqual(second.items.map(\.item.id), repeatsRestrictedPage ? [] : [203])
+            XCTAssertTrue(second.failures.isEmpty); XCTAssertFalse(second.cursor.hasMore)
+            let pages = await source.pages
+            XCTAssertEqual(pages, [0, 1])
+        }
+    }
+
+    @MainActor func testGoldRestrictionsAlsoFilterPendingRecommendationCandidates() async throws {
+        let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+        try env.booru.saveServer(server); try env.booru.select(server)
+        let source = GoldRestrictedTasteSource()
+        let snapshot = TasteSnapshot(tags: [TasteTag(source: server.canonicalAddress, name: "scenery", general: 5)], saves: 5, opens: 0, searches: 0, activity: [:], digest: "gold", period: nil)
+        let first = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source)
+        let key = try XCTUnwrap(first.cursor.pages.keys.first)
+        var cursor = first.cursor
+        cursor.pendingPosts[key] = [201, 204].map { BooruFixtureSource.post(Int64($0), server: server, tags: ["scenery"]) }
+        cursor.finished.insert(key)
+        let second = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, cursor: cursor)
+        XCTAssertEqual(second.items.map(\.item.id), [204])
+        XCTAssertTrue(second.failures.isEmpty); XCTAssertFalse(second.cursor.hasMore)
+        let pages = await source.pages
+        XCTAssertEqual(pages, [0], "Filtering a resumed candidate must not restart its source page")
+    }
+
+    @MainActor func testGoldRestrictionProjectsExistingRecommendationDeckWithoutResettingIt() async throws {
+        let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+        try env.booru.saveServer(server); try env.booru.select(server)
+        try env.booru.toggleFavorite(BooruFixtureSource.post(101, server: server, tags: ["scenery"]))
+        let feed = TasteFeedState(booruSource: PagedTasteSource())
+        feed.ensureLoaded(mode: .booru, env: env, language: "all"); await feed.waitForRefresh()
+        let original = feed.results.items.map(\.id), cursor = feed.results.cursor.pages, session = feed.discoverySession
+        let post = try XCTUnwrap(feed.results.items.first?.post)
+        env.booru.recordGoldRestriction(post)
+        XCTAssertEqual(feed.visibleItems(in: env.booru).map(\.id), Array(original.dropFirst()))
+        XCTAssertEqual(feed.results.items.map(\.id), original)
+        XCTAssertEqual(feed.results.cursor.pages, cursor); XCTAssertEqual(feed.discoverySession, session)
+        env.booru.clearGoldRestrictions(serverID: server.id)
+        XCTAssertEqual(feed.visibleItems(in: env.booru).map(\.id), original)
+    }
+
+    func testPreparedRecommendationMixPreservesRankingAndTieOrder() {
+        var candidates: [TasteRecommendation] = (0..<90).map { index in
+            let source = "https://site\(index % 3).example"
+            let item = TasteItem(source: source, id: Int64(index), tags: ["theme_\(index % 7)", "theme_\(index % 11)", "common", "png"])
+            let reason = TasteTag(source: source, name: "reason", hidden: index.isMultiple(of: 3) ? 5 : 0,
+                                  general: 5, sessions: ["a", "b", "c"])
+            return TasteRecommendation(item: item, post: nil, gallery: nil, reason: reason,
+                score: Double(index % 5) / 10, rankingTags: index.isMultiple(of: 2) ? ["theme_\(index % 7)"] : nil)
+        }
+        candidates += Array(candidates.prefix(8))
+        for limit in [0, 1, 20, 100] {
+            XCTAssertEqual(RecommendationService.mix(candidates, limit: limit).map(\.id), originalRecommendationMix(candidates, limit: limit).map(\.id))
+        }
+        XCTAssertTrue(RecommendationService.mix([], limit: 20).isEmpty)
+    }
+
+    private func originalRecommendationMix(_ candidates: [TasteRecommendation], limit: Int) -> [TasteRecommendation] {
+        let sorted = candidates.sorted { $0.score == $1.score ? $0.id < $1.id : $0.score > $1.score }
+        var seen = Set<String>()
+        let unique = sorted.filter { seen.insert($0.id).inserted }
+        var remaining = unique, result: [TasteRecommendation] = []
+        let maximum = max(0.001, unique.map(\.score).max() ?? 1)
+        while !remaining.isEmpty && result.count < limit {
+            let wantDiscovery = result.count % 10 >= 7
+            let eligible = remaining.filter { $0.reason.discovery == wantDiscovery }
+            let pool = eligible.isEmpty ? remaining : eligible
+            func utility(_ candidate: TasteRecommendation) -> Double {
+                let tags = candidate.rankingTags ?? Set(candidate.item.eligibleTags)
+                let overlap = result.suffix(8).filter { $0.item.source == candidate.item.source }.map { other in
+                    let theirs = other.rankingTags ?? Set(other.item.eligibleTags)
+                    return Double(tags.intersection(theirs).count) / Double(max(1, tags.union(theirs).count))
+                }.max() ?? 0
+                return 0.8 * candidate.score / maximum - 0.2 * overlap
+            }
+            guard let next = pool.max(by: { utility($0) < utility($1) }) else { break }
+            result.append(next); remaining.removeAll { $0.id == next.id }
+        }
+        return result
+    }
+
+    @MainActor func testComicRecommendationsBatchSavedChecksAndRecheckAfterMetadata() async throws {
+        let env = AppEnvironment.preview(); env.isSiteVerified = true
+        _ = try env.database.upsertWork(galleryId: 1)
+        let source = SavingComicTasteSource(database: env.database)
+        let tag = TasteTag(source: "https://manga.la", name: "tag:scenery", general: 5)
+        let snapshot = TasteSnapshot(tags: [tag], saves: 5, opens: 0, searches: 0, activity: [:], digest: "saved-checks", period: nil)
+        let result = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "all", comicSource: source)
+        let requested = await source.requested
+        XCTAssertEqual(Set(requested), Set((2...8).map(Int64.init)), "Already saved works need no metadata request")
+        XCTAssertEqual(Set(result.items.map(\.item.id)), Set([2, 4, 5, 6, 7, 8].map(Int64.init)), "Works saved during metadata loading remain excluded")
+        XCTAssertFalse(result.cursor.hasMore)
+    }
+
+    func testPrecomputedRecommendationScoresExactlyMatchTheOriginalFormula() {
+        let sources = ["https://one.example", "https://two.example", "https://manga.la"]
+        var tags: [TasteTag] = []
+        for (sourceIndex, source) in sources.enumerated() {
+            for index in 0..<18 {
+                tags.append(TasteTag(source: source, name: "theme_\(index)", confirmed: index % 4, hidden: index % 7, general: index % 3,
+                    works: (0..<(index % 9)).map { TasteItem(source: source, id: Int64($0 + sourceIndex), tags: ["theme_\(index)"]) },
+                    lift: index.isMultiple(of: 2) ? Double(index + 1) / 4 : nil))
+            }
+        }
+        // Duplicate names and zero-evidence/search-only tags must retain their
+        // old sum and denominator behavior as well.
+        tags.append(tags[5])
+        tags.append(TasteTag(source: sources[0], name: "search_only", searches: 5))
+        for source in sources {
+            let profile = RecommendationService.ScoringProfile(source: source, tags: tags)
+            for index in 0..<30 {
+                let item = TasteItem(source: source, id: Int64(index), tags: ["theme_\(index % 18)", "theme_\((index + 3) % 18)", "unknown", "search_only", "png"])
+                let exclusions: [Set<String>] = [[], ["theme_5"], Set(item.tags)]
+                for ignored in exclusions {
+                    XCTAssertEqual(profile.score(item, ignoring: ignored), originalRecommendationScore(item, tags: tags, ignoring: ignored))
+                }
+            }
+        }
+    }
+
+    func testRecommendationScoreProfilesHandleEmptyAndUnrelatedSources() {
+        let source = "https://one.example"
+        let item = TasteItem(source: source, id: 1, tags: [])
+        XCTAssertEqual(RecommendationService.ScoringProfile(source: source, tags: []).score(item), 0)
+        let tag = TasteTag(source: source, name: "scenery", general: 5)
+        let profile = RecommendationService.ScoringProfile(source: source, tags: [tag])
+        XCTAssertEqual(profile.score(TasteItem(source: "https://two.example", id: 1, tags: ["scenery"])), 0)
+        XCTAssertEqual(profile.score(TasteItem(source: source, id: 2, tags: ["png"])), 0)
+        XCTAssertEqual(profile.score(TasteItem(source: source, id: 3, tags: ["scenery"]), ignoring: ["scenery"]), 0)
+    }
+
+    /// Reference behavior before per-source precomputation; exact equality also
+    /// protects recommendation ordering when candidates have near-equal scores.
+    private func originalRecommendationScore(_ item: TasteItem, tags: [TasteTag], ignoring: Set<String>) -> Double {
+        let eligible = Set(item.eligibleTags.filter { !ignoring.contains(TasteControl.normalizeExclusion($0)) })
+        let matches = tags.filter { $0.source == item.source && eligible.contains($0.name) }
+        let profile = tags.filter { $0.source == item.source && $0.count > 0 }
+        let libraryCount = max(1, Set(profile.flatMap { $0.works.map(\.key) }).count)
+        func importance(_ tag: TasteTag) -> Double {
+            let confidence = Double(tag.count) / Double(tag.count + 4)
+            let rarity = 1 + log(1 + Double(libraryCount) / Double(1 + tag.works.count))
+            return tag.weight * confidence * rarity
+        }
+        let norm = sqrt(profile.reduce(0) { $0 + pow(importance($1), 2) })
+        return matches.reduce(0) { $0 + importance($1) } / max(1, norm * sqrt(Double(max(1, eligible.count))))
+    }
+
     func testLegacyControlsReceiveModeDefaultsAndPersistUserRemovals() throws {
         let encoded = try JSONEncoder().encode(TasteControl())
         var json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -73,6 +230,26 @@ final class TasteFeedTests: XCTestCase {
         XCTAssertFalse(feed.results.items.contains { $0.id == original[0] })
         XCTAssertTrue(env.taste.comicFeed.results.items.isEmpty)
         feed.clear(); XCTAssertTrue(feed.results.items.isEmpty)
+    }
+    @MainActor func testSuspendingRecommendationsCancelsPaginationAndKeepsCursorRetryable() async throws {
+        let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+        try env.booru.saveServer(server); try env.booru.select(server)
+        try env.booru.toggleFavorite(BooruFixtureSource.post(101, server: server, tags: ["scenery"]), context: .init(origin: .search, query: "scenery"))
+        let source = CancellableTasteSource(), feed = TasteFeedState(booruSource: source)
+        feed.ensureLoaded(mode: .booru, env: env, language: "all"); await feed.waitForRefresh()
+        let original = feed.results.items.map(\.id), cursor = feed.results.cursor.pages
+        let pagination = Task { await feed.loadMore(mode: .booru, env: env, language: "all") }
+        await source.waitForPagination()
+        feed.cancelLoading()
+        await pagination.value
+        XCTAssertFalse(feed.loadingMore)
+        XCTAssertEqual(feed.results.items.map(\.id), original)
+        XCTAssertEqual(feed.results.cursor.pages, cursor)
+        await source.allowPagination()
+        await feed.loadMore(mode: .booru, env: env, language: "all")
+        XCTAssertEqual(feed.results.items.last?.item.id, 203)
+        let pages = await source.pages
+        XCTAssertEqual(pages, [0, 1, 1], "Returning to the feed must retry the interrupted page")
     }
     @MainActor func testRecommendationsKeepServerProfilesSeparateAndHydratePublicPages() async throws {
         let env = AppEnvironment.preview()
@@ -432,6 +609,20 @@ extension TasteFeedTests {
         } catch { XCTAssertTrue(error is UnsupportedBooruSort) }
     }
 }
+private actor GoldRestrictedTasteSource: BooruProviding {
+    let repeatsRestrictedPage: Bool
+    var pages: [Int] = []
+    init(repeatsRestrictedPage: Bool = false) { self.repeatsRestrictedPage = repeatsRestrictedPage }
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        pages.append(page)
+        if page == 0 || repeatsRestrictedPage { return .init(posts: [], hasMore: true, goldRestrictedIDs: [201]) }
+        return .init(posts: [BooruFixtureSource.post(203, server: server, tags: ["scenery"])], hasMore: false)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
 private actor RequiredTagTasteSource: BooruProviding {
     var queries: [String: String] = [:]
     func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
@@ -522,4 +713,43 @@ extension TasteFeedTests {
         let queries = await source.queries
         XCTAssertTrue(queries.isEmpty)
     }
+}
+
+private actor CancellableTasteSource: BooruProviding {
+    var pages: [Int] = []
+    private var waiting: CheckedContinuation<Void, Never>?
+    private var paginationStarted = false
+    private var delayPagination = true
+    func waitForPagination() async {
+        if paginationStarted { return }
+        await withCheckedContinuation { waiting = $0 }
+    }
+    func allowPagination() { delayPagination = false }
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        pages.append(page)
+        if page > 0 && delayPagination {
+            paginationStarted = true; waiting?.resume(); waiting = nil
+            try await Task.sleep(for: .seconds(30))
+        }
+        return .init(posts: (page == 0 ? [201, 202] : [203]).map { BooruFixtureSource.post(Int64($0), server: server, tags: ["scenery"]) }, hasMore: page == 0)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+
+private actor SavingComicTasteSource: ContentProviding {
+    let database: AppDatabase
+    var requested: [Int64] = []
+    init(database: AppDatabase) { self.database = database }
+    func list(_ query: GalleryQuery, offset: Int, count: Int) async throws -> GalleryBatch {
+        .init(ids: Array(1...8).map(Int64.init), hasMore: false)
+    }
+    func gallery(_ id: Int64) async throws -> NativeGallery {
+        requested.append(id)
+        if id == 2 { _ = try database.upsertWork(galleryId: 3) }
+        return .init(id: id, title: "Work \(id)", artists: [], language: "", type: "manga", tags: ["tag:scenery"], pages: [])
+    }
+    func image(_ page: GalleryPage, galleryID: Int64, thumbnail: Bool) async throws -> Data { throw ContentError.invalidResponse }
 }

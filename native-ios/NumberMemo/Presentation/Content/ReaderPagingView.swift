@@ -1,5 +1,19 @@
 import SwiftUI
 
+struct ReaderPageImage {
+    let hash: String
+    let image: UIImage
+    let fullResolution: Bool
+
+    static func cached(hash: String, images: PageImageStore) -> Self? {
+        if let image = images.cachedImage(hash: hash) { return .init(hash: hash, image: image, fullResolution: true) }
+        if let image = images.cachedImage(hash: hash, thumbnail: true) { return .init(hash: hash, image: image, fullResolution: false) }
+        return nil
+    }
+
+    func satisfies(_ hash: String) -> Bool { self.hash == hash && fullResolution }
+}
+
 struct ReaderPageView: View {
     let page: GalleryPage
     let galleryID: Int64
@@ -7,24 +21,34 @@ struct ReaderPageView: View {
     let tap: (CGFloat) -> Void
     let bookmark: () -> Void
     var viewport: (CGRect, CGFloat) -> Void = { _, _ in }
-    @State private var image: UIImage?
+    var isActive: Bool
+    @State private var loadedImage: ReaderPageImage?
     @State private var error: String?
     @State private var retry = 0
 
-    init(page: GalleryPage, galleryID: Int64, images: PageImageStore, tap: @escaping (CGFloat) -> Void, bookmark: @escaping () -> Void, viewport: @escaping (CGRect, CGFloat) -> Void = { _, _ in }) {
+    init(page: GalleryPage, galleryID: Int64, images: PageImageStore, tap: @escaping (CGFloat) -> Void, bookmark: @escaping () -> Void, viewport: @escaping (CGRect, CGFloat) -> Void = { _, _ in }, isActive: Bool = true) {
         self.page = page
         self.galleryID = galleryID
         self.images = images
         self.tap = tap
         self.bookmark = bookmark
         self.viewport = viewport
-        _image = State(initialValue: images.cachedImage(hash: page.hash, thumbnail: false))
+        self.isActive = isActive
+        _loadedImage = State(initialValue: ReaderPageImage.cached(hash: page.hash, images: images))
     }
 
     var body: some View {
         Group {
-            if let shown = image {
-                ZoomablePageView(image: shown, tap: tap, bookmark: bookmark, viewport: viewport)
+            if let shown = loadedImage, shown.hash == page.hash {
+                ZoomablePageView(image: shown.image, tap: tap, bookmark: bookmark, viewport: viewport, contentID: page.hash)
+                    .overlay(alignment: .bottom) {
+                        if let error {
+                            Button { retry += 1 } label: {
+                                Label(error, systemImage: "arrow.clockwise").font(.caption).padding(10)
+                                    .background(.black.opacity(0.75), in: Capsule())
+                            }.foregroundStyle(.white).padding(12)
+                        }
+                    }
             } else {
                 GeometryReader { geometry in
                     Group {
@@ -39,11 +63,19 @@ struct ReaderPageView: View {
             }
         }
         .background(.black)
-        .task(id: "\(page.hash):\(retry)") {
+        .task(id: "\(page.hash):\(retry):\(isActive)", priority: .userInitiated) {
+            guard isActive, loadedImage?.satisfies(page.hash) != true else { return }
             error = nil
-            do { image = try await images.load(page, galleryID: galleryID) }
+            if loadedImage?.hash != page.hash { loadedImage = ReaderPageImage.cached(hash: page.hash, images: images) }
+            if loadedImage?.satisfies(page.hash) == true { return }
+            do {
+                let loaded = try await images.load(page, galleryID: galleryID)
+                try Task.checkCancellation()
+                loadedImage = .init(hash: page.hash, image: loaded, fullResolution: true)
+            }
             catch { if !Task.isCancelled { self.error = ContentError.message(error) } }
         }
+        .onDisappear { loadedImage = nil }
     }
 }
 
@@ -52,12 +84,13 @@ struct ZoomablePageView: UIViewRepresentable {
     let tap: (CGFloat) -> Void
     let bookmark: () -> Void
     var viewport: (CGRect, CGFloat) -> Void = { _, _ in }
+    var contentID: String?
     func makeUIView(context: Context) -> PageScrollView { PageScrollView() }
     func updateUIView(_ view: PageScrollView, context: Context) {
         view.tap = tap
         view.bookmark = bookmark
         view.viewport = viewport
-        view.update(image: image)
+        view.update(image: image, contentID: contentID)
     }
 }
 
@@ -67,6 +100,7 @@ final class PageScrollView: UIScrollView, UIScrollViewDelegate {
     var bookmark: () -> Void = {}
     var viewport: (CGRect, CGFloat) -> Void = { _, _ in }
     private var previousSize = CGSize.zero
+    private var contentID: String?
     var geometryChanged: () -> Void = {}
     var usesExternalGestures = false
     private var lockedScrollViews: [ObjectIdentifier] = []
@@ -150,11 +184,16 @@ final class PageScrollView: UIScrollView, UIScrollViewDelegate {
     @objc private func accessibleNext() -> Bool { tap(0.9); return true }
     @objc private func accessiblePrevious() -> Bool { tap(0.1); return true }
 
-    func update(image: UIImage) {
-        guard imageView.image !== image else { return }
-        let first = imageView.image == nil
+    func update(image: UIImage, contentID: String? = nil) {
+        guard imageView.image !== image || self.contentID != contentID else { return }
+        let preservesViewport = contentID != nil && self.contentID == contentID && imageView.image != nil
+        self.contentID = contentID
         imageView.image = image
-        if first { previousSize = .zero; setZoomScale(1, animated: false) }
+        // A cached preview and its full-resolution page share image coordinates.
+        // Replace pixels without moving a viewport the reader has already zoomed.
+        if preservesViewport { return }
+        previousSize = .zero
+        setZoomScale(1, animated: false)
         setNeedsLayout()
     }
 
@@ -229,6 +268,7 @@ struct ReaderSpreadView: View {
     let tap: (CGFloat) -> Void
     let bookmark: () -> Void
     let viewport: (Int, CGRect, CGFloat) -> Void
+    var isActive = true
     var body: some View {
         let indices = Array(start..<min(gallery.pages.count, start + ReaderLayout.count(count)))
         HStack(spacing: 2) {
@@ -237,7 +277,7 @@ struct ReaderSpreadView: View {
                 ReaderPageView(page: gallery.pages[index], galleryID: gallery.id, images: images,
                                tap: { x in
                                    tap((CGFloat(slot) + x) / CGFloat(indices.count))
-                               }, bookmark: bookmark, viewport: { rect, scale in viewport(index, rect, scale) })
+                               }, bookmark: bookmark, viewport: { rect, scale in viewport(index, rect, scale) }, isActive: isActive)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
@@ -254,6 +294,7 @@ struct ReaderPager: UIViewControllerRepresentable {
     let bookmark: () -> Void
     let count: Int
     let viewport: (Int, CGRect, CGFloat) -> Void
+    var isActive = true
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeUIViewController(context: Context) -> UIPageViewController {
@@ -265,17 +306,12 @@ struct ReaderPager: UIViewControllerRepresentable {
         return controller
     }
     func updateUIViewController(_ controller: UIPageViewController, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.parent = self
-        let shown = controller.viewControllers?.first as? PageController
-        if let shown, shown.index == current {
-            shown.rootView = coordinator.content(current)
-        } else if !coordinator.transitioning {
-            let forward = current > (shown?.index ?? 0)
-            let reversed = rtl && !vertical
-            controller.setViewControllers([coordinator.page(current)], direction: forward != reversed ? .forward : .reverse, animated: false)
-        }
-        coordinator.trim(around: current)
+        context.coordinator.update(self, controller: controller)
+    }
+    static func dismantleUIViewController(_ controller: UIPageViewController, coordinator: Coordinator) {
+        controller.dataSource = nil
+        controller.delegate = nil
+        coordinator.pages.removeAll()
     }
     final class PageController: UIHostingController<ReaderSpreadView> {
         let index: Int
@@ -286,14 +322,40 @@ struct ReaderPager: UIViewControllerRepresentable {
         var parent: ReaderPager
         var pages: [Int: PageController] = [:]
         var transitioning = false
+        private var transitionStart: Int?
+        private var pendingPage: Int?
         init(_ parent: ReaderPager) { self.parent = parent }
+        func update(_ parent: ReaderPager, controller: UIPageViewController) {
+            let activityChanged = self.parent.isActive != parent.isActive
+            self.parent = parent
+            // Menu, progress and viewport changes only replace the callbacks held here.
+            // Existing hosting roots and their image/zoom state stay intact.
+            if activityChanged {
+                for (index, page) in pages { page.rootView = content(index) }
+            }
+            if transitioning {
+                if pendingPage != nil || parent.current != transitionStart { pendingPage = parent.current }
+                return
+            }
+            show(parent.current, in: controller)
+        }
+        private func show(_ index: Int, in controller: UIPageViewController) {
+            let shown = controller.viewControllers?.first as? PageController
+            if shown?.index != index {
+                let forward = index > (shown?.index ?? 0)
+                let reversed = parent.rtl && !parent.vertical
+                controller.setViewControllers([page(index)], direction: forward != reversed ? .forward : .reverse, animated: false)
+            }
+            trim(around: index)
+        }
         func content(_ index: Int) -> ReaderSpreadView {
             ReaderSpreadView(gallery: parent.gallery, images: parent.images, start: index, count: parent.count,
-                             rtl: parent.rtl, tap: parent.tap,
-                             bookmark: parent.bookmark, viewport: parent.viewport)
+                             rtl: parent.rtl, tap: { [weak self] in self?.parent.tap($0) },
+                             bookmark: { [weak self] in self?.parent.bookmark() },
+                             viewport: { [weak self] in self?.parent.viewport($0, $1, $2) }, isActive: parent.isActive)
         }
         func page(_ index: Int) -> PageController {
-            if let existing = pages[index] { existing.rootView = content(index); return existing }
+            if let existing = pages[index] { return existing }
             let page = PageController(index: index, content: content(index))
             pages[index] = page
             return page
@@ -303,18 +365,24 @@ struct ReaderPager: UIViewControllerRepresentable {
             guard let current = controller as? PageController else { return nil }
             let next = current.index + offset * parent.count * (parent.rtl && !parent.vertical ? -1 : 1)
             guard parent.gallery.pages.indices.contains(next) else { return nil }
-            Task { [weak self] in
-                guard let self else { return }
-                await self.parent.images.prefetch(self.parent.gallery, current: next, count: 3, visibleCount: self.parent.count)
-            }
             return page(next)
         }
         func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? { adjacent(viewController, offset: -1) }
         func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? { adjacent(viewController, offset: 1) }
-        func pageViewController(_ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]) { transitioning = true }
+        func pageViewController(_ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]) {
+            transitioning = true
+            transitionStart = (pageViewController.viewControllers?.first as? PageController)?.index ?? parent.current
+            pendingPage = nil
+        }
         func pageViewController(_ controller: UIPageViewController, didFinishAnimating finished: Bool, previousViewControllers: [UIViewController], transitionCompleted completed: Bool) {
             transitioning = false
-            if completed, let page = controller.viewControllers?.first as? PageController { parent.current = page.index }
+            let requested = pendingPage ?? (parent.current != transitionStart ? parent.current : nil)
+            transitionStart = nil; pendingPage = nil
+            if let requested { show(requested, in: controller) }
+            else if let page = controller.viewControllers?.first as? PageController {
+                if completed { parent.current = page.index }
+                trim(around: page.index)
+            }
         }
     }
 }
@@ -328,24 +396,21 @@ struct ReaderContinuousView: View {
     let count: Int
     let rtl: Bool
     let viewport: (Int, CGRect, CGFloat) -> Void
+    var isActive = true
     @State private var position: Int?
 
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
                 LazyVStack(spacing: 4) {
-                    ForEach(Array(stride(from: 0, to: gallery.pages.count, by: ReaderLayout.count(count))), id: \.self) { index in
+                    ForEach(0..<((gallery.pages.count + count - 1) / count), id: \.self) { spread in
+                        let index = spread * count
                         let indices = index..<min(gallery.pages.count, index + count)
                         let ratio = indices.map { CGFloat(max(1, gallery.pages[$0].height)) / CGFloat(max(1, gallery.pages[$0].width)) }.max() ?? 1
                         ReaderSpreadView(gallery: gallery, images: images, start: index, count: count, rtl: rtl,
-                                         tap: tap, bookmark: bookmark, viewport: viewport)
+                                         tap: tap, bookmark: bookmark, viewport: viewport, isActive: isActive)
                             .frame(height: geometry.size.width / CGFloat(indices.count) * ratio)
                             .id(index)
-                            .onAppear {
-                                Task {
-                                    await images.prefetch(gallery, current: index, count: 5, visibleCount: count)
-                                }
-                            }
                     }
                 }.scrollTargetLayout()
             }

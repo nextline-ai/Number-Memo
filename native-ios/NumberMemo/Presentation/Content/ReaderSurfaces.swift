@@ -31,6 +31,7 @@ struct ReaderPreviewView: View {
 }
 
 struct ReaderThumbnail: View {
+    @Environment(\.scenePhase) private var scenePhase
     let page: GalleryPage
     let galleryID: Int64
     let images: PageImageStore
@@ -39,7 +40,15 @@ struct ReaderThumbnail: View {
         Color.secondary.opacity(0.1).overlay {
             if let image { Image(uiImage: image).resizable().scaledToFit() }
             else { Image(systemName: "photo").foregroundStyle(.secondary) }
-        }.task(id: page.hash) { image = try? await images.load(page, galleryID: galleryID, thumbnail: true) }
+        }.task(id: "\(page.hash):\(scenePhase)") {
+            guard scenePhase == .active, image == nil else { return }
+            do {
+                let loaded = try await images.load(page, galleryID: galleryID, thumbnail: true)
+                try Task.checkCancellation()
+                image = loaded
+            } catch {}
+        }
+        .onDisappear { image = nil }
     }
 }
 

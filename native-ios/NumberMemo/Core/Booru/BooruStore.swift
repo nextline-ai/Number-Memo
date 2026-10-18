@@ -8,6 +8,16 @@ import Security
 final class BooruStore: @unchecked Sendable {
     let database: DatabaseQueue
     private let prefetchSavedPreviews: Bool
+    private struct FavoriteRecord { let post: BooruPost; let folderID: String; let savedAt: Date }
+    private struct FavoriteQuery: Hashable { let folderID: String?; let query: String }
+    @ObservationIgnored private let snapshotLock = NSLock()
+    @ObservationIgnored private var cachedFavoriteIDs: (revision: Int, value: Set<String>)?
+    @ObservationIgnored private var cachedFavorites: (revision: Int, value: [FavoriteRecord])?
+    @ObservationIgnored private var cachedFolders: (revision: Int, value: [BooruFolder])?
+    @ObservationIgnored private var visibleFavoritesRevision = -1
+    @ObservationIgnored private var visibleFavoritesCache: [FavoriteQuery: [BooruPost]] = [:]
+    @ObservationIgnored private var snapshotGeneration = 0
+    @ObservationIgnored private var goldRestrictedIDs: Set<String> = []
     private(set) var servers: [BooruServer] = []
     private(set) var selectedServerID = ""
     private(set) var selectedServerIDs: [String] = []
@@ -15,6 +25,43 @@ final class BooruStore: @unchecked Sendable {
     private(set) var revision = 0
     var error: String?
     var selectedServer: BooruServer? { servers.first { $0.id == selectedServerID } }
+
+    /// Access restrictions are scoped to this running session, never persisted
+    /// as a blacklist or a deletion from the user's saved library.
+    var confirmedGoldRestrictedIDs: Set<String> {
+        access(keyPath: \.confirmedGoldRestrictedIDs)
+        return snapshotLock.withLock { goldRestrictedIDs }
+    }
+
+    func isVisible(_ post: BooruPost) -> Bool {
+        !confirmedGoldRestrictedIDs.contains(post.id)
+    }
+
+    func recordGoldRestriction(_ post: BooruPost) {
+        recordGoldRestrictions(serverID: post.serverID, postIDs: [post.postID])
+    }
+
+    func recordGoldRestrictions(serverID: String, postIDs: [Int64]) {
+        let ids = Set(postIDs.filter { $0 > 0 }.map { "\(serverID):\($0)" })
+        guard !ids.isEmpty, !ids.isSubset(of: confirmedGoldRestrictedIDs) else { return }
+        withMutation(keyPath: \.confirmedGoldRestrictedIDs) {
+            snapshotLock.withLock { goldRestrictedIDs.formUnion(ids) }
+        }
+    }
+
+    func clearGoldRestrictions(serverID: String? = nil) {
+        let matches: (String) -> Bool = { id in
+            guard let serverID else { return true }
+            guard let separator = id.lastIndex(of: ":") else { return false }
+            return id[..<separator] == serverID
+        }
+        guard confirmedGoldRestrictedIDs.contains(where: matches) else { return }
+        withMutation(keyPath: \.confirmedGoldRestrictedIDs) {
+            snapshotLock.withLock {
+                goldRestrictedIDs = goldRestrictedIDs.filter { !matches($0) }
+            }
+        }
+    }
 
     init(path: String? = nil, prefetchSavedPreviews: Bool = false) throws {
         self.prefetchSavedPreviews = prefetchSavedPreviews
@@ -102,11 +149,14 @@ final class BooruStore: @unchecked Sendable {
     }
 
     func reload() throws {
-        servers = try database.read { db in
+        invalidateSnapshots()
+        let updatedServers = try database.read { db in
             try Row.fetchAll(db, sql: "SELECT payload FROM servers ORDER BY position").map {
                 try JSONDecoder().decode(BooruServer.self, from: $0["payload"] as Data)
             }
         }
+        for server in servers where !updatedServers.contains(server) { clearGoldRestrictions(serverID: server.id) }
+        servers = updatedServers
         let legacy = try setting("selected_server") ?? servers.first?.id ?? ""
         let saved = try setting("selected_servers").flatMap { $0.data(using: .utf8) }.flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? [legacy]
         selectedServerIDs = servers.map(\.id).filter(saved.contains)
@@ -114,6 +164,21 @@ final class BooruStore: @unchecked Sendable {
     }
 
     func refresh() throws { try reload(); revision += 1 }
+
+    /// Sync writes directly to SQLite off the main actor. Invalidate cached
+    /// query results at that commit, before the later UI revision notification.
+    func invalidateSnapshots() {
+        snapshotLock.withLock {
+            snapshotGeneration &+= 1
+            cachedFavoriteIDs = nil; cachedFavorites = nil; cachedFolders = nil
+            visibleFavoritesCache = [:]; visibleFavoritesRevision = -1
+        }
+    }
+
+    private var snapshotVersion: Int {
+        let revision = self.revision
+        return snapshotLock.withLock { revision &+ snapshotGeneration }
+    }
 
     func perform(_ operation: () throws -> Void) {
         do { try operation() } catch { self.error = error.localizedDescription }
@@ -143,6 +208,9 @@ final class BooruStore: @unchecked Sendable {
             try db.execute(sql: "INSERT OR REPLACE INTO servers VALUES (?, ?, ?)", arguments: [server.id, try JSONEncoder().encode(server), position])
         }
         try reload()
+        // Saving also follows a credentials edit, even when the server address
+        // itself is unchanged. A different account may have Gold access.
+        clearGoldRestrictions(serverID: server.id)
         revision += 1
     }
 
@@ -163,33 +231,26 @@ final class BooruStore: @unchecked Sendable {
     }
 
     func favorites(serverID: String) -> [BooruPost] {
-        _ = revision
-        do {
-            return try database.read { db in
-                try Row.fetchAll(db, sql: "SELECT payload FROM favorites WHERE server_id = ? ORDER BY saved_at DESC", arguments: [serverID]).map {
-                    try JSONDecoder().decode(BooruPost.self, from: $0["payload"] as Data)
-                }
-            }
-        } catch { return [] }
+        favorites(serverIDs: [serverID])
     }
 
     /// Read once by the grid's body so lazy cells observe imports and restored data.
     var favoriteIDs: Set<String> {
-        _ = revision
-        return (try? database.read { db in
+        let revision = snapshotVersion
+        if let value = snapshotLock.withLock({ cachedFavoriteIDs?.revision == revision ? cachedFavoriteIDs?.value : nil }) { return value }
+        let value: Set<String> = (try? database.read { db in
             Set(try Row.fetchAll(db, sql: "SELECT server_id, post_id FROM favorites").map { row in
                 let serverID: String = row["server_id"]
                 let postID: Int64 = row["post_id"]
                 return "\(serverID):\(postID)"
             })
         }) ?? []
+        snapshotLock.withLock { cachedFavoriteIDs = (revision, value) }
+        return value
     }
 
     func isFavorite(_ post: BooruPost) -> Bool {
-        _ = revision
-        return (try? database.read { db in
-            try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM favorites WHERE server_id = ? AND post_id = ?)", arguments: [post.serverID, post.postID]) ?? false
-        }) ?? false
+        favoriteIDs.contains(post.id)
     }
 
     func toggleFavorite(_ post: BooruPost, context: DiscoveryContext = .unknown) throws {
@@ -208,23 +269,59 @@ final class BooruStore: @unchecked Sendable {
     }
 
     func favorites(serverIDs: [String], folderID: String? = nil) -> [BooruPost] {
-        _ = revision
         guard !serverIDs.isEmpty else { return [] }
-        return (try? database.read { db in
-            let placeholders = serverIDs.map { _ in "?" }.joined(separator: ",")
-            let sql = "SELECT payload FROM favorites WHERE server_id IN (\(placeholders))" + (folderID == nil ? "" : " AND folder_id = ?") + " ORDER BY saved_at DESC"
-            let args = StatementArguments(serverIDs + (folderID.map { [$0] } ?? []))
-            return try Row.fetchAll(db, sql: sql, arguments: args).map { try JSONDecoder().decode(BooruPost.self, from: $0["payload"] as Data) }
+        let servers = Set(serverIDs)
+        return favoriteRecords().compactMap { record in
+            servers.contains(record.post.serverID) && (folderID == nil || record.folderID == folderID) ? record.post : nil
+        }
+    }
+
+    private func favoriteRecords() -> [FavoriteRecord] {
+        let revision = snapshotVersion
+        if let value = snapshotLock.withLock({ cachedFavorites?.revision == revision ? cachedFavorites?.value : nil }) { return value }
+        let value: [FavoriteRecord] = (try? database.read { db in
+            let decoder = JSONDecoder()
+            return try Row.fetchAll(db, sql: "SELECT payload, folder_id, saved_at FROM favorites ORDER BY saved_at DESC").map { row in
+                FavoriteRecord(post: try decoder.decode(BooruPost.self, from: row["payload"] as Data), folderID: row["folder_id"], savedAt: Date(timeIntervalSince1970: row["saved_at"]))
+            }
         }) ?? []
+        snapshotLock.withLock { cachedFavorites = (revision, value) }
+        return value
+    }
+
+    func visibleFavorites(folderID: String? = nil, query: String = "") -> [BooruPost] {
+        let revision = snapshotVersion, key = FavoriteQuery(folderID: folderID, query: query)
+        let hidden = confirmedGoldRestrictedIDs
+        if let value = snapshotLock.withLock({ visibleFavoritesRevision == revision ? visibleFavoritesCache[key] : nil }) {
+            return hidden.isEmpty ? value : value.filter { !hidden.contains($0.id) }
+        }
+        let filters = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, BooruBlacklist(blacklist(serverID: $0.id))) })
+        let value = favorites(serverIDs: servers.map(\.id), folderID: folderID).filter {
+            !(filters[$0.serverID]?.contains($0) ?? false) && (query.isEmpty || $0.tags.joined(separator: " ").localizedCaseInsensitiveContains(query) || String($0.postID).contains(query))
+        }
+        snapshotLock.withLock {
+            if visibleFavoritesRevision != revision || visibleFavoritesCache.count >= 32 {
+                visibleFavoritesCache = [:]; visibleFavoritesRevision = revision
+            }
+            visibleFavoritesCache[key] = value
+        }
+        return hidden.isEmpty ? value : value.filter { !hidden.contains($0.id) }
+    }
+
+    func favoriteSavedDates() -> [String: Date] {
+        Dictionary(uniqueKeysWithValues: favoriteRecords().map { ($0.post.id, $0.savedAt) })
     }
 
     func folders() -> [BooruFolder] {
-        _ = revision
-        return (try? database.read { db in
+        let revision = snapshotVersion
+        if let value = snapshotLock.withLock({ cachedFolders?.revision == revision ? cachedFolders?.value : nil }) { return value }
+        let value: [BooruFolder] = (try? database.read { db in
             try Row.fetchAll(db, sql: "SELECT * FROM folders ORDER BY position, name").map {
                 BooruFolder(id: $0["id"], name: $0["name"], color: $0["color"])
             }
         }) ?? []
+        snapshotLock.withLock { cachedFolders = (revision, value) }
+        return value
     }
 
     @discardableResult func saveFolder(id: String = UUID().uuidString, name: String, color: Int64? = nil) throws -> String {

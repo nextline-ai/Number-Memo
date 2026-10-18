@@ -19,7 +19,14 @@ extension BooruStore {
     }
     func tasteLibrary() throws -> [TasteItem] {
         try database.read { db in
-            try Data.fetchAll(db, sql: "SELECT payload FROM favorites").map { try Self.tasteItem(JSONDecoder().decode(BooruPost.self, from: $0), db: db) }
+            // Resolve each server once, rather than re-reading and decoding its
+            // payload for every favorite during first-launch analysis bootstrap.
+            let servers = try Data.fetchAll(db, sql: "SELECT payload FROM servers").map { try JSONDecoder().decode(BooruServer.self, from: $0) }
+            let addresses = Dictionary(servers.map { ($0.id, $0.canonicalAddress) }, uniquingKeysWith: { first, _ in first })
+            return try Data.fetchAll(db, sql: "SELECT payload FROM favorites").map {
+                let post = try JSONDecoder().decode(BooruPost.self, from: $0)
+                return .init(source: addresses[post.serverID] ?? post.serverID, id: post.postID, tags: post.tags, metadata: post.metadataTags ?? [])
+            }
         }
     }
 }

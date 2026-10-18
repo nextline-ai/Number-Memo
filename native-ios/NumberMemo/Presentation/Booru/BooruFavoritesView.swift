@@ -189,9 +189,10 @@ struct BooruFolderContentsView: View {
     }
     private var months: [(month: String, id: String)] {
         let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM"
+        let dates = store.favoriteSavedDates()
         var seen = Set<String>()
         return posts.compactMap { post in
-            let month = store.savedDate(for: post).map(formatter.string(from:)) ?? L10n.text("No Date")
+            let month = dates[post.id].map(formatter.string(from:)) ?? L10n.text("No Date")
             return seen.insert(month).inserted ? (month, post.id) : nil
         }
     }
@@ -251,14 +252,5 @@ private struct BooruCreateFolderModifier: ViewModifier {
 private extension View {
     func booruCreateFolderAlert(isPresented: Binding<Bool>, name: Binding<String>) -> some View {
         modifier(BooruCreateFolderModifier(isPresented: isPresented, name: name))
-    }
-}
-
-extension BooruStore {
-    func visibleFavorites(folderID: String? = nil, query: String = "") -> [BooruPost] {
-        let filters = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, BooruBlacklist(blacklist(serverID: $0.id))) })
-        return favorites(serverIDs: servers.map(\.id), folderID: folderID).filter {
-            !(filters[$0.serverID]?.contains($0) ?? false) && (query.isEmpty || $0.tags.joined(separator: " ").localizedCaseInsensitiveContains(query) || String($0.postID).contains(query))
-        }
     }
 }

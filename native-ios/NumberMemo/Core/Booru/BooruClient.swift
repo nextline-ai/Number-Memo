@@ -37,10 +37,18 @@ actor BooruClient: BooruProviding {
     static let shared = BooruClient()
     static let pageSize = 40
     // Request only the fields consumed by BooruDecoder, including blocking and media metadata.
-    static let postFields = "id,file_url,large_file_url,preview_file_url,image_width,image_height,tag_string,tag_string_artist,tag_string_meta,rating,score,file_ext,pool_ids,fav_count,up_score,comment_count"
+    static let postFields = "id,file_url,large_file_url,preview_file_url,image_width,image_height,tag_string,tag_string_artist,tag_string_meta,rating,score,file_ext,pool_ids,fav_count,up_score,comment_count,is_banned"
     private struct PostPage { let data: Data; let date: Date }
     private var postPages: [String: PostPage] = [:]
     private var pendingPostPages: [String: Task<Data, Error>] = [:]
+    private struct AccessResult: Sendable { let goldRequired: Bool; let date: Date }
+    private struct AccessFlight {
+        let token: UUID
+        let task: Task<Void, Never>
+        var waiters: [UUID: CheckedContinuation<Bool, Error>]
+    }
+    private var accessResults: [String: AccessResult] = [:]
+    private var accessFlights: [String: AccessFlight] = [:]
     private let session: URLSession
     private let browserFallback: Bool
     private var wholePools: [String: [Int64]] = [:]
@@ -85,6 +93,9 @@ actor BooruClient: BooruProviding {
     private func data(_ server: BooruServer, _ path: String, _ values: [(String, String)], authenticated: Bool = true, publicURL: URL? = nil) async throws -> Data {
         let credentials = authenticated ? try BooruKeychain.read(serverID: server.id) : BooruCredentials()
         var request = try Self.request(server: server, path: path, items: values.map { .init(name: $0.0, value: $0.1) }, credentials: credentials)
+        if server.engine == .danbooru, path.hasPrefix("posts/"), !path.hasSuffix(".json") {
+            request.setValue("text/html", forHTTPHeaderField: "Accept")
+        }
         if let publicURL {
             guard !authenticated, BooruWebTransport.sameOrigin(publicURL, server.baseURL) else { throw BooruError.invalidServer }
             request.url = publicURL
@@ -101,6 +112,7 @@ actor BooruClient: BooruProviding {
         } else {
             do {
                 let native = try await session.data(for: prepared)
+                if Self.needsBrowser(native.0, response: native.1), let error = BooruPostAccessError.detect(native.0, server: server) { throw error }
                 if browserFallback, Self.needsBrowser(native.0, response: native.1) {
                     (data, response) = try await BooruWebTransport.data(for: request, server: server)
                 } else { (data, response) = native }
@@ -113,6 +125,7 @@ actor BooruClient: BooruProviding {
         await BooruBrowserSession.receive(response, server: server)
         try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse else { throw BooruError.invalidResponse }
+        if let error = BooruPostAccessError.detect(data, server: server) { throw error }
         if isDocument && Self.needsBrowser(data, response: response), let url = request.url {
             await BooruBrowserSession.recordChallenge(url, server: server)
         }
@@ -167,7 +180,36 @@ actor BooruClient: BooruProviding {
             raw = try await data(server, "post.json", [("tags", query), ("limit", "40"), ("page", String(page + 1))])
         }
         let rows = try BooruDecoder.rows(raw, key: "post")
-        return BooruBatch(posts: try rows.map { try BooruDecoder.post($0, server: server) }, hasMore: rows.count >= Self.pageSize)
+        var posts: [BooruPost] = [], restricted: [Int64] = [], candidates: [BooruPost] = []
+        for row in rows {
+            if BooruPostAccessError.detect(row, server: server) == .goldRequired, BooruDecoder.integer(row["id"]) > 0 {
+                restricted.append(Int64(BooruDecoder.integer(row["id"]))); continue
+            }
+            let post = try BooruDecoder.post(row, server: server)
+            posts.append(post)
+            // Missing URLs alone never prove a Gold restriction. The public
+            // document distinguishes Gold from removals, safe mode and failures.
+            if server.engine == .danbooru, post.viewerURL(original: false) == nil,
+               !(row["is_banned"] as? Bool ?? false) { candidates.append(post) }
+        }
+        let checked = try await withThrowingTaskGroup(of: Int64?.self) { group in
+            var iterator = candidates.makeIterator(), found: [Int64] = []
+            let check: @Sendable (BooruPost) async throws -> Int64? = { post in
+                do { try await self.checkDanbooruAccess(server: server, postID: post.postID); return nil }
+                catch BooruPostAccessError.goldRequired { return post.postID }
+                catch { try Task.checkCancellation(); return nil }
+            }
+            for _ in 0..<2 { if let post = iterator.next() { group.addTask { try await check(post) } } }
+            while let result = try await group.next() {
+                try Task.checkCancellation()
+                if let result { found.append(result) }
+                if let post = iterator.next() { group.addTask { try await check(post) } }
+            }
+            return Set(found)
+        }
+        restricted += posts.filter { checked.contains($0.postID) }.map(\.postID)
+        posts.removeAll { checked.contains($0.postID) }
+        return BooruBatch(posts: posts, hasMore: rows.count >= Self.pageSize, goldRestrictedIDs: restricted)
     }
 
     func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] {
@@ -330,9 +372,74 @@ actor BooruClient: BooruProviding {
     }
 
     func details(server: BooruServer, post: BooruPost) async throws -> BooruPost {
+        if server.engine == .danbooru, post.viewerURL(original: false) == nil {
+            try await checkDanbooruAccess(server: server, postID: post.postID)
+            return post
+        }
         guard server.engine.usesGelbooruPages else { return post }
         let raw = try await postPage(server: server, id: post.postID, reuse: false)
         return try BooruLegacyHTML.post(raw, server: server, id: post.postID, preview: post.previewURL)
+    }
+
+    private func checkDanbooruAccess(server: BooruServer, postID: Int64) async throws {
+        try Task.checkCancellation()
+        let credentials = try BooruKeychain.read(serverID: server.id)
+        let cookies = await BooruBrowserSession.cookies(for: server)
+        let revision = await BooruBrowserSession.accessRevision(for: server)
+        try Task.checkCancellation()
+        // Keep only a process-local hash in cache keys. Credential/cookie changes
+        // and a completed browser validation immediately permit a fresh check.
+        var scope = Hasher()
+        scope.combine(credentials.account); scope.combine(credentials.apiKey); scope.combine(revision)
+        for cookie in cookies.sorted(by: { ($0.domain, $0.path, $0.name) < ($1.domain, $1.path, $1.name) }) {
+            scope.combine(cookie.domain); scope.combine(cookie.path); scope.combine(cookie.name); scope.combine(cookie.value)
+        }
+        let key = server.id + ":" + server.canonicalAddress + ":" + String(postID) + ":" + String(scope.finalize())
+        let waiter = UUID()
+        let restricted = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                guard !Task.isCancelled else { continuation.resume(throwing: CancellationError()); return }
+                if let result = accessResults[key], Date().timeIntervalSince(result.date) < 60 {
+                    continuation.resume(returning: result.goldRequired); return
+                }
+                if var flight = accessFlights[key] {
+                    flight.waiters[waiter] = continuation; accessFlights[key] = flight; return
+                }
+                let token = UUID()
+                let task = Task {
+                    let result: Result<Bool, Error>
+                    do {
+                        _ = try await self.data(server, "posts/\(postID)", [])
+                        try Task.checkCancellation()
+                        result = .success(false)
+                    } catch BooruPostAccessError.goldRequired { result = .success(true) }
+                    catch { result = .failure(error) }
+                    self.finishAccess(key, token: token, result: result)
+                }
+                accessFlights[key] = AccessFlight(token: token, task: task, waiters: [waiter: continuation])
+            }
+        } onCancel: { Task { await self.cancelAccess(key, waiter: waiter) } }
+        try Task.checkCancellation()
+        if restricted { throw BooruPostAccessError.goldRequired }
+    }
+
+    private func finishAccess(_ key: String, token: UUID, result: Result<Bool, Error>) {
+        guard let flight = accessFlights[key], flight.token == token else { return }
+        accessFlights.removeValue(forKey: key)
+        if case .success(let restricted) = result {
+            if accessResults.count >= 128, let oldest = accessResults.min(by: { $0.value.date < $1.value.date })?.key {
+                accessResults.removeValue(forKey: oldest)
+            }
+            accessResults[key] = AccessResult(goldRequired: restricted, date: Date())
+        }
+        for waiter in flight.waiters.values { waiter.resume(with: result) }
+    }
+
+    private func cancelAccess(_ key: String, waiter: UUID) {
+        guard var flight = accessFlights[key], let continuation = flight.waiters.removeValue(forKey: waiter) else { return }
+        continuation.resume(throwing: CancellationError())
+        if flight.waiters.isEmpty { accessFlights.removeValue(forKey: key); flight.task.cancel() }
+        else { accessFlights[key] = flight }
     }
 
     /// The public post document contains both media URLs and notes. Share concurrent

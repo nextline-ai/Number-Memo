@@ -14,6 +14,7 @@ enum BooruWebTransport {
         // view even then, rather than silently replacing it with a cold browser.
         guard let url = webView.url, sameOrigin(url, server.baseURL) else { return }
         sessions[server.id] = Browser(server: server, webView: webView)
+        BooruBrowserSession.clearChallenge(for: server)
     }
 
     static func reset(_ server: BooruServer) {
@@ -179,6 +180,9 @@ enum BooruWebTransport {
             committed = adopted != nil
             webView.navigationDelegate = self
             webView.uiDelegate = nil
+            // A transport-only page may retain ads/media from validation, but
+            // needs only its cookies, DOM and fetch context.
+            webView.setAllMediaPlaybackSuspended(true, completionHandler: nil)
             if adopted == nil { webView.load(URLRequest(url: server.baseURL)) }
         }
         func ready() async throws {

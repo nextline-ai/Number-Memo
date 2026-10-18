@@ -110,22 +110,106 @@ enum TasteAnalyzer {
     }
 }
 
+/// Only committed changes to analysis input invalidate decoded history. Cover
+/// downloads, folder edits and sync upload flags do not change that input.
+private final class TasteEventChanges: TransactionObserver, @unchecked Sendable {
+    private let lock = NSLock()
+    private var changed = false
+    private var committed: Int64 = 0
+    var revision: Int64 { lock.withLock { committed } }
+
+    func observes(eventsOfKind eventKind: DatabaseEventKind) -> Bool {
+        guard eventKind.tableName == "taste_events" else { return false }
+        if case .update(_, let columns) = eventKind { return columns.contains("payload") }
+        return true
+    }
+    func databaseDidChange() { lock.withLock { changed = true } }
+    func databaseDidChange(with event: DatabaseEvent) { databaseDidChange() }
+    func databaseDidCommit(_ db: Database) {
+        lock.withLock { if changed { committed &+= 1 }; changed = false }
+    }
+    func databaseDidRollback(_ db: Database) { lock.withLock { changed = false } }
+}
+
 actor TasteAnalysisCache {
-    private struct Entry { var rowID: Int64 = 0; var count = 0; var epoch = ""; var events: [TasteEvent] = [] }
+    private struct SnapshotKey: Equatable {
+        var analysis: String
+        var period: DateInterval?
+        var previous: DateInterval?
+        var savedKeys: Set<String>?
+    }
+    private struct DatabaseVersion: Equatable {
+        var identity: ObjectIdentifier
+        var local: Int64
+        var external: Int64
+    }
+    private struct Entry {
+        var database: (any DatabaseWriter)?
+        var observer: TasteEventChanges?
+        var version: DatabaseVersion?
+        var epoch = ""
+        var events: [TasteEvent] = []
+        var snapshots: [(SnapshotKey, TasteSnapshot)] = []
+    }
     private var entries: [TasteMode: Entry] = [:]
-    func snapshot(store: TasteStore, control: TasteControl, period: DateInterval?, previous: DateInterval?, savedKeys: Set<String>? = nil) throws -> TasteSnapshot {
-        var entry = entries[store.mode] ?? Entry()
-        let count = try store.database.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM taste_events") ?? 0 }
-        if entry.epoch != control.epoch || count < entry.count { entry = Entry(); entry.epoch = control.epoch }
-        let after = entry.rowID
-        let new = try store.database.read { db in
-            try Row.fetchAll(db, sql: "SELECT rowid, payload FROM taste_events WHERE rowid > ? ORDER BY rowid", arguments: [after]).map { row in
-                (row["rowid"] as Int64, try JSONDecoder().decode(TasteEvent.self, from: row["payload"] as Data))
-            }
+    private(set) var analysisCount = 0
+    private(set) var eventLoadCount = 0
+
+    private func version(of store: TasteStore, observer: TasteEventChanges) throws -> DatabaseVersion {
+        // Read the observer after pending commits on the writer connection.
+        // data_version additionally catches writes through another connection.
+        try store.database.writeWithoutTransaction { db in
+            .init(identity: ObjectIdentifier(store.database),
+                  local: observer.revision,
+                  external: try Int64.fetchOne(db, sql: "PRAGMA data_version") ?? 0)
         }
-        entry.events += new.map(\.1); entry.rowID = new.last?.0 ?? entry.rowID; entry.count = count
+    }
+
+    func snapshot(store: TasteStore, control: TasteControl, period: DateInterval?, previous: DateInterval?, savedKeys: Set<String>? = nil) throws -> TasteSnapshot {
+        try Task.checkCancellation()
+        var entry = entries[store.mode] ?? Entry()
+        if entry.database.map({ ObjectIdentifier($0) }) != ObjectIdentifier(store.database) {
+            let observer = TasteEventChanges()
+            store.database.add(transactionObserver: observer)
+            entry.database = store.database
+            entry.observer = observer
+            entry.version = nil
+        }
+        guard let observer = entry.observer else { preconditionFailure("Taste observation must be registered before reading") }
+        let before = try version(of: store, observer: observer)
+        if entry.version != before || entry.epoch != control.epoch {
+            // Row counts and max rowids cannot detect delete/reinsert operations:
+            // SQLite can reuse the deleted final rowid without changing the count.
+            let events = try store.database.read { db in
+                try Data.fetchAll(db, sql: "SELECT payload FROM taste_events ORDER BY rowid").map { data in
+                    try Task.checkCancellation()
+                    return try JSONDecoder().decode(TasteEvent.self, from: data)
+                }
+            }
+            eventLoadCount += 1
+            let after = try version(of: store, observer: observer)
+            if entry.events != events || entry.epoch != control.epoch || entry.version?.identity != before.identity {
+                entry.snapshots.removeAll()
+            }
+            entry.events = events; entry.epoch = control.epoch
+            // Re-read next time if a write raced the database snapshot.
+            entry.version = before == after ? after : nil
+        }
+        let key = SnapshotKey(analysis: control.analysisKey(store.mode), period: period, previous: previous, savedKeys: period == nil ? savedKeys : nil)
+        if let index = entry.snapshots.firstIndex(where: { $0.0 == key }) {
+            let cached = entry.snapshots.remove(at: index)
+            entry.snapshots.append(cached); entries[store.mode] = entry
+            return cached.1
+        }
+        try Task.checkCancellation()
+        let result = TasteAnalyzer.analyze(entry.events, control: control, period: period, previous: previous, savedKeys: savedKeys, mode: store.mode)
+        try Task.checkCancellation()
+        analysisCount += 1
+        entry.snapshots.append((key, result))
+        // Historical reports contain per-tag work lists; bound retained history.
+        if entry.snapshots.count > 6 { entry.snapshots.removeFirst() }
         entries[store.mode] = entry
-        return TasteAnalyzer.analyze(entry.events, control: control, period: period, previous: previous, savedKeys: savedKeys, mode: store.mode)
+        return result
     }
     func invalidate() { entries.removeAll() }
 }

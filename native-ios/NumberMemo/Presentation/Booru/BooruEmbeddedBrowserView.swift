@@ -38,8 +38,12 @@ struct BooruEmbeddedBrowserView: View {
 private struct BooruWebsiteView: View {
     let server: BooruServer
     let url: URL
+    @Environment(AppEnvironment.self) private var env
+    @Environment(\.scenePhase) private var scenePhase
     @State private var model: BooruValidationModel
     @State private var loadedURL: URL?
+    @State private var visible = false
+    private var active: Bool { visible && env.mode == .booru && scenePhase == .active }
     init(server: BooruServer, url: URL) {
         self.server = server; self.url = url
         _model = State(initialValue: BooruValidationModel(server: server))
@@ -65,12 +69,21 @@ private struct BooruWebsiteView: View {
                 ShareLink(item: model.address ?? url)
             }.labelStyle(.iconOnly).padding(.horizontal, 20).frame(height: 44)
         }
-        .task(id: url) {
-            model.load(loadedURL == url ? model.address ?? url : url)
-            loadedURL = url
+        .onAppear { visible = true }
+        .task(id: "\(url.absoluteString):\(active)") {
+            model.setActive(active)
+            guard active else { return }
+            if loadedURL != url {
+                model.load(url)
+                loadedURL = url
+            } else if model.webView.navigationDelegate !== model {
+                // The retained transport took ownership while this tab was away.
+                model.load(model.address ?? url)
+            }
         }
         .onDisappear {
-            model.cancelRetries()
+            visible = false
+            model.setActive(false)
             if model.canAdoptSession { BooruWebTransport.adopt(model.webView, server: server) }
         }
     }

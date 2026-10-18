@@ -55,11 +55,12 @@ private struct TranslatedPageCanvas: UIViewRepresentable {
     func updateUIView(_ view: TranslatedPageView, context: Context) { view.configure(image, regions: regions) }
 }
 
-private final class TranslatedPageView: UIView {
+final class TranslatedPageView: UIView {
     private let scroll = PageScrollView()
     private var labels: [UILabel] = []
     private var regions: [ReaderTextRegion] = []
     private var image: UIImage?
+    private var labelLayoutSize = CGSize.zero
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
@@ -72,9 +73,10 @@ private final class TranslatedPageView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func layoutSubviews() { super.layoutSubviews(); scroll.frame = bounds; placeLabels() }
     func configure(_ image: UIImage, regions: [ReaderTextRegion]) {
-        if self.image !== image { self.image = image; scroll.update(image: image) }
-        guard self.regions.map(\.text) != regions.map(\.text) else { return }
+        if self.image !== image { self.image = image; labelLayoutSize = .zero; scroll.update(image: image) }
+        guard self.regions != regions else { return }
         self.regions = regions
+        labelLayoutSize = .zero
         labels.forEach { $0.removeFromSuperview() }
         labels = regions.enumerated().map { index, region in
             let label = UILabel()
@@ -95,7 +97,10 @@ private final class TranslatedPageView: UIView {
     }
     private func placeLabels() {
         let size = scroll.imageView.bounds.size
-        guard size.width > 0, size.height > 0 else { return }
+        // Labels are children of imageView, so UIKit already transforms them with
+        // the image. Pan and zoom do not change their local layout or typography.
+        guard size.width > 0, size.height > 0, size != labelLayoutSize else { return }
+        labelLayoutSize = size
         for (index, region) in regions.enumerated() where labels.indices.contains(index) {
             let box = region.bounds
             let frame = CGRect(x: box.minX * size.width, y: (1 - box.maxY) * size.height,
