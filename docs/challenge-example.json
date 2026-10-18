@@ -1,0 +1,168 @@
+{
+  "format": "number-memo-challenges",
+  "games": [
+    {
+      "bands": [
+        {
+          "id": "band-1",
+          "maximum": 20,
+          "minimum": 12,
+          "through": 40
+        },
+        {
+          "id": "band-2",
+          "maximum": 11,
+          "minimum": 6,
+          "through": 80
+        },
+        {
+          "id": "band-3",
+          "maximum": 5,
+          "minimum": 1,
+          "through": 100
+        }
+      ],
+      "detail": "Draw a subject, a drawing method, and a time limit. Choose a reference image, then start the timer when you are ready. Sketch until time is up and tap Complete Mission to earn points. Reach 100 points to finish your session. You can pause or skip a mission at any time.",
+      "endings": [
+        {
+          "badge": "★",
+          "color": "purple",
+          "detail": "You completed your sketch session. Take a look at your progress.",
+          "id": "ending-1",
+          "title": "Great Practice",
+          "weight": 10
+        },
+        {
+          "badge": "✦",
+          "color": "purple",
+          "detail": "Every sketch helps you see new shapes.",
+          "id": "ending-2",
+          "title": "Fresh Perspective",
+          "weight": 45
+        },
+        {
+          "badge": "✧",
+          "color": "purple",
+          "detail": "Keep your sketches and enjoy what you learned.",
+          "id": "ending-3",
+          "title": "Creative Momentum",
+          "weight": 45
+        }
+      ],
+      "goal": {
+        "count": {
+          "maximum": 3,
+          "minimum": 1,
+          "step": 1
+        },
+        "countWeight": 50,
+        "mode": "time",
+        "time": {
+          "maximum": 120,
+          "minimum": 30,
+          "step": 30
+        },
+        "timeWeight": 50
+      },
+      "groups": [],
+      "id": "croquis-example-v1",
+      "multiplier": 1,
+      "reels": [
+        {
+          "filter": "",
+          "id": "reel-1",
+          "options": [
+            {
+              "enabled": true,
+              "group": "",
+              "id": "reel-1-option-1",
+              "tags": [
+                "solo"
+              ],
+              "text": "Person",
+              "weight": 1
+            },
+            {
+              "enabled": true,
+              "group": "",
+              "id": "reel-1-option-2",
+              "tags": [
+                "animal"
+              ],
+              "text": "Animal",
+              "weight": 1
+            },
+            {
+              "enabled": true,
+              "group": "",
+              "id": "reel-1-option-3",
+              "tags": [
+                "scenery"
+              ],
+              "text": "Scenery",
+              "weight": 1
+            },
+            {
+              "enabled": true,
+              "group": "",
+              "id": "reel-1-option-4",
+              "tags": [
+                "still_life"
+              ],
+              "text": "Object",
+              "weight": 1
+            }
+          ],
+          "title": "Subject"
+        },
+        {
+          "filter": "",
+          "id": "reel-2",
+          "options": [
+            {
+              "enabled": true,
+              "group": "",
+              "id": "reel-2-option-1",
+              "tags": [],
+              "text": "Outline",
+              "weight": 1
+            },
+            {
+              "enabled": true,
+              "group": "",
+              "id": "reel-2-option-2",
+              "tags": [],
+              "text": "Large Shapes",
+              "weight": 1
+            },
+            {
+              "enabled": true,
+              "group": "",
+              "id": "reel-2-option-3",
+              "tags": [],
+              "text": "Light and Shadow",
+              "weight": 1
+            }
+          ],
+          "title": "Drawing Method"
+        }
+      ],
+      "target": 100,
+      "template": "Sketch {reel1} using {reel2}. Goal: {goal}.",
+      "title": "Croquis Challenge",
+      "helpPages": [
+        {
+          "id": "tips",
+          "title": "Drawing tips",
+          "body": "Choose a clear reference. Focus on the main shapes before adding details. You can pause the timer or skip a mission without points."
+        },
+        {
+          "id": "scoring",
+          "title": "Points",
+          "body": "Complete each goal yourself to earn points. Reach 100 points to finish. Every ending celebrates your practice."
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

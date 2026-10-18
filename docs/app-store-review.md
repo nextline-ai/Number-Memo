@@ -11,7 +11,7 @@ TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스,
 - 알려진 주소는 서버 종류를 자동 선택하고 표시 이름은 주소로 채운다. 알 수 없는 주소는 사용자가 종류를 선택한다. 자동 선택은 주소 인식이며, 등록 전 서버 접속이나 콘텐츠 검증을 의미하지 않는다.
 - 사용자 화면에서는 **만화 모드 / 이미지 모드**로 표시한다. 새 설치와 온보딩 완료 후에는 이미지 모드가 열린다.
 - 만화 사이트 미연결 상태에서도 저장·탐색·작가·설정 탭을 사용할 수 있다. **주소 입력**과 **Violet에서 가져오기**를 제공한다. 이미지 사이트만 연결한 경우 탐색에 해당 사이트의 풀이 표시되며, 상단 카드에서 만화 사이트 연결 시 만화 탐색으로 바뀜을 안내한다. 만화 사이트 연결 후 카드는 표시하지 않는다. 서버가 0개로 보고한 풀은 목록에서 제외한다. 만화 표지 다운로드는 만화 사이트 연결 후 시작한다.
-- 만화 모드의 실제 구현은 Hitomi 제공자를 사용한다. 이름 변경이 제공자나 콘텐츠 범위를 바꾸는 것은 아니므로 심사 메모에 실제 주소와 연결 경로를 공개한다.
+- 만화 모드는 사이트 구조 기반으로 만화 웹사이트 연결을 지원한다. 심사 메모에 실제 주소와 연결 경로를 공개한다.
 - 사용자 지정 서버, 모든 수위 선택, 내장 브라우저와 기존 라이브러리 기능은 유지한다.
 - [Mignori – Booru Browser의 현재 App Store 등록](https://apps.apple.com/ro/app/mignori-booru-browser/id1268897357)은 직접 추가한 서버 탐색과 로컬 컬렉션을 설명한다. 해당 지역 등급은 16+이며 제한 없는 웹 접근을 표시한다. 공개 등록 정보는 유사 제품의 존재를 뒷받침하지만, 최초 승인 시점이나 비공개 심사 사유를 증명하지는 않는다.
 
@@ -41,7 +41,7 @@ TestFlight 승인 사실은 사용자 제공 정보다. 이번 점검은 소스,
 
 ## 제출 전에 운영자가 확인할 사항
 
-1. **콘텐츠 범위:** 기본 서버 없이 직접 URL을 입력하는 제품 구조를 정확히 설명한다. 다만 [가이드라인 1.1.4·1.2](https://developer.apple.com/app-store/review/guidelines/#safety)는 실제 콘텐츠와 서비스 사용을 심사한다. 현재 앱의 전체 수위 선택과 Hitomi 기능까지 포함해 설명해야 하며, URL 직접 입력만으로 적용이 제외된다고 단정할 수 없다.
+1. **콘텐츠 범위:** 기본 서버 없이 직접 URL을 입력하는 제품 구조를 정확히 설명한다. 다만 [가이드라인 1.1.4·1.2](https://developer.apple.com/app-store/review/guidelines/#safety)는 실제 콘텐츠와 서비스 사용을 심사한다. 현재 앱의 전체 수위 선택과 만화 모드 기능까지 포함해 설명해야 하며, URL 직접 입력만으로 적용이 제외된다고 단정할 수 없다.
 2. **신고 운영:** 이메일 경로와 로컬 차단은 구현했다. 신고를 확인하고 적시에 대응할 담당자, 외부 사이트에 대한 조치·연락 절차는 실제로 운영해야 한다. 클라이언트가 외부 서버의 게시물을 삭제할 권한은 없다.
 3. **콘텐츠 권리:** 지원 사이트의 이용약관/API 접근 및 콘텐츠 표시 권한을 확인하고, Apple이 요청하면 근거를 제출해야 한다. 앱 소스만으로 권리 확보를 증명할 수 없다. [Apple의 제출 안내](https://developer.apple.com/app-store/review/)
 4. **스토어 입력:** 기능에 맞는 카테고리와 웹 접근·사용자 생성 콘텐츠·노출 가능한 콘텐츠의 연령 질문을 사실대로 작성한다. 스크린샷과 소개문은 실제 기능을 보여주되 일반 공개에 적합한 소재를 사용한다. 기존 TestFlight 입력을 그대로 맞다고 가정하지 않는다.
@@ -77,7 +77,7 @@ Safebooru is a review example, not a bundled or recommended server. It publishes
 
 Supported image engines include Danbooru, Gelbooru, Old Gelbooru, and Moebooru. Address recognition selects an engine only; it does not create a server until the user saves. Account credentials, when supplied, are stored in Keychain for the relevant server. No credentials are required for the public review example above.
 
-The user-facing Comics Mode uses the Hitomi provider. It is disconnected by default. During onboarding, tap Enter Website Address, enter hitomi.la (or https://hitomi.la/), and tap Save. The form recognizes it as Comics Mode and does not add it to the image-server list. Alternatively, after onboarding tap the book icon at the top, then Enter Website Address, enter hitomi.la, and tap Connect. Without a comics site connected, all four bottom tabs remain available. The entry screen offers address entry and Violet import. If an image site is configured, the Comics Mode Explore tab displays that site’s ordered pools. A card explains that connecting a comics site switches this tab to comics browsing; the card disappears after connection. Pools reported by the server as having zero posts are omitted. With the Safebooru example above, open pool 685 (Tegami Bachi Color Spreads and Pages) to inspect a seven-page sequence in the native viewer. Pool content can change on the source website. This address enables only the implemented provider, not an arbitrary comics website. Once connected, Settings > Website Connection shows the configured address. All users have the same activation path. There is no review-only mode or remote feature switch. Onboarding always finishes in Image Mode, even if the user tried the comics icon in the tutorial.
+The user-facing Comics Mode supports connecting comics websites based on site structure. It is disconnected by default. During onboarding, tap Enter Website Address, enter a comics website address (e.g. manga.la or any compatible site ending in .la), and tap Save. The form recognizes it as Comics Mode and does not add it to the image-server list. Alternatively, after onboarding tap the book icon at the top, then Enter Website Address, enter the website address, and tap Connect. Without a comics site connected, all four bottom tabs remain available. The entry screen offers address entry and Violet import. If an image site is configured, the Comics Mode Explore tab displays that site’s ordered pools. A card explains that connecting a comics site switches this tab to comics browsing; the card disappears after connection. Pools reported by the server as having zero posts are omitted. With the Safebooru example above, open pool 685 (Tegami Bachi Color Spreads and Pages) to inspect a seven-page sequence in the native viewer. Pool content can change on the source website. Once connected, Settings > Website Connection shows the configured address. All users have the same activation path. There is no review-only mode or remote feature switch. Onboarding always finishes in Image Mode, even if the user tried the comics icon in the tutorial.
 
 The app includes native browsing and viewers, local folders/favorites, search history, configurable tag exclusions, optional embedded web browsing, image translation using Apple frameworks, and optional iCloud library sync. User-selected servers can return content of different ratings; the app includes rating controls. We do not represent all user-configured servers as Safebooru or as exclusively general-audience content.
 
@@ -90,3 +90,11 @@ Privacy Policy is accessible offline in Settings/More > Help & Privacy and from 
 - [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
 - [Required reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
 - [Encryption declaration](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations)
+
+## 챌린지 룰렛 추가 점검 (2026-10-10)
+
+- 공개 진입점: 이미지 모드 **더보기 → 챌린지 룰렛**. 기본 예제는 시간 제한 크로키이며, 소재·그리는 방식·시간을 추첨하고 사용자가 직접 완료합니다. 원본 웹게임의 성적 문구·태그·도움말은 포함하지 않습니다.
+- 게임 정의를 앱에서 편집하고 JSON으로 내보내거나 복원할 수 있습니다. 백업은 문구·태그·목표·점수·엔딩을 포함하며 다른 기기에서도 읽을 수 있습니다. “백업”이라는 명칭으로 콘텐츠 가져오기 능력을 숨기지 않고 심사 메모에 그대로 설명합니다. JSON은 고정된 네이티브 기능의 데이터이며 스크립트나 원격 코드를 실행하지 않습니다.
+- 이미지 출처는 사용자가 등록한 서버 또는 저장 폴더입니다. 기존 차단과 수위 제어를 적용하고 서버를 자동 등록하거나 검색 실패 시 필터를 자동 완화하지 않습니다. 이미지 검색의 기본 필터는 전체이며, 사용자가 참고 이미지 아래에서 수위를 선택합니다. 게임 정의와 백업은 수위를 지정할 수 없습니다.
+- 정의는 기존 iCloud 동기화에 포함하고 진행 상태는 로컬에 보관합니다. 공개·앱 내 커뮤니티 게시, 원격 팩 디렉터리, URL 다운로드 기능은 없습니다.
+- 심사에는 예제 실행, 게임 편집·미리보기, JSON 내보내기·복원, 이미지 출처 선택 경로를 모두 제공합니다. 정의를 외부 파일로 분리하는 것이 실제 콘텐츠에 대한 1.1.4·1.2 적용을 면제하거나 승인을 보장하지 않습니다. [Apple 심사 지침](https://developer.apple.com/app-store/review/guidelines/#safety)

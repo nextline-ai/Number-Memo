@@ -1,5 +1,5 @@
 Number Memo Privacy Policy
-Updated: October 9, 2026
+Updated: October 10, 2026
 
 NextLine develops Number Memo. Contact: contact@nextline.work · https://nextline.work
 
@@ -33,3 +33,6 @@ Taste analysis is enabled by default. It records search-tag context, save and re
 Smart recommendations use statistical calculations on your device, independently for each server address. No generative model is used. Required tags and language filters are chosen explicitly in Settings. Recommendation searches send selected tags to the connected content websites. Similar-style search compares saved works using Apple Vision feature prints extracted from thumbnails. These derived fingerprints stay in the local database and are not included in iCloud library sync; another device computes its own copies. Similarity includes composition, colors and subjects as well as visual style.
 
 When both library sync and analysis sync are enabled, analysis data is stored in a separate area of your iCloud Drive using its existing protection. End-to-end encryption of iCloud Drive depends on your Apple Advanced Data Protection settings. You can stop analysis in Settings. The analysis stop setting reaches other devices when they next sync; offline devices cannot receive it immediately. Deleting analysis data preserves your library, removes app-managed analysis records and reports as devices synchronize, and prevents old records from being merged back. Deletion may remain pending without iCloud access. Existing saved works are not automatically analyzed again after deletion. Copies outside the app and Apple's backups/version history are managed separately.
+
+Challenge Roulette
+Challenge definitions (including your text and search tags) are stored locally and included in library iCloud sync when enabled. Definitions can be exported to and restored from JSON files; these files may contain private content. Active missions, timers, selected reference metadata and image source choices remain local and are excluded from challenge exports and library sync. Image searches send the drawn tags to your chosen websites. Automatically drawn tags are not recorded as deliberate searches or preference evidence. Opening or saving reference images follows the existing viewer and library behavior. Deleting a challenge also deletes its local session; definition deletions sync when enabled.

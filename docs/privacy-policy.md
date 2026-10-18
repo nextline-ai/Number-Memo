@@ -1,7 +1,7 @@
 # Number Memo Privacy Policy
 
 Number Memo Privacy Policy
-Updated: October 9, 2026
+Updated: October 10, 2026
 
 NextLine develops Number Memo. Contact: contact@nextline.work · https://nextline.work
 
@@ -113,3 +113,6 @@ iCloud Driveが利用できる場合、同期は標準で有効です。ライ�
 スマートおすすめはサーバーのアドレスごとに独立した統計計算をデバイス内で行い、生成モデルを使用しません。必須タグと言語条件は設定で選択します。おすすめの検索タグは接続先のサイトに送信されます。似た絵柄の検索は保存作品のサムネイルから抽出したApple Visionの特徴データを比較します。このデータはローカルデータベースだけに保存され、iCloudのライブラリ同期には含まれません。別のデバイスでは再計算します。類似度には絵柄に加え、構図・色・被写体も反映されます。
 
 ライブラリ同期と分析同期がともに有効な場合、分析データは既存の保護が適用されるiCloud Driveの別領域に保存します。iCloud Driveのエンドツーエンド暗号化はAppleの高度なデータ保護設定に従います。設定で分析を停止できます。分析の停止設定は他のデバイスの次回同期時に反映され、オフラインのデバイスには即時反映されません。分析データの削除はライブラリを保持し、同期時にアプリが管理する分析履歴とレポートを削除して古い履歴の再統合を防ぎます。iCloudにアクセスできない場合、削除は保留になります。削除後に既存作品を自動で再分析しません。アプリ外のコピーとAppleのバックアップ・バージョン履歴は別途管理されます。
+
+Challenge Roulette
+Challenge definitions (including your text and search tags) are stored locally and included in library iCloud sync when enabled. Definitions can be exported to and restored from JSON files; these files may contain private content. Active missions, timers, selected reference metadata and image source choices remain local and are excluded from challenge exports and library sync. Image searches send the drawn tags to your chosen websites. Automatically drawn tags are not recorded as deliberate searches or preference evidence. Opening or saving reference images follows the existing viewer and library behavior. Deleting a challenge also deletes its local session; definition deletions sync when enabled.
