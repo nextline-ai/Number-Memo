@@ -1,124 +1,97 @@
 <p align="right"><a href="README.md">한국어</a></p>
 
 <p align="center">
-  <img src="design/other/main_banner_en.webp" alt="Number Memo" width="100%">
+  <a href="https://testflight.apple.com/join/jTaDDEpE">
+    <img src="design/other/main_banner_en.webp" alt="Download Number Memo on TestFlight" width="100%">
+  </a>
 </p>
 
 <h1 align="center">Number Memo</h1>
-<p align="center">Explore images from websites you choose and organize your favorites into folders.</p>
-<p align="center"><a href="https://github.com/nextline-ai/Number-Memo/releases">Updates</a> · <a href="https://discord.gg/vUTGZNMaMB">Help and feedback</a></p>
+<p align="center"><b>The first dedicated iOS viewer supporting both Hitomi and Danbooru in one place</b></p>
+<p align="center">
+  Download easily and safely via <b>Apple’s official TestFlight</b>—no risky sideloading required.<br>
+  Enjoy on-device AI recommendations, instant translation, and secure iCloud sync across your Apple devices.
+</p>
 
-## Get started
+<p align="center">
+  <a href="https://testflight.apple.com/join/jTaDDEpE"><b>📲 Download Free on TestFlight</b></a> ·
+  <a href="https://github.com/nextline-ai/Number-Memo/releases">Release Notes</a> ·
+  <a href="https://discord.gg/vUTGZNMaMB">Discord Community</a>
+</p>
 
-1. Tap **Enter Website Address** and enter the home address of a website you use. No sites are included by default. Supported comics websites can also be connected here.
-2. Import a **Violet** or **Anime Boxes** backup if you have one. You can skip this step and import later in Settings.
-3. Tap or slide the **book / image switch** at the top of the screen to move between comics mode and image mode. Onboarding always finishes in image mode.
-4. With only image websites connected, **Explore** in comics mode shows their pools. Connect a comics website to switch to comics browsing. **Import from Violet** is also available from comics mode.
+---
 
-The current Swift native app requires **iOS 17 or later** and supports English, Korean, and Japanese. This guide describes the latest features on `main`. See the [release notes](https://github.com/nextline-ai/Number-Memo/releases) for installation and availability.
+## ✨ Why Number Memo?
 
-No address yet? Choose **Set Up Later**. Add a site from **Saved**, **Explore**, or **More → Servers** whenever you are ready. If the type is not recognized, check the website’s help page and select it yourself. Review the site’s terms and only access content you have permission to use.
+### 1. Hitomi & Danbooru in One Place (First All-in-One iOS Viewer)
+- Supports both **Comics Mode (Hitomi, etc.)** and **Image Mode (Danbooru, Gelbooru, Moebooru, etc.)** in a single native iOS app.
+- Seamlessly switch between reading comics and browsing illustration boards with the top mode bar.
+- Browse multiple Booru servers simultaneously and long-press any work to organize it into custom color-coded folders.
 
-## Image library backups
+### 2. Easy & Safe Installation via Official TestFlight (No Sideloading)
+- Number Memo uses **Public TestFlight as its official release channel**.
+- Forget complicated, risky sideloading tools, PC tethering, or 7-day certificate expirations.
+- Install with a single tap through Apple’s official TestFlight app and receive automatic updates safely.
 
-Open **More → Library Management** to export or restore a JSON backup, or import from Anime Boxes. Backups include servers, favorites, folder colors and order, saved tags and artists, saved searches, recent search history, and blacklists. Restoring merges into the current library; matching favorites and folder colors/order use the backup values. Image files, sign-in credentials and cookies are not included. Restored library changes also sync when iCloud is enabled. Both modes automatically choose unused colors from the same folder palette.
+### 3. Seamless Apple Continuity & Top-Tier iCloud Security
+- **Cross-Platform Continuity (iPhone · iPad · macOS · visionOS):** Enjoy seamless continuity across all officially supported Apple platforms, featuring dedicated UI and controls optimized for each environment.
+- **Secure iCloud Sync:** Your bookmarks, folders, saved artists, and search history are protected by Apple’s industry-leading iCloud security and synced automatically across your devices.
 
-## Two modes
+### 4. Private, 100% On-Device AI Features
+Every AI feature runs **100% locally on your device** without sending your data to external servers—keeping your preferences completely private.
+- **Smart Recommendations & Monthly Recaps:** Analyzes your saved works and tags on-device to recommend fresh content daily, complete with weekly stats and monthly recap cards.
+- **Find Similar Art Styles:** Long-press a saved work to find visually similar pieces based on composition, color palette, and art style powered by Apple Vision.
+- **One-Tap Image Translation:** Instantly recognize and translate text inside comics and illustrations using Apple’s on-device translation engine.
 
-| | Comics mode | Image mode (Booru) |
+---
+
+## 📲 How to Install
+
+1. Install **[Apple TestFlight](https://apps.apple.com/app/testflight/id899247664)** from the App Store.
+2. Tap the link below (or the banner at the top) to open the **Number Memo TestFlight** page and tap **Install**.
+   - 👉 **[Join Number Memo on TestFlight](https://testflight.apple.com/join/jTaDDEpE)**
+3. **Supported Platforms:** iPhone, iPad, macOS, visionOS (UI optimized for each environment · Supports English, Korean, and Japanese)
+
+---
+
+## 🚀 Quick Start Guide
+
+1. **Connect Your Sites:** Tap **Enter Website Address** and type the URL of the site you want to use (e.g., Hitomi, Danbooru, Gelbooru). Pick from the autocomplete suggestions to connect right away.
+2. **Switch Modes:** Use the **Book / Image switch** at the top of the screen to move between Comics Mode and Image Mode anytime.
+3. **Save Favorites:** **Long-press** any work in Explore or the viewer to save it immediately, and organize your collection into custom folders.
+4. **Import Existing Backups:** Easily bring your existing collection from **Violet** (`user.db` / `data.db`) or **Anime Boxes** (`.abbj`) in Settings.
+
+| Feature | 📖 Comics Mode | 🖼️ Image Mode (Booru) |
 | --- | --- | --- |
-| Browse | Gallery search, popular galleries, artists | Multiple servers together, latest or popular, manual tag queries |
-| Save | Gallery bookmarks and folders | Image favorites and folders |
-| Search | Tag autocomplete, default tags and exclusions | Tag autocomplete, search history, per-server blacklists |
-| View | Full-screen reader, reading direction, continuous scrolling | Large images, GIFs, videos, pools and notes |
-| Import | Violet `user.db` / `data.db` | Anime Boxes `.abbj` backups |
+| **Browse** | Gallery search, popular feeds, artist collections | Multi-server search, latest/popular feeds, tag autocomplete |
+| **Viewer** | Configurable reading direction, continuous scroll, translation | High-res images, GIFs/videos, pools, notes, translation |
+| **Backup & Import** | Violet import & JSON library backup | Anime Boxes import & JSON library backup |
 
-Saved items, tags, artists, appearance, and viewer settings are separate for each mode. Comics starts with 2 grid columns and Booru with 3; change these in each mode's settings.
+> 💡 **Bonus Feature — Challenge Roulette**
+> Head to **More → Challenge Roulette** in Image Mode to practice timed croquis sketching or create your own custom roulette missions with reference images!
 
-### Comics mode
+---
 
-- Organize galleries into folders and save artists. You can also add galleries through Safari's share menu.
-- Set default search tags and excluded tags to avoid entering them each time.
-- Export or restore a JSON backup in **Settings → Library Management**. Keep the file in Files or iCloud Drive.
+## 🛠️ Troubleshooting Connection Issues
 
-### Image mode (Booru)
+- **Validate Client (Cloudflare, etc.):** If a site blocks automated requests, tap **Validate Client** on the error screen or in Server Settings to complete verification.
+- **Built-in Browser Mode:** If a site’s API is temporarily unavailable, turn on **Use Embedded Browser** in Settings for uninterrupted browsing.
+- **Danbooru Tag Limit:** Free Danbooru accounts are limited by the site to 2 tags per search. (Gelbooru and other servers do not have this limit.)
 
-- Add servers in **More → Servers**. Supported types include Danbooru, Gelbooru, Old Gelbooru (v0.1.11, used by booru.org), and Moebooru.
-- Select multiple servers from the top server menu to include them in both Explore and Saved.
-- **Hold an image in Explore or the viewer to save it. Hold again to remove it.** Use **Save to Folder** in the viewer menu to choose a folder.
-- Popular sorts by highest score. Enter any rating conditions directly in search using the tags supported by that server. The app does not inject or rewrite rating tags.
-- Open **More → Pools** for ordered image collections. Images with notes can display the site's annotations or translations.
+---
 
-Appearance, language, browsing, and media settings are directly accessible in **More**.
-
-Booru favorites are stored in the app and do not automatically sync with your website account. Previews are prefetched when saving and cached locally up to 256 MB for reuse after relaunch or offline. Viewer images use a separate 512 MB cache and preload two images in each direction. Viewers show a loading indicator until the full image is ready and continue into the next Explore or recommendation page. Use Clear Image Cache in More to remove both caches. Video, pool, and note support varies by server and device.
-
-## Library, searches and sync
-
-- Switching modes keeps the corresponding tab, search text, and loaded Explore results. Clear the search and pull down to refresh the default feed.
-- Hold an item inside a folder for its menu, or use **Select** to move or delete multiple items. Hold a folder to change its name, color or order.
-- Tap the **star** next to a search history entry to keep the complete query, including multiple tags, in **Saved Searches**. History is kept until you delete it by default. Swipe to remove one entry or use the trash button beside the heading to clear history. Saved searches remain.
-- **iCloud sync is on by default.** Enable iCloud Drive with the same Apple account to merge saved items, folder colors and order, artists, searches, and general settings. Turn it off in either mode's settings; existing data stays intact.
-- Grid layout, playback preferences, cached media, server account keys, and browser cookies stay separate on each device.
-
-## Viewer and translation
-
-Tap the center to open the menu. Tap the edges or swipe sideways to move between pages or images. Double-tap or pinch to zoom. In the Booru viewer, swipe down at the original zoom level to close. For videos, tap with two fingers to open the quick menu. Videos autoplay muted; use the playback controls to turn on sound. Details includes the post ID and a copy button.
-
-The **Translate** menu uses Apple's text recognition and translation. Translation follows your system language by default; choose a different language in each mode's settings. Custom translation languages require iOS 18 or later. You can also change the app's display language in Settings.
-
-## Trouble connecting?
-
-Temporary connection failures are retried up to three times. If they continue, follow these steps.
-
-1. Open **Validate Client** from the Booru error screen or server settings. Complete the website's verification and tap **Done** to retry. Some searches require additional verification on that search page.
-2. If the problem continues, enable **More → Use Embedded Browser**, or switch from the error screen. Tap the browser's grid button to return to native browsing.
-3. Check that your search terms are supported by that server. You can also enter server credentials or reset cookies in the server settings when needed.
-
-**Danbooru usually limits regular accounts to two search tags.** To search with more tags, upgrade your account on the website and enter your username and API key in the app's server settings. **Gelbooru does not have this two-tag limit.**
-
-Comics also offers **Open in Built-in Browser** in Settings. You can replay the setup guide from either mode's settings.
-
-## Developer and community
+## 💬 Developer & Community
 
 <img src="design/branding/nextline-logo.svg" alt="NextLine" width="160" align="right">
 
+Have questions, feedback, or bug reports? Join our **Discord community** anytime!
+
 - **Developer:** NextLine
-- **Email:** [contact@nextline.work](mailto:contact@nextline.work)
+- **Community / Bug Reports:** [Join Discord](https://discord.gg/vUTGZNMaMB)
 - **Website:** [nextline.work](https://nextline.work)
-- **Community / bug reports:** [Discord](https://discord.gg/vUTGZNMaMB)
+- **Email:** [contact@nextline.work](mailto:contact@nextline.work)
 
-Developer details and links are also available at the bottom of **More** in Booru and **Settings** in Comics.
+---
 
-Report problems through the [Discord community](https://discord.gg/vUTGZNMaMB). Include your app version, device, and steps to reproduce the issue.
-
-Number Memo is an independent client and is not affiliated with Apple or the supported websites.
-[Privacy Policy](docs/privacy-policy.md) · [App Store review checklist](docs/app-store-review.md)
-
-Server selection uses the same multiselect menu across image-mode tabs. Deselecting every server is allowed and persists across launches without deleting saved works.
-
-## Smart recommendations and taste statistics
-
-Browse new works in the **Smart tab** with infinite scrolling. Existing recommendations stay in place when switching tabs or modes or opening a work; only an explicit refresh replaces the list. Refresh deals unseen candidates first and rotates statistical highlights. Hold a work to save it, and hold again to remove it. These deliberate choices contribute preference evidence while retaining their recommendation origin. **Recommendation evidence** links to the supporting tags and works. Weekly statistics and monthly card-based **Recaps** are at the top of Taste Analysis Settings. New recaps appear in a dismissible banner across tabs. Explicit search-and-save evidence is separated from recurring co-occurring tags. File formats, resolution, and management metadata do not contribute to preferences. Analysis exclusion tags are editable per server. Defaults are `1girl`, `1boy`, and `solo` for images; `female:sole_female`, `male:sole_male`, `tag:digital`, and `tag:group` for comics. Exclusions saved with the old `solo` spelling also match the actual `sole` tags. Work details from Explore and Smart recommendations open in a swipe-down sheet, with reserved thumbnail space to keep titles and actions steady during loading.
-
-Analysis is on by default, with separate image and comic profiles. Records are kept until deletion, independently of search-history retention, and merge through iCloud when both sync settings are enabled. You can pause analysis, disable analysis sync, or delete analysis without deleting your library. Offline devices apply changes on their next sync.
-
-Smart recommendations use local statistics without a generative model. Each server address has independent profiles, feeds, required tags and sorting. Language defaults to all. Ranking uses confidence, tag rarity and diversity. Unsupported sorting restores the previous list and order. Hold a saved work to find similar art styles among saved works. Apple Vision feature prints are extracted from saved thumbnails and reused in a local database; existing thumbnails are backfilled on first use. Feature prints are not synced to iCloud. Similarity also reflects composition, colors and subjects.
-
-## Challenge Roulette
-
-Open **Image Mode → More → Challenge Roulette** to draw a subject, method and time/count goal. The **Croquis Challenge** example uses 30, 60, 90 or 120 seconds for quick reference sketches. Choose images from your registered Booru servers or a saved folder. The viewer uses a small timer/count capsule; expand it for the mission text and full controls. Reference images use the existing image feed with editable prefilled tags, filters, and infinite scrolling. The search bar hides on downward scroll and returns on upward scroll. Each reel fills purple when it stops; the final result uses an animated card reel and reveal. Reduce Motion skips these effects.
-
-Create, duplicate and edit challenges without editing JSON. The beginner editor has three steps: introduce the game, enter choices, and pick a goal. Choices can be edited inline or pasted in batches. Quick goals provide common time/count presets. Supporting groups, template variables, probabilities, score bands and endings remain available under **Advanced Rules**. Preview does not save progress. Complete missions manually; skipping awards no points.
-
-**How to Play** displays the game instructions before and during play. Write them as plain text, including line breaks, in the JSON `detail` field. Enter reference-image search conditions directly in the search field. Game JSON, backups, and saved sessions do not generate rating conditions.
-
-**Challenge Backup and Import** exports definitions to a JSON file or imports a validated file immediately (maximum 10 MB). Matching IDs become new copies. A toast confirms successful import. Images, accounts, source choices and progress are excluded. Challenge backup is separate from image-library backup.
-
-Definitions follow the existing iCloud setting and last-change conflict rules. Sessions and source choices stay on each device; running sessions retain their original rules until restarted. Automatically drawn tags are not deliberate search/taste evidence. Existing tag and artist blocking remains in effect. Saved-folder originals still need a connection when not cached.
-
-For hand-authored JSON, start with the [croquis example backup](docs/challenge-example.json). The version 1 format contains a `games` array; templates accept `{reel1}`, `{reel2}`, `{goal}` and ordered `{extra1}` variables. Time ranges use seconds and weights are positive integers.
-
-Use **… → How to Play** while playing. Add multiple **Help Tabs** in the editor; optional `helpPages: [{id, title, body}]` are included in JSON backups, alongside the existing `detail` introduction. Older backups remain supported. Opening the example reuses its saved definition and progress. Loading and deletion show progress indicators. The [original-game conversion](docs/challenges/edge-roulette.json) is a project-only file excluded from the application bundle; see its [conversion notes](docs/challenges/README.md).
-
-Image mode does not create an empty Uncategorized folder by default. Both modes allow deleting an empty Uncategorized folder; a toast explains why deletion is blocked while it contains works. Hold anywhere in a viewer to bookmark or favorite. Smart recommendations keep pull-to-refresh, with the mode switch centered in the navigation bar.
+<sub>Number Memo is an independent client application and is not affiliated with Apple or any user-connected websites.<br>
+<a href="docs/privacy-policy.md">Privacy Policy</a></sub>
