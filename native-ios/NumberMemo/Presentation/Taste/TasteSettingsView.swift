@@ -112,7 +112,7 @@ struct RecommendationFilters: View {
             Spacer()
             BrowseFilterMenu(title: preferences.sort.title(mode), icon: "arrow.up.arrow.down") {
                 Picker(L10n.text("Sort"), selection: Binding(get: { preferences.sort }, set: { sort in update { $0.sort = sort } })) {
-                    ForEach(RecommendationSort.options(mode)) { Text($0.title(mode)).tag($0) }
+                    ForEach(RecommendationSort.options(mode, engine: env.booru.servers.first { $0.canonicalAddress == source }?.engine)) { Text($0.title(mode)).tag($0) }
                 }
             }.accessibilityIdentifier("taste.sort")
         }

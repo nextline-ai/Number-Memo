@@ -91,6 +91,7 @@ final class BooruFeedLoader {
     private(set) var posts: [BooruPost] = []
     private(set) var loading = false
     private(set) var didLoad = false
+    private(set) var contentID: String?
     private(set) var unsupportedSort = false
     private(set) var errors: [String: String] = [:]
     var error: String? { errors.values.first }
@@ -103,7 +104,7 @@ final class BooruFeedLoader {
         await load(servers: [server], source: source, query: query, poolID: poolID, reset: reset)
     }
 
-    func load(servers: [BooruServer], source: any BooruProviding, query: String, poolID: Int64? = nil, sort: BooruSort = .latest, rating: BooruRating = .all, reset: Bool) async {
+    func load(servers: [BooruServer], source: any BooruProviding, query: String, poolID: Int64? = nil, sort: BooruSort = .latest, rating: BooruRating = .all, reset: Bool, contentID: String? = nil) async {
         if !reset && (loading || !hasMore) { return }
         if reset { generation = UUID() }
         let token = generation
@@ -134,17 +135,25 @@ final class BooruFeedLoader {
                     var seen = Set(nextPosts.map(\.id))
                     let incoming = batch.posts.filter { seen.insert($0.id).inserted }
                     nextPosts += incoming
-                    if sort == .popular && poolID == nil { nextPosts.sort { $0.score == $1.score ? $0.id < $1.id : $0.score > $1.score } }
+                    if poolID == nil, !nextPosts.isEmpty, nextPosts.allSatisfy({ sort.metric($0) != nil }) {
+                        nextPosts.sort { sort.metric($0) == sort.metric($1) ? $0.id < $1.id : sort.metric($0)! > sort.metric($1)! }
+                    }
                     nextPages[id, default: 0] += 1
                     if !batch.hasMore || batch.posts.isEmpty || !reset && incoming.isEmpty { nextRemaining.remove(id) }
                 } else { nextErrors[id] = error }
+                // Publish each server as it finishes so slow hosts do not delay the first images.
+                // Popular sorting stays atomic until every server validates the requested sort.
+                if sort == .latest && !unsupportedSort && !nextPosts.isEmpty {
+                    posts = nextPosts; pages = nextPages; errors = nextErrors; remaining = nextRemaining
+                    self.contentID = contentID; didLoad = true
+                }
             }
         }
         // A cancelled refresh must never replace a populated feed with an empty one.
         guard !Task.isCancelled, token == generation else { return }
         guard !unsupportedSort else { return }
         posts = nextPosts; pages = nextPages; errors = nextErrors; remaining = nextRemaining
-        didLoad = true
+        self.contentID = contentID; didLoad = true
     }
 }
 
@@ -284,7 +293,10 @@ struct BooruFeedView: View {
         .animation(isSearchBarVisible ? .spring(response: 0.35, dampingFraction: 0.86) : .easeInOut(duration: 0.32), value: isSearchBarVisible)
         .onChange(of: searchFocused) { _, focused in if focused { isSearchBarVisible = true } }
         .onAppear { if !BooruRating.options(for: servers).contains(rating) { rating = .all } }
-        .onChange(of: servers) { _, _ in if !BooruRating.options(for: servers).contains(rating) { rating = .all } }
+        .onChange(of: servers) { _, _ in
+            if !BooruRating.options(for: servers).contains(rating) { rating = .all }
+            if !sortOptions.contains(sort) { sort = .latest; acceptedSort = .latest }
+        }
         .task(id: requestKey) {
             guard loadedRequest != requestKey else { return }
             let key = requestKey
@@ -296,6 +308,7 @@ struct BooruFeedView: View {
         .task(id: "\(searchFocused):\(searchText)") { await complete() }
     }
     private var requestKey: String { query + "|\(sort.rawValue)|\(rating.rawValue)|\(retry)|" + servers.map { $0.id + $0.canonicalAddress }.joined(separator: ",") }
+    private var sortOptions: [BooruSort] { BooruSort.options(for: servers) }
     private var filters: some View {
         HStack {
             if BooruRating.options(for: servers).count > 1 {
@@ -305,7 +318,7 @@ struct BooruFeedView: View {
             }
             Spacer()
             BrowseFilterMenu(title: sort.title, icon: "arrow.up.arrow.down") {
-                Picker(L10n.text("Sort"), selection: $sort) { ForEach(BooruSort.allCases) { Text($0.title).tag($0) } }
+                Picker(L10n.text("Sort"), selection: $sort) { ForEach(sortOptions) { Text($0.title).tag($0) } }
             }.accessibilityIdentifier("booru.sort")
         }
     }

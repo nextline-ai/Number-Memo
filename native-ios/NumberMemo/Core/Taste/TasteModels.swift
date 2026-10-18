@@ -92,11 +92,20 @@ struct TasteEvent: Codable, Hashable, Sendable {
 
 enum RecommendationSort: String, Codable, CaseIterable, Identifiable, Sendable {
     case recommended, latest, today, week, month, year
+    case trending, mostFavorited, mostUpvoted, mostDiscussed, popularWeek, popularMonth
     var id: String { rawValue }
-    var title: String { self == .recommended ? L10n.text("Recommended") : GallerySort(rawValue: rawValue)?.title ?? L10n.text("Popular") }
-    static func options(_ mode: TasteMode) -> [Self] { mode == .comics ? allCases : [.recommended, .latest, .week] }
-    func title(_ mode: TasteMode) -> String { mode == .booru && self == .week ? L10n.text("Popular") : title }
+    var title: String { self == .recommended ? L10n.text("Recommended") : GallerySort(rawValue: rawValue)?.title ?? booruSort?.title ?? L10n.text("Popular") }
+    // Existing image recommendation preferences stored Popular as `week`.
+    var booruSort: BooruSort? { self == .week ? .popular : BooruSort(rawValue: rawValue) }
+    static func options(_ mode: TasteMode, engine: BooruEngine? = nil) -> [Self] {
+        if mode == .comics { return [.recommended, .latest, .today, .week, .month, .year] }
+        return [.recommended] + (engine.map { BooruSort.options(for: $0) } ?? [.latest, .popular]).compactMap {
+            $0 == .popular ? .week : Self(rawValue: $0.rawValue)
+        }
+    }
+    func title(_ mode: TasteMode) -> String { mode == .booru ? booruSort?.title ?? title : title }
 }
+
 struct RecommendationPreferences: Codable, Equatable, Sendable {
     var includedTags: [String] = []
     var language = "all"

@@ -36,19 +36,17 @@ final class BooruRedirectPolicy: NSObject, URLSessionTaskDelegate, @unchecked Se
 actor BooruClient: BooruProviding {
     static let shared = BooruClient()
     static let pageSize = 40
+    // Request only the fields consumed by BooruDecoder, including blocking and media metadata.
+    static let postFields = "id,file_url,large_file_url,preview_file_url,image_width,image_height,tag_string,tag_string_artist,tag_string_meta,rating,score,file_ext,pool_ids,fav_count,up_score,comment_count"
+    private struct PostPage { let data: Data; let date: Date }
+    private var postPages: [String: PostPage] = [:]
+    private var pendingPostPages: [String: Task<Data, Error>] = [:]
     private let session: URLSession
     private let browserFallback: Bool
     private var wholePools: [String: [Int64]] = [:]
     private var poolOffsets: [String: [Int: Int]] = [:]
     private var publicOffsets: [String: [Int: Int]] = [:]
     private var publicPages: [String: [Int: URL]] = [:]
-    private struct ScoreCursor {
-        var band = 0
-        var page = 1
-        var nextPage = 1
-    }
-    private var scoreCursors: [String: ScoreCursor] = [:]
-    private static let scoreBands = ["score:>=1000", "score:100..999", "score:0..99", "score:<0"]
     init(session: URLSession? = nil) {
         browserFallback = session == nil
         let config = URLSessionConfiguration.ephemeral
@@ -146,17 +144,13 @@ actor BooruClient: BooruProviding {
         case .oldGelbooru:
             return try await publicPosts(server: server, query: query, page: page)
         case .danbooru:
-            let key = server.id + ":" + query
-            if page == 0 { scoreCursors.removeValue(forKey: key) }
-            if let cursor = scoreCursors[key], cursor.nextPage == page {
-                return try await scorePosts(server: server, query: query, page: page, cursor: cursor)
-            }
+            let values = [("tags", query), ("limit", "40"), ("page", String(page + 1))]
             do {
-                raw = try await data(server, "posts.json", [("tags", query), ("limit", "40"), ("page", String(page + 1))])
-            } catch BooruError.unavailable(500) where page == 0 && query.split(whereSeparator: \.isWhitespace).contains("order:score") {
-                // Cover the full score domain in descending, disjoint bands. No hidden
-                // minimum score or date cutoff: subsequent pages continue into lower bands.
-                return try await scorePosts(server: server, query: query, page: page, cursor: .init())
+                raw = try await data(server, "posts.json", values + [("only", Self.postFields)])
+            } catch BooruError.unavailable(500) {
+                // Some installations fail to serialize a projected response. Retry once
+                // with standard fields, preserving the exact tags, rating, sort and page.
+                raw = try await data(server, "posts.json", values)
             }
         case .gelbooru:
             if browserFallback && server.isGelbooruWebsite, try BooruKeychain.read(serverID: server.id).isEmpty {
@@ -174,23 +168,6 @@ actor BooruClient: BooruProviding {
         }
         let rows = try BooruDecoder.rows(raw, key: "post")
         return BooruBatch(posts: try rows.map { try BooruDecoder.post($0, server: server) }, hasMore: rows.count >= Self.pageSize)
-    }
-
-    private func scorePosts(server: BooruServer, query: String, page: Int, cursor initial: ScoreCursor) async throws -> BooruBatch {
-        var cursor = initial
-        while cursor.band < Self.scoreBands.count {
-            let raw = try await data(server, "posts.json", [("tags", query + " " + Self.scoreBands[cursor.band]), ("limit", "40"), ("page", String(cursor.page))])
-            let rows = try BooruDecoder.rows(raw, key: "post")
-            if rows.count < Self.pageSize { cursor.band += 1; cursor.page = 1 }
-            else { cursor.page += 1 }
-            if !rows.isEmpty || cursor.band == Self.scoreBands.count {
-                cursor.nextPage = page + 1
-                if scoreCursors.count > 32 { scoreCursors.removeAll() }
-                scoreCursors[server.id + ":" + query] = cursor
-                return .init(posts: try rows.map { try BooruDecoder.post($0, server: server) }, hasMore: cursor.band < Self.scoreBands.count)
-            }
-        }
-        return .init(posts: [], hasMore: false)
     }
 
     func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] {
@@ -324,7 +301,7 @@ actor BooruClient: BooruProviding {
         let raw: Data
         switch server.engine {
         case .oldGelbooru:
-            raw = try await data(server, "index.php", [("page", "post"), ("s", "view"), ("id", String(postID))], authenticated: false)
+            raw = try await postPage(server: server, id: postID, reuse: true)
             return try BooruLegacyHTML.notes(raw)
         case .danbooru:
             // Notes may exceed the default page size. Fetch every active page.
@@ -344,7 +321,7 @@ actor BooruClient: BooruProviding {
             // Gelbooru's current public notes live in data-* attributes on the post page.
             // Legacy DAPI instances still expose XML notes.
             if server.baseURL.host == "gelbooru.com" || server.baseURL.host == "www.gelbooru.com" {
-                raw = try await data(server, "index.php", [("page", "post"), ("s", "view"), ("id", String(postID))], authenticated: false)
+                raw = try await postPage(server: server, id: postID, reuse: true)
                 return try BooruHTML.notes(raw)
             }
             raw = try await data(server, "index.php", [("page", "dapi"), ("s", "note"), ("q", "index"), ("json", "1"), ("post_id", String(postID))])
@@ -354,8 +331,32 @@ actor BooruClient: BooruProviding {
 
     func details(server: BooruServer, post: BooruPost) async throws -> BooruPost {
         guard server.engine.usesGelbooruPages else { return post }
-        let raw = try await data(server, "index.php", [("page", "post"), ("s", "view"), ("id", String(post.postID))], authenticated: false)
+        let raw = try await postPage(server: server, id: post.postID, reuse: false)
         return try BooruLegacyHTML.post(raw, server: server, id: post.postID, preview: post.previewURL)
+    }
+
+    /// The public post document contains both media URLs and notes. Share concurrent
+    /// requests and let the following notes request reuse it, without caching failed responses.
+    private func postPage(server: BooruServer, id: Int64, reuse: Bool) async throws -> Data {
+        let key = server.id + ":" + server.canonicalAddress + ":" + String(id)
+        if reuse, let cached = postPages[key], Date().timeIntervalSince(cached.date) < 60 { return cached.data }
+        if let pending = pendingPostPages[key] {
+            let result = try await pending.value
+            try Task.checkCancellation()
+            return result
+        }
+        let task = Task {
+            try await self.data(server, "index.php", [("page", "post"), ("s", "view"), ("id", String(id))], authenticated: false)
+        }
+        pendingPostPages[key] = task
+        defer { pendingPostPages[key] = nil }
+        let result = try await task.value
+        if postPages.count >= 16 { postPages.removeAll() }
+        // Bound retained HTML to 8 MB (16 documents), separate from image caches.
+        if result.count <= 512 * 1024 { postPages[key] = .init(data: result, date: Date()) }
+        else { postPages[key] = nil }
+        try Task.checkCancellation()
+        return result
     }
 
     private func publicPosts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
@@ -426,7 +427,8 @@ enum BooruDecoder {
                      tags: tags, artists: artists, rating: rating, score: integer(row["score"]),
                      fileExtension: row["file_ext"] as? String ?? file?.pathExtension ?? "",
                      poolIDs: (row["pool_ids"] as? [Any] ?? []).map { Int64(integer($0)) }.filter { $0 > 0 },
-                     metadataTags: (row["tag_string_meta"] as? String).map { $0.split(whereSeparator: \.isWhitespace).map(String.init) })
+                     metadataTags: (row["tag_string_meta"] as? String).map { $0.split(whereSeparator: \.isWhitespace).map(String.init) },
+                     favoriteCount: row["fav_count"].map(integer), upvoteCount: row["up_score"].map(integer), commentCount: row["comment_count"].map(integer))
     }
     static func note(_ row: [String: Any]) -> BooruNote? {
         if let active = row["is_active"], ["false", "0"].contains(String(describing: active).lowercased()) { return nil }

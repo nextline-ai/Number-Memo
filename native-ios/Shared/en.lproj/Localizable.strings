@@ -849,4 +849,11 @@
 
 "No servers selected" = "No servers selected";
 "Choose servers using the server button above. Your saved works are kept." = "Choose servers using the server button above. Your saved works are kept.";
+"Popular · Score" = "Popular · Score";
+"Popular · Trending" = "Popular · Trending";
+"Popular · Favorites" = "Popular · Favorites";
+"Popular · Upvotes" = "Popular · Upvotes";
+"Popular · Comments" = "Popular · Comments";
+"Popular · Past 7 Days" = "Popular · Past 7 Days";
+"Popular · Past 30 Days" = "Popular · Past 30 Days";
 "Move or remove the works in Uncategorized before deleting it." = "Move or remove the works in Uncategorized before deleting it.";

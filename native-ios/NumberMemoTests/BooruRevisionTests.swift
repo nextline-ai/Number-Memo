@@ -202,6 +202,35 @@ final class BooruRevisionTests: XCTestCase {
         XCTAssertEqual(BooruSort.latest.query("scenery order:id", engine: .moebooru), "scenery order:id")
     }
 
+    func testPopularityCapabilitiesAndExactServerOperators() {
+        let expected: [(BooruSort, String)] = [(.popular, "score"), (.trending, "rank"), (.mostFavorited, "favcount"), (.mostUpvoted, "upvotes"), (.mostDiscussed, "comment_count")]
+        for (sort, token) in expected {
+            XCTAssertEqual(sort.query("scenery -rain sort:random order:id", engine: .danbooru), "scenery -rain order:" + token)
+        }
+        XCTAssertEqual(BooruSort.options(for: .gelbooru), [.latest, .popular])
+        XCTAssertEqual(BooruSort.popular.query("scenery SORT:random ORDER:id", engine: .gelbooru), "scenery sort:score:desc")
+        XCTAssertEqual(BooruSort.mostFavorited.query("scenery", engine: .gelbooru), "scenery")
+        XCTAssertEqual(BooruSort.options(for: [BooruServer.presets[0], BooruServer.presets[1]]), [.latest, .popular])
+        XCTAssertEqual(BooruSort.options(for: [BooruServer.presets[0]], local: true), [.latest, .popular])
+        XCTAssertEqual(RecommendationSort.options(.booru, engine: .danbooru).compactMap(\.booruSort), BooruSort.options(for: .danbooru))
+        XCTAssertEqual(RecommendationSort.options(.booru, engine: .gelbooru).compactMap(\.booruSort), [.latest, .popular])
+        XCTAssertEqual(RecommendationSort.week.booruSort, .popular)
+    }
+
+    func testPopularityDateRangesAndMetricPersistence() throws {
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-10T12:00:00Z"))
+        XCTAssertEqual(BooruSort.popularWeek.query("scenery", engine: .danbooru, now: now), "scenery date:>=2026-10-03 order:score")
+        XCTAssertEqual(BooruSort.popularMonth.query("scenery", engine: .moebooru, now: now), "scenery date:>=2026-09-10 order:score")
+        XCTAssertEqual(BooruSort.popularWeek.query("scenery date:>=2026-10-09", engine: .danbooru, now: now), "scenery date:>=2026-10-09 order:score")
+        var post = BooruFixtureSource.post(1, server: BooruServer.presets[0], tags: ["scenery"])
+        post.favoriteCount = 12; post.upvoteCount = 15; post.commentCount = 3
+        let restored = try JSONDecoder().decode(BooruPost.self, from: JSONEncoder().encode(post)).onServer("copy")
+        XCTAssertEqual(BooruSort.mostFavorited.metric(restored), 12)
+        XCTAssertEqual(BooruSort.mostUpvoted.metric(restored), 15)
+        XCTAssertEqual(BooruSort.mostDiscussed.metric(restored), 3)
+        XCTAssertNil(BooruSort.trending.metric(restored))
+    }
+
     func testAppLanguagePersistsWithoutChangingSystemTranslationLanguage() throws {
         let name = "language-test-" + UUID().uuidString
         let preferences = try XCTUnwrap(UserDefaults(suiteName: name))

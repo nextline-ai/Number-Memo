@@ -135,14 +135,65 @@ enum BooruRating: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum BooruSort: String, CaseIterable, Identifiable {
-    case latest, popular
+enum BooruSort: String, Codable, CaseIterable, Identifiable, Sendable {
+    case latest, popular, trending, mostFavorited, mostUpvoted, mostDiscussed, popularWeek, popularMonth
     var id: String { rawValue }
-    var title: String { L10n.text(self == .latest ? "Latest" : "Popular") }
-    func query(_ query: String, engine: BooruEngine) -> String {
-        guard self == .popular else { return query }
-        let terms = query.split(whereSeparator: \.isWhitespace).filter { !$0.hasPrefix("order:") && !$0.hasPrefix("sort:") }
-        return (terms.map(String.init) + [engine == .gelbooru ? "sort:score:desc" : "order:score"]).joined(separator: " ")
+    var title: String {
+        switch self {
+        case .latest: L10n.text("Latest")
+        case .popular: L10n.text("Popular · Score")
+        case .trending: L10n.text("Popular · Trending")
+        case .mostFavorited: L10n.text("Popular · Favorites")
+        case .mostUpvoted: L10n.text("Popular · Upvotes")
+        case .mostDiscussed: L10n.text("Popular · Comments")
+        case .popularWeek: L10n.text("Popular · Past 7 Days")
+        case .popularMonth: L10n.text("Popular · Past 30 Days")
+        }
+    }
+    static func options(for engine: BooruEngine) -> [Self] {
+        switch engine {
+        case .danbooru: allCases
+        case .moebooru: [.latest, .popular, .popularWeek, .popularMonth]
+        case .gelbooru, .oldGelbooru: [.latest, .popular]
+        }
+    }
+    static func options(for servers: [BooruServer], local: Bool = false) -> [Self] {
+        guard !local, !servers.isEmpty else { return [.latest, .popular] }
+        return allCases.filter { option in servers.allSatisfy { options(for: $0.engine).contains(option) } }
+    }
+    var restrictsPeriod: Bool { self == .trending || self == .popularWeek || self == .popularMonth }
+    func metric(_ post: BooruPost) -> Int? {
+        switch self {
+        case .popular, .popularWeek, .popularMonth: post.score
+        case .mostFavorited: post.favoriteCount
+        case .mostUpvoted: post.upvoteCount
+        case .mostDiscussed: post.commentCount
+        default: nil
+        }
+    }
+    func query(_ query: String, engine: BooruEngine, now: Date = .now) -> String {
+        guard self != .latest, Self.options(for: engine).contains(self) else { return query }
+        var terms = query.split(whereSeparator: \.isWhitespace).filter { !$0.lowercased().hasPrefix("order:") && !$0.lowercased().hasPrefix("sort:") }.map(String.init)
+        if self == .popularWeek || self == .popularMonth {
+            // This restriction is explicit in the selected menu label. Preserve
+            // user date constraints instead of silently widening their query.
+            if !terms.contains(where: { $0.hasPrefix("date:") || $0.hasPrefix("age:") }) {
+                let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "yyyy-MM-dd"
+                let days = self == .popularWeek ? 7 : 30
+                terms.append("date:>=" + formatter.string(from: now.addingTimeInterval(-Double(days) * 86400)))
+            }
+        }
+        let order: String
+        switch self {
+        case .trending: order = "rank"
+        case .mostFavorited: order = "favcount"
+        case .mostUpvoted: order = "upvotes"
+        case .mostDiscussed: order = "comment_count"
+        default: order = "score"
+        }
+        terms.append(engine == .gelbooru ? "sort:score:desc" : "order:" + order)
+        return terms.joined(separator: " ")
     }
 }
 
@@ -167,6 +218,9 @@ struct BooruPost: Codable, Identifiable, Hashable, Sendable {
     var fileExtension: String
     var poolIDs: [Int64] = []
     var metadataTags: [String]? = nil
+    var favoriteCount: Int? = nil
+    var upvoteCount: Int? = nil
+    var commentCount: Int? = nil
     var id: String { "\(serverID):\(postID)" }
     var isVideo: Bool { ["mp4", "webm", "mov", "m4v"].contains(fileExtension.lowercased()) }
     var isAnimated: Bool { ["gif", "webp", "apng"].contains(fileExtension.lowercased()) || tags.contains("animated") }
@@ -293,7 +347,7 @@ struct BooruFolder: Identifiable, Hashable, Sendable {
 
 extension BooruPost {
     func onServer(_ id: String) -> Self {
-        Self(serverID: id, postID: postID, previewURL: previewURL, sampleURL: sampleURL, fileURL: fileURL, width: width, height: height, tags: tags, artists: artists, rating: rating, score: score, fileExtension: fileExtension, poolIDs: poolIDs, metadataTags: metadataTags)
+        Self(serverID: id, postID: postID, previewURL: previewURL, sampleURL: sampleURL, fileURL: fileURL, width: width, height: height, tags: tags, artists: artists, rating: rating, score: score, fileExtension: fileExtension, poolIDs: poolIDs, metadataTags: metadataTags, favoriteCount: favoriteCount, upvoteCount: upvoteCount, commentCount: commentCount)
     }
 }
 
@@ -311,7 +365,8 @@ enum BooruSortValidation {
         switch error { case .unsupported, .unavailable(400), .unavailable(422): return true; default: return false }
     }
     static func posts(source: any BooruProviding, server: BooruServer, query: String, page: Int, sort: BooruSort) async throws -> BooruBatch {
-        guard sort == .popular else { return try await source.posts(server: server, query: query, page: page) }
+        guard BooruSort.options(for: server.engine).contains(sort) else { throw UnsupportedBooruSort() }
+        guard sort != .latest else { return try await source.posts(server: server, query: query, page: page) }
         let sorted: BooruBatch
         do { sorted = try await source.posts(server: server, query: sort.query(query, engine: server.engine), page: page) }
         catch {
@@ -322,12 +377,12 @@ enum BooruSortValidation {
             if let baseline = try? await source.posts(server: server, query: query, page: page), !baseline.posts.isEmpty { throw UnsupportedBooruSort() }
             throw error
         }
-        if sorted.posts.isEmpty && page == 0 {
+        if sorted.posts.isEmpty && page == 0 && !sort.restrictsPeriod {
             let baseline = try await source.posts(server: server, query: query, page: page)
             if !baseline.posts.isEmpty { throw UnsupportedBooruSort() }
         }
-        let scores = sorted.posts.map(\.score)
-        if Set(scores).count > 1 && zip(scores, scores.dropFirst()).contains(where: { $0 < $1 }) { throw UnsupportedBooruSort() }
+        let scores = sorted.posts.compactMap { sort.metric($0) }
+        if scores.count == sorted.posts.count && Set(scores).count > 1 && zip(scores, scores.dropFirst()).contains(where: { $0 < $1 }) { throw UnsupportedBooruSort() }
         return sorted
     }
 }

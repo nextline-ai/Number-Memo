@@ -469,3 +469,57 @@ private actor LegacyDetailTasteSource: BooruProviding {
     func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
     func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
 }
+
+private actor PopularityTasteSource: BooruProviding {
+    var queries: [String] = []
+    var empty: Bool
+    init(empty: Bool = false) { self.empty = empty }
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        queries.append(query)
+        if empty { return .init(posts: [], hasMore: false) }
+        var first = BooruFixtureSource.post(201, server: server, tags: ["scenery"])
+        var second = BooruFixtureSource.post(202, server: server, tags: ["scenery"])
+        first.score = 1; first.favoriteCount = 100
+        second.score = 90; second.favoriteCount = 2
+        return .init(posts: [first, second], hasMore: false)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+
+extension TasteFeedTests {
+    @MainActor func testFavoriteAndTrendingOrdersSurviveExploreAndRecommendations() async throws {
+        let env = AppEnvironment.preview(), server = BooruServer.presets[0]
+        try env.booru.saveServer(server); try env.booru.select(server)
+        let snapshot = TasteSnapshot(tags: [.init(source: server.canonicalAddress, name: "scenery", general: 5)], saves: 5, opens: 0, searches: 0, activity: [:], digest: "sort", period: nil)
+        for sort: BooruSort in [.mostFavorited, .trending] {
+            let source = PopularityTasteSource(), loader = BooruFeedLoader()
+            await loader.load(servers: [server], source: source, query: "scenery", sort: sort, reset: true)
+            XCTAssertFalse(loader.unsupportedSort)
+            XCTAssertEqual(loader.posts.map(\.postID), [201, 202])
+            let result = try await RecommendationService.load(mode: .booru, snapshot: snapshot, report: nil, env: env, language: "all", booruSource: source, preferencesOverride: [server.canonicalAddress: .init(sort: try XCTUnwrap(RecommendationSort(rawValue: sort.rawValue)))])
+            XCTAssertEqual(result.items.map(\.item.id), [201, 202])
+            let queries = await source.queries
+            XCTAssertEqual(queries.count, 2)
+            XCTAssertTrue(queries.allSatisfy { $0.contains(sort == .trending ? "order:rank" : "order:favcount") })
+        }
+    }
+    func testTimeRestrictedEmptySortDoesNotProbeAndUnsupportedEngineDoesNotRequest() async throws {
+        for sort: BooruSort in [.trending, .popularWeek, .popularMonth] {
+            let source = PopularityTasteSource(empty: true)
+            _ = try await BooruSortValidation.posts(source: source, server: BooruServer.presets[0], query: "scenery", page: 0, sort: sort)
+            let count = await source.queries.count
+            XCTAssertEqual(count, 1)
+        }
+        let source = PopularityTasteSource()
+        let server = BooruServer(id: "gel", name: "Gel", baseURL: URL(string: "https://gel.test")!, engine: .gelbooru)
+        do {
+            _ = try await BooruSortValidation.posts(source: source, server: server, query: "scenery", page: 0, sort: .mostFavorited)
+            XCTFail("Unsupported sort must be rejected before transmission")
+        } catch { XCTAssertTrue(error is UnsupportedBooruSort) }
+        let queries = await source.queries
+        XCTAssertTrue(queries.isEmpty)
+    }
+}

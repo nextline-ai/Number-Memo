@@ -240,32 +240,36 @@ final class BooruTests: XCTestCase {
         _ = try await client.poolPosts(server: dan, poolID: 77, page: 0)
     }
 
-    func testScoreTimeoutRecoveryPreservesAllBandsAndPagination() async throws {
+    func testServer500RetryPreservesExactSearchAndOmitsOnlyProjection() async throws {
+        var calls = 0
         let client = mocked { request in
+            calls += 1
             let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
-            let tags = items.first { $0.name == "tags" }!.value!
-            let page = items.first { $0.name == "page" }!.value!
-            XCTAssertTrue(tags.hasPrefix("landscape order:score"))
-            if tags == "landscape order:score" { return (500, "{\"message\":\"QueryCanceled\"}") }
-            if tags.contains("score:>=1000") {
-                if page == "1" { return (200, "[" + (0..<40).map { "{\"id\":\($0 + 1),\"score\":\(2000 - $0)}" }.joined(separator: ",") + "]") }
-                XCTAssertEqual(page, "2")
-                return (200, "[]")
+            XCTAssertEqual(items.first { $0.name == "tags" }?.value, "landscape order:score rating:general")
+            XCTAssertEqual(items.first { $0.name == "page" }?.value, "1")
+            if calls == 1 {
+                XCTAssertNotNil(items.first { $0.name == "only" })
+                return (500, "{}")
             }
-            XCTAssertEqual(page, "1")
-            if tags.contains("score:100..999") { return (200, "[{\"id\":41,\"score\":999}]") }
-            if tags.contains("score:0..99") { return (200, "[{\"id\":42,\"score\":0}]") }
-            XCTAssertTrue(tags.contains("score:<0"))
-            return (200, "[{\"id\":43,\"score\":-1}]")
+            XCTAssertNil(items.first { $0.name == "only" })
+            return (200, "[{\"id\":41,\"score\":999}]")
         }
-        let first = try await client.posts(server: dan, query: "landscape order:score", page: 0)
-        XCTAssertEqual(first.posts.count, 40); XCTAssertTrue(first.hasMore)
-        let second = try await client.posts(server: dan, query: "landscape order:score", page: 1)
-        XCTAssertEqual(second.posts.map(\.score), [999]); XCTAssertTrue(second.hasMore)
-        let third = try await client.posts(server: dan, query: "landscape order:score", page: 2)
-        XCTAssertEqual(third.posts.map(\.score), [0]); XCTAssertTrue(third.hasMore)
-        let fourth = try await client.posts(server: dan, query: "landscape order:score", page: 3)
-        XCTAssertEqual(fourth.posts.map(\.score), [-1]); XCTAssertFalse(fourth.hasMore)
+        let batch = try await client.posts(server: dan, query: "landscape order:score rating:general", page: 0)
+        XCTAssertEqual(calls, 2); XCTAssertEqual(batch.posts.map(\.postID), [41])
+    }
+    func testPersistent500DoesNotAddHiddenScoreOrRatingTags() async throws {
+        var calls = 0
+        let client = mocked { request in
+            calls += 1
+            let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            XCTAssertEqual(items.first { $0.name == "tags" }?.value, "scenery order:score")
+            return (500, "{}")
+        }
+        do {
+            _ = try await client.posts(server: dan, query: "scenery order:score", page: 0)
+            XCTFail("Expected the server failure to remain visible")
+        } catch BooruError.unavailable(500) { } catch { XCTFail("Unexpected error: \(error)") }
+        XCTAssertEqual(calls, 2, "Bounded retry; never append hidden filters or repeat indefinitely")
     }
 
     func testOldGelbooruUsesHTMLAndTwentyPostOffsets() async throws {
@@ -429,6 +433,76 @@ final class BooruTests: XCTestCase {
         }
     }
 
+    func testDanbooruProjectionIncludesMediaAndFilteringFields() async throws {
+        let client = mocked { request in
+            let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            let fields = Set((items.first { $0.name == "only" }?.value ?? "").split(separator: ",").map(String.init))
+            XCTAssertEqual(fields, Set(["id", "file_url", "large_file_url", "preview_file_url", "image_width", "image_height", "tag_string", "tag_string_artist", "tag_string_meta", "rating", "score", "file_ext", "pool_ids", "fav_count", "up_score", "comment_count"]))
+            return (200, #"[{"id":101,"file_url":"https://cdn.example.com/a.jpg","preview_file_url":"https://cdn.example.com/p.jpg","tag_string":"scenery","tag_string_artist":"artist","rating":"g","file_ext":"jpg"}]"#)
+        }
+        let result = try await client.posts(server: dan, query: "scenery", page: 0)
+        XCTAssertEqual(result.posts.first?.tags, ["scenery"])
+        XCTAssertEqual(result.posts.first?.artists, ["artist"])
+        XCTAssertNotNil(result.posts.first?.fileURL)
+    }
+
+    func testGelbooruDetailsAndNotesShareOneDocumentButMediaRefreshStaysFresh() async throws {
+        var calls = 0
+        let client = mocked { _ in
+            calls += 1
+            return (200, "<html><img id='image' src='https://cdn.example.com/sample.jpg'><a href='https://cdn.example.com/original.jpg'>Original image</a><section id='notes'><article data-x='20' data-y='30' data-width='40' data-height='50' data-body='Hello'></article></section></html>")
+        }
+        let server = BooruServer(id: "document-reuse", name: "Gelbooru", baseURL: URL(string: "https://gelbooru.com")!, engine: .gelbooru)
+        let post = try BooruDecoder.post(["id": 101], server: server)
+        let resolved = try await client.details(server: server, post: post)
+        XCTAssertNotNil(resolved.viewerURL(original: false))
+        let notes = try await client.notes(server: server, postID: 101)
+        XCTAssertEqual(notes.first?.body, "Hello")
+        XCTAssertEqual(calls, 1, "Details and notes used to navigate to the same page twice")
+        _ = try await client.details(server: server, post: resolved)
+        XCTAssertEqual(calls, 2, "A failed-media refresh must not reuse an expired URL")
+    }
+
+    @MainActor func testCancelledPartialRefreshDoesNotErasePreviousImages() async throws {
+        let source = GatedBooruSource(), loader = BooruFeedLoader()
+        var fast = dan; fast.id = "fast"
+        var slow = dan; slow.id = "slow"
+        await loader.load(servers: [fast], source: source, query: "", reset: true, contentID: "previous")
+        let previous = loader.posts
+        let task = Task { await loader.load(servers: [fast, slow], source: source, query: "empty", reset: true, contentID: "cancelled") }
+        for _ in 0..<200 {
+            if await source.emptyDelivered { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        try await Task.sleep(for: .milliseconds(20))
+        task.cancel()
+        await task.value
+        XCTAssertEqual(loader.posts, previous)
+        XCTAssertEqual(loader.contentID, "previous")
+        XCTAssertFalse(loader.loading)
+    }
+
+    @MainActor func testFastServerPublishesBeforeSlowServerAndKeepsPagination() async throws {
+        let source = GatedBooruSource(), loader = BooruFeedLoader()
+        var fast = dan; fast.id = "fast"
+        var slow = dan; slow.id = "slow"
+        let task = Task { await loader.load(servers: [fast, slow], source: source, query: "", reset: true, contentID: "current") }
+        for _ in 0..<200 {
+            if !loader.posts.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(loader.posts.map(\.serverID), ["fast"])
+        XCTAssertTrue(loader.loading)
+        XCTAssertEqual(loader.contentID, "current")
+        await source.release()
+        await task.value
+        XCTAssertEqual(Set(loader.posts.map(\.serverID)), Set(["fast", "slow"]))
+        XCTAssertFalse(loader.loading)
+        await loader.load(servers: [fast, slow], source: source, query: "", reset: false, contentID: "current")
+        XCTAssertEqual(loader.posts.count, 4)
+        XCTAssertFalse(loader.hasMore)
+    }
+
     private func mocked(_ handler: @escaping (URLRequest) -> (Int, String)) -> BooruClient {
         BooruURLProtocol.handler = handler
         let config = URLSessionConfiguration.ephemeral
@@ -454,6 +528,21 @@ private actor DelayedBooruSource: BooruProviding {
     func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
         try await Task.sleep(for: .milliseconds(query == "slow" ? 180 : 10))
         return .init(posts: [BooruFixtureSource.post(query == "slow" ? 1 : 2, server: server)], hasMore: false)
+    }
+    func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
+    func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }
+    func poolPosts(server: BooruServer, poolID: Int64, page: Int) async throws -> BooruBatch { .init(posts: [], hasMore: false) }
+    func notes(server: BooruServer, postID: Int64) async throws -> [BooruNote] { [] }
+}
+
+private actor GatedBooruSource: BooruProviding {
+    private var released = false
+    private(set) var emptyDelivered = false
+    func release() { released = true }
+    func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
+        if server.id == "slow" { while !released { try await Task.sleep(for: .milliseconds(5)) } }
+        if query == "empty" { emptyDelivered = true; return .init(posts: [], hasMore: false) }
+        return .init(posts: [BooruFixtureSource.post(Int64(page + 1), server: server)], hasMore: page == 0)
     }
     func suggestions(server: BooruServer, token: String) async throws -> [BooruTag] { [] }
     func pools(server: BooruServer, query: String, page: Int) async throws -> [BooruPool] { [] }

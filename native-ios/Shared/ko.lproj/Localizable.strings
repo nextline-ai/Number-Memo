@@ -849,4 +849,11 @@
 
 "No servers selected" = "선택한 서버가 없습니다";
 "Choose servers using the server button above. Your saved works are kept." = "상단 서버 버튼에서 서버를 선택해주세요. 저장한 작품은 그대로 유지됩니다.";
+"Popular · Score" = "인기 · 점수순";
+"Popular · Trending" = "인기 · 급상승";
+"Popular · Favorites" = "인기 · 즐겨찾기 수";
+"Popular · Upvotes" = "인기 · 추천 수";
+"Popular · Comments" = "인기 · 댓글 수";
+"Popular · Past 7 Days" = "인기 · 최근 7일";
+"Popular · Past 30 Days" = "인기 · 최근 30일";
 "Move or remove the works in Uncategorized before deleting it." = "미분류 폴더에 작품이 있습니다. 작품을 이동하거나 삭제한 후 폴더를 삭제해 주세요.";

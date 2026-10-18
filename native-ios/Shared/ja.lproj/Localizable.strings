@@ -849,4 +849,11 @@
 
 "No servers selected" = "サーバーが選択されていません";
 "Choose servers using the server button above. Your saved works are kept." = "上部のサーバーボタンから選んでください。保存した作品は保持されています。";
+"Popular · Score" = "人気 · スコア順";
+"Popular · Trending" = "人気 · 急上昇";
+"Popular · Favorites" = "人気 · お気に入り数";
+"Popular · Upvotes" = "人気 · 高評価数";
+"Popular · Comments" = "人気 · コメント数";
+"Popular · Past 7 Days" = "人気 · 過去7日";
+"Popular · Past 30 Days" = "人気 · 過去30日";
 "Move or remove the works in Uncategorized before deleting it." = "未分類フォルダに作品があります。作品を移動または削除してからフォルダを削除してください。";

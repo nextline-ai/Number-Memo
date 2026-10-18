@@ -121,7 +121,7 @@ struct RecommendationService {
                                 if candidates.isEmpty {
                                     let page = cursor.pages[key, default: 0]
                                     let query = ([seed.name] + preferences.includedTags).joined(separator: " ")
-                                    let sort: BooruSort = preferences.sort == .week ? .popular : .latest
+                                    let sort: BooruSort = preferences.sort.booruSort ?? .latest
                                     // Give each listing the same document-loading allowance as Explore.
                                     // A slow detail page must not discard a successful listing.
                                     let batch = try await RecommendationDeadline.run(seconds: requestTimeout) {
@@ -229,7 +229,10 @@ struct RecommendationService {
             let preference = settings(for: address)
             if preference.sort == .recommended { return mix(items, limit: items.count, shuffled: shuffled) }
             if preference.sort == .latest { items.sort { $0.item.id > $1.item.id } }
-            else if mode == .booru { items.sort { ($0.post?.score ?? 0) > ($1.post?.score ?? 0) } }
+            else if mode == .booru, let sort = preference.sort.booruSort,
+                    items.allSatisfy({ $0.post.flatMap { sort.metric($0) } != nil }) {
+                items.sort { ($0.post.flatMap { sort.metric($0) } ?? 0) > ($1.post.flatMap { sort.metric($0) } ?? 0) }
+            }
             var seen = Set<String>(); return items.filter { seen.insert($0.id).inserted }
         }
         output.items = (0..<(decks.map(\.count).max() ?? 0)).flatMap { index in decks.compactMap { $0.indices.contains(index) ? $0[index] : nil } }
