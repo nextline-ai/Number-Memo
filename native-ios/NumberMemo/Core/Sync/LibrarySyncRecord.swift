@@ -37,15 +37,15 @@ struct LibrarySyncRow: Codable, Equatable, Sendable {
     }
     var isFactoryDefault: Bool {
         if table == "booru.folders" { return values["id"]?.string == "unsorted" && values["color"]?.integer == 4284922736 && values["position"]?.integer == 0 }
-        if table == "hitomi.folders" { return values["sync_id"]?.string == "unsorted" && values["color"]?.integer == 4280391411 && values["sort_order"]?.integer == 1 }
+        if table == "manga.folders" { return values["sync_id"]?.string == "unsorted" && values["color"]?.integer == 4280391411 && values["sort_order"]?.integer == 1 }
         return false
     }
     static let keys: [String: [String]] = [
-        "hitomi.library_order": ["key"], "hitomi.folders": ["sync_id"], "hitomi.works": ["gallery_id"], "hitomi.folder_works": ["folder_id", "work_id"],
-        "hitomi.artists": ["name", "kind"], "hitomi.search_history": ["query"], "hitomi.saved_searches": ["query"],
+        "manga.library_order": ["key"], "manga.folders": ["sync_id"], "manga.works": ["gallery_id"], "manga.folder_works": ["folder_id", "work_id"],
+        "manga.artists": ["name", "kind"], "manga.search_history": ["query"], "manga.saved_searches": ["query"],
         "booru.servers": ["id"], "booru.folders": ["id"], "booru.favorites": ["server_id", "post_id"],
         "booru.saved_tags": ["server_id", "name", "kind"], "booru.history": ["server_id", "query"],
-        "booru.settings": ["key"], "preferences.hitomi": ["key"], "preferences.booru": ["key"]
+        "booru.settings": ["key"], "preferences.manga": ["key"], "preferences.booru": ["key"]
     ]
 }
 

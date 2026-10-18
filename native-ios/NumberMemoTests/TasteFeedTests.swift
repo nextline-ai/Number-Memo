@@ -29,7 +29,7 @@ final class TasteFeedTests: XCTestCase {
             var withoutIgnored = item; withoutIgnored.tags = ["blue_hair", "solo_artist"]
             XCTAssertEqual(RecommendationService.score(item, tags: [tag], ignoring: TasteControl().analysisExcluded(.booru)), RecommendationService.score(withoutIgnored, tags: [tag]))
         }
-        let comic = TasteItem(source: "https://hitomi.la", id: 1, tags: ["female:solo_female", "male:solo_male", "tag:digital", "tag:group", "artist:group", "tag:watercolor"])
+        let comic = TasteItem(source: "https://manga.la", id: 1, tags: ["female:solo_female", "male:solo_male", "tag:digital", "tag:group", "artist:group", "tag:watercolor"])
         let result = TasteAnalyzer.analyze([TasteEvent(kind: .seed, item: comic)], control: .init(), mode: .comics)
         XCTAssertEqual(Set(result.tags.map(\.name)), ["artist:group", "tag:watercolor"])
     }
@@ -146,10 +146,10 @@ final class TasteFeedTests: XCTestCase {
     func testExclusionsMatchWhitespaceWithoutRemovingOtherNamespaces() {
         let control = TasteControl()
         for tag in ["female:solo female", "female:solo_female", " FEMALE : solo\u{00a0}female ", "female:solo__female", "female:solo\tfemale"] {
-            XCTAssertFalse(control.allows(tag, source: "https://hitomi.la", mode: .comics), tag)
+            XCTAssertFalse(control.allows(tag, source: "https://manga.la", mode: .comics), tag)
         }
         for tag in ["artist:solo_female", "female:solo_female_artist", "tag:watercolor"] {
-            XCTAssertTrue(control.allows(tag, source: "https://hitomi.la", mode: .comics), tag)
+            XCTAssertTrue(control.allows(tag, source: "https://manga.la", mode: .comics), tag)
         }
     }
     func testLegacyUnqualifiedComicTagsAndUnicodeSpacingAreExcludedEverywhere() {
@@ -174,7 +174,7 @@ final class TasteFeedTests: XCTestCase {
         control.analysisExclusions = ["comics": ["female:solo_female", "male:solo_male", "tag:digital", "tag:group"]]
         control = try JSONDecoder().decode(TasteControl.self, from: JSONEncoder().encode(control))
         let actual = NativeGallery.parseTags([["tag": "sole female", "female": "1"], ["tag": "sole male", "male": "1"], ["tag": "watercolor"]])
-        let item = TasteItem(source: "https://hitomi.la", id: 1, tags: actual + ["sole female", "sole_male", "artist:solo_female", "female:sole_female_artist"])
+        let item = TasteItem(source: "https://manga.la", id: 1, tags: actual + ["sole female", "sole_male", "artist:solo_female", "female:sole_female_artist"])
         let event = TasteEvent(kind: .save, item: item, context: .init(origin: .search, query: "female:sole_female"))
         let period = DateInterval(start: .distantPast, end: .distantFuture)
         for range: DateInterval? in [nil, period] {
@@ -368,13 +368,13 @@ extension TasteFeedTests {
         let env = AppEnvironment.preview(); env.isSiteVerified = true
         env.defaultTags = "implicit_tag"
         let source = CapturingComicTasteSource()
-        let tag = TasteTag(source: "https://hitomi.la", name: "tag:scenery", general: 5)
+        let tag = TasteTag(source: "https://manga.la", name: "tag:scenery", general: 5)
         let snapshot = TasteSnapshot(tags: [tag], saves: 5, opens: 0, searches: 0, activity: [:], digest: "language", period: nil)
         _ = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "korean", comicSource: source)
         var requests = await source.queries
         XCTAssertEqual(requests.last?.language, "all")
         XCTAssertFalse(requests.last?.text.contains("implicit_tag") ?? true)
-        env.taste.change { $0.setPreferences(.init(includedTags: ["tag:watercolor"], language: "japanese", sort: .month), source: "https://hitomi.la") }
+        env.taste.change { $0.setPreferences(.init(includedTags: ["tag:watercolor"], language: "japanese", sort: .month), source: "https://manga.la") }
         _ = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "korean", comicSource: source)
         requests = await source.queries
         XCTAssertEqual(requests.last?.language, "japanese")

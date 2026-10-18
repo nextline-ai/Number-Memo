@@ -29,9 +29,9 @@ struct AppModeSwitch: View {
     private var current: AppMode { activeMode }
     private var motion: AppModeSwitchMotion { previewMode == nil ? env.modeSwitchMotion : previewMotion }
     var body: some View {
-        Button { change(current == .hitomi ? .booru : .hitomi) } label: {
+        Button { change(current == .manga ? .booru : .manga) } label: {
             HStack(spacing: 2) {
-                mode(.hitomi, icon: "book")
+                mode(.manga, icon: "book")
                 mode(.booru, icon: "photo")
             }
             .background(alignment: .leading) {
@@ -56,7 +56,7 @@ struct AppModeSwitch: View {
             .onEnded { value in
                 let end = (dragOrigin ?? position(current)) + value.predictedEndTranslation.width
                 dragOrigin = nil
-                change(end > 22 ? .booru : .hitomi)
+                change(end > 22 ? .booru : .manga)
             })
         .onChange(of: dragging) { _, active in
             guard !active else { return }
@@ -87,7 +87,7 @@ struct AppModeSwitch: View {
             .foregroundStyle(current == mode ? Color.black : Color.secondary)
             .accessibilityHidden(true)
     }
-    private func position(_ mode: AppMode) -> CGFloat { mode == .hitomi ? 0 : 44 }
+    private func position(_ mode: AppMode) -> CGFloat { mode == .manga ? 0 : 44 }
     private func change(_ mode: AppMode) {
         // The shared selection is authoritative immediately. A disappearing
         // toolbar must never commit an older selection from an animation callback.

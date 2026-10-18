@@ -155,7 +155,7 @@ public struct WorkDetailView: View {
                     }
 
                     NavigationLink {
-                        ContentReportView(page: URL(string: HitomiUrls.galleryUrl(for: galleryId))!)
+                        ContentReportView(page: URL(string: MangaUrls.galleryUrl(for: galleryId))!)
                     } label: { Label(L10n.text("Report Content"), systemImage: "flag") }
 
                     // Action Buttons
@@ -296,7 +296,7 @@ public struct WorkDetailView: View {
             }
         }
         .fullScreenCover(isPresented: $showBrowser) {
-            ContentEntryView(initialUrl: "https://hitomi.la/reader/\(galleryId).html#1")
+            ContentEntryView(initialUrl: "\(MangaUrls.home)reader/\(galleryId).html#1")
         }
         .presentationDetents([.large]).presentationDragIndicator(.visible)
         .task {
@@ -325,7 +325,7 @@ public struct WorkDetailView: View {
     private func loadGalleryFilesIfNeeded() {
         guard env.isSiteVerified, galleryHashes.isEmpty else { return }
         Task {
-            if let hashes = try? await HitomiAPIClient.fetchGalleryFiles(galleryId: galleryId) {
+            if let hashes = try? await MangaAPIClient.fetchGalleryFiles(galleryId: galleryId) {
                 await MainActor.run {
                     self.galleryHashes = hashes
                     self.totalPages = hashes.count
@@ -345,7 +345,7 @@ public struct WorkDetailView: View {
             do {
                 var hashes = galleryHashes
                 if hashes.isEmpty {
-                    hashes = try await HitomiAPIClient.fetchGalleryFiles(galleryId: galleryId)
+                    hashes = try await MangaAPIClient.fetchGalleryFiles(galleryId: galleryId)
                     let h = hashes
                     await MainActor.run {
                         self.galleryHashes = h
@@ -363,7 +363,7 @@ public struct WorkDetailView: View {
 
                 let targetHash = hashes[page - 1]
                 let thumbsDir = AppStorage.thumbsDirURL
-                let savedFile = try await HitomiAPIClient.downloadCover(
+                let savedFile = try await MangaAPIClient.downloadCover(
                     galleryId: galleryId,
                     hash: targetHash,
                     destinationDir: thumbsDir

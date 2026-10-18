@@ -14,7 +14,7 @@ enum ReaderPreferences {
     private static let persistentBooruDefaults: UserDefaults = {
         let store = UserDefaults(suiteName: "com.deaum.numbermemo.booru.preferences")!
         if !store.bool(forKey: "booru.preferencesSeparated") {
-            // Preserve Booru-only options from the earlier shared store, without importing Hitomi reader options.
+            // Preserve Booru-only options from the earlier shared store, without importing manga reader options.
             for key in ["booru.original", "booru.showNotes", "booru.rememberHistory", "booru.autoLoad", "booru.fitThumbnails"] {
                 if let value = UserDefaults.standard.object(forKey: key), store.object(forKey: key) == nil { store.set(value, forKey: key) }
             }

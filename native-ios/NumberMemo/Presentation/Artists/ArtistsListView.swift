@@ -23,7 +23,7 @@ public struct ArtistsListView: View {
                         WorksGridView(artist: artist.name)
                     } label: {
                         ArtistRowView(artist: artist) {
-                            let target = HitomiUrls.artistAllUrl(for: artist.name)
+                            let target = MangaUrls.artistAllUrl(for: artist.name)
                             selectedBrowserItem = IdentifiableURL(url: target)
                         }
                     }

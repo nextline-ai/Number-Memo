@@ -3,7 +3,7 @@ import GRDB
 import Observation
 import Security
 
-/// A separate database, unrelated to Hitomi's migrations, imports and backups.
+/// A separate database, unrelated to manga migrations, imports and backups.
 @Observable
 final class BooruStore: @unchecked Sendable {
     let database: DatabaseQueue

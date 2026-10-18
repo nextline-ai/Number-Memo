@@ -40,9 +40,9 @@ final class GridLayoutTests: XCTestCase {
         let store = try BooruStore()
         let env = AppEnvironment(database: database, browserPreferences: defaults, booru: store)
         XCTAssertEqual(env.gridColumns, 0)
-        env.mode = .hitomi; env.gridColumns = 2; env.folderColumns = 1
+        env.mode = .manga; env.gridColumns = 2; env.folderColumns = 1
         env.mode = .booru; env.gridColumns = 3; env.folderColumns = 4
-        env.mode = .hitomi; XCTAssertEqual(env.gridColumns, 2)
+        env.mode = .manga; XCTAssertEqual(env.gridColumns, 2)
         env.gridColumns = 0
         let reopened = AppEnvironment(database: database, browserPreferences: defaults, booru: store)
         XCTAssertEqual(reopened.gridColumns, 0)

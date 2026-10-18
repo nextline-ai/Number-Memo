@@ -7,7 +7,7 @@ struct TasteSettingsView: View {
     @State private var confirmReset = false
     private enum DisableTarget { case analysis }
     @State private var pendingDisable: DisableTarget?
-    private var resolvedSource: String { source.isEmpty ? (mode == .comics ? "https://hitomi.la" : (env.booru.selectedServer ?? env.booru.servers.first)?.canonicalAddress ?? "") : source }
+    private var resolvedSource: String { source.isEmpty ? (mode == .comics ? "https://manga.la" : (env.booru.selectedServer ?? env.booru.servers.first)?.canonicalAddress ?? "") : source }
     var body: some View {
         Form {
             Section {
@@ -129,7 +129,7 @@ struct RecommendationSettingsView: View {
     @State private var selectedSource = ""
     @State private var input = ""
     private var source: String {
-        if mode == .comics { return "https://hitomi.la" }
+        if mode == .comics { return "https://manga.la" }
         let target = selectedSource.isEmpty ? initialSource : selectedSource
         return (env.booru.servers.first { $0.canonicalAddress == target } ?? env.booru.servers.first)?.canonicalAddress ?? ""
     }

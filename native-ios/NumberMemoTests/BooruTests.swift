@@ -157,7 +157,7 @@ final class BooruTests: XCTestCase {
         XCTAssertFalse(BooruBlacklist("\n# comment\n").contains(post))
     }
 
-    func testPersistentLibrarySeparatesSitesAndHitomi() throws {
+    func testPersistentLibrarySeparatesSitesAndManga() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -172,8 +172,8 @@ final class BooruTests: XCTestCase {
         try store.toggleTag("mountain", serverID: first.id)
         try store.setBlacklist("city", serverID: first.id)
         try store.select(second)
-        let hitomi = try AppDatabase.inMemory()
-        _ = try hitomi.upsertWork(galleryId: 101, title: "Hitomi only")
+        let manga = try AppDatabase.inMemory()
+        _ = try manga.upsertWork(galleryId: 101, title: "Manga only")
         let restored = try BooruStore(path: path)
         XCTAssertEqual(restored.selectedServerID, second.id)
         XCTAssertEqual(restored.favorites(serverID: first.id).count, 1)
@@ -185,8 +185,8 @@ final class BooruTests: XCTestCase {
         try restored.toggleFavorite(sample(first))
         XCTAssertEqual(restored.favorites(serverID: first.id).count, 0)
         XCTAssertEqual(restored.favorites(serverID: second.id).count, 1)
-        XCTAssertEqual(try hitomi.listWorks().first?.title, "Hitomi only")
-        XCTAssertEqual(try hitomi.listArtists().count, 0)
+        XCTAssertEqual(try manga.listWorks().first?.title, "Manga only")
+        XCTAssertEqual(try manga.listArtists().count, 0)
     }
 
     func testHistoryDeduplicatesCapsAndClearsPerServer() throws {
@@ -212,8 +212,8 @@ final class BooruTests: XCTestCase {
         let db = try AppDatabase.inMemory()
         let env = AppEnvironment(database: db, browserPreferences: defaults, booru: store)
         XCTAssertEqual(env.mode, .booru)
-        env.mode = .hitomi
-        XCTAssertEqual(AppEnvironment(database: db, browserPreferences: defaults, booru: store).mode, .hitomi)
+        env.mode = .manga
+        XCTAssertEqual(AppEnvironment(database: db, browserPreferences: defaults, booru: store).mode, .manga)
         XCTAssertFalse(env.useEmbeddedBrowser)
     }
 

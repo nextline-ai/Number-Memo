@@ -20,13 +20,13 @@ public struct SettingsView: View {
             } header: { Text(L10n.text("Browsing")) } footer: {
                 Text(L10n.text("Use the website if the native viewer stops working. Turn off to return to the native viewer."))
             }
-            HitomiDefaultTagsSettings()
+            MangaDefaultTagsSettings()
             ReaderSettingsSection(booru: false, isPresented: $showReader)
             SearchHistorySettings()
             TasteSettingsSection(mode: .comics)
             CloudSyncSection()
             Section {
-                NavigationLink { HitomiLibraryToolsView() } label: {
+                NavigationLink { MangaLibraryToolsView() } label: {
                     Label(L10n.text("Library Management"), systemImage: "externaldrive")
                 }.accessibilityIdentifier("settings.libraryManagement")
             } header: { Text(L10n.text("Data & Storage")) } footer: {
@@ -62,7 +62,7 @@ struct ComicsSetupView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 8)
                 }.buttonStyle(.borderedProminent).controlSize(.large)
                     .accessibilityIdentifier("comics.enterAddress")
-                NavigationLink { HitomiLibraryToolsView(importOnly: true) } label: {
+                NavigationLink { MangaLibraryToolsView(importOnly: true) } label: {
                     Label(L10n.text("Import from Violet"), systemImage: "square.and.arrow.down")
                 }.accessibilityIdentifier("comics.importViolet")
             }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
@@ -105,7 +105,7 @@ struct ComicsConnectionCard: View {
             }
             .sheet(isPresented: $showImport) {
                 NavigationStack {
-                    HitomiLibraryToolsView(importOnly: true)
+                    MangaLibraryToolsView(importOnly: true)
                         .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { showImport = false } } }
                 }
             }
@@ -135,14 +135,14 @@ struct ComicsConnectionSettings: View {
             }
         }
         .navigationTitle(L10n.text("Website Connection")).navigationBarTitleDisplayMode(.inline)
-        .onAppear { if env.isSiteVerified { address = "hitomi.la" } }
+        .onAppear { if env.isSiteVerified { address = env.mangaSiteAddress } }
         .alert(L10n.text("Invalid Address"), isPresented: $invalid) {
             Button(L10n.text("OK"), role: .cancel) {}
         } message: { Text(L10n.text("This address is not supported. Check the website address and try again.")) }
     }
 }
 
-struct HitomiLibraryToolsView: View {
+struct MangaLibraryToolsView: View {
     var importOnly = false
     @Environment(AppEnvironment.self) private var env
 

@@ -44,46 +44,46 @@ public final class AppEnvironment: @unchecked Sendable {
         }
     }
 
-    private var hitomiTheme: AppTheme
+    private var mangaTheme: AppTheme
     private var booruTheme: AppTheme
-    private var hitomiColumns: Int
+    private var mangaColumns: Int
     private var booruColumns: Int
-    private var hitomiFolderColumns: Int
+    private var mangaFolderColumns: Int
     private var booruFolderColumns: Int
 
     public var appTheme: AppTheme {
-        get { mode == .hitomi ? hitomiTheme : booruTheme }
+        get { mode == .manga ? mangaTheme : booruTheme }
         set {
-            if mode == .hitomi { hitomiTheme = newValue } else { booruTheme = newValue }
-            browserPreferences.set(newValue.rawValue, forKey: mode == .hitomi ? "app_theme" : "booru.app_theme")
+            if mode == .manga { mangaTheme = newValue } else { booruTheme = newValue }
+            browserPreferences.set(newValue.rawValue, forKey: mode == .manga ? "app_theme" : "booru.app_theme")
         }
     }
 
-    func gridColumns(for mode: AppMode) -> Int { mode == .hitomi ? hitomiColumns : booruColumns }
+    func gridColumns(for mode: AppMode) -> Int { mode == .manga ? mangaColumns : booruColumns }
 
     public var gridColumns: Int {
-        get { mode == .hitomi ? hitomiColumns : booruColumns }
+        get { mode == .manga ? mangaColumns : booruColumns }
         set {
             let value = min(5, max(0, newValue))
-            if mode == .hitomi { hitomiColumns = value } else { booruColumns = value }
-            browserPreferences.set(value, forKey: mode == .hitomi ? "grid_columns" : "booru.grid_columns")
+            if mode == .manga { mangaColumns = value } else { booruColumns = value }
+            browserPreferences.set(value, forKey: mode == .manga ? "grid_columns" : "booru.grid_columns")
         }
     }
 
     public var folderColumns: Int {
-        get { mode == .hitomi ? hitomiFolderColumns : booruFolderColumns }
+        get { mode == .manga ? mangaFolderColumns : booruFolderColumns }
         set {
             let value = min(5, max(0, newValue))
-            if mode == .hitomi { hitomiFolderColumns = value } else { booruFolderColumns = value }
-            browserPreferences.set(value, forKey: mode == .hitomi ? "folder_columns" : "booru.folder_columns")
+            if mode == .manga { mangaFolderColumns = value } else { booruFolderColumns = value }
+            browserPreferences.set(value, forKey: mode == .manga ? "folder_columns" : "booru.folder_columns")
         }
     }
 
     var defaultTags: String {
-        didSet { browserPreferences.set(defaultTags, forKey: "hitomi.defaultTags") }
+        didSet { browserPreferences.set(defaultTags, forKey: "manga.defaultTags") }
     }
     var defaultExcludedTags: String {
-        didSet { browserPreferences.set(defaultExcludedTags, forKey: "hitomi.defaultExcludedTags") }
+        didSet { browserPreferences.set(defaultExcludedTags, forKey: "manga.defaultExcludedTags") }
     }
 
     @MainActor var taste: TasteController {
@@ -105,17 +105,28 @@ public final class AppEnvironment: @unchecked Sendable {
         let language = browserPreferences.string(forKey: "app.language") ?? "system"
         if appLanguage != language { appLanguage = language }
         let comicsTheme = AppTheme(rawValue: browserPreferences.string(forKey: "app_theme") ?? "") ?? .dark
-        if hitomiTheme != comicsTheme { hitomiTheme = comicsTheme }
+        if mangaTheme != comicsTheme { mangaTheme = comicsTheme }
         let imageTheme = AppTheme(rawValue: browserPreferences.string(forKey: "booru.app_theme") ?? "") ?? .dark
         if booruTheme != imageTheme { booruTheme = imageTheme }
-        let tags = browserPreferences.string(forKey: "hitomi.defaultTags") ?? ""
+        let tags = browserPreferences.string(forKey: "manga.defaultTags") ?? ""
         if defaultTags != tags { defaultTags = tags }
-        let exclusions = browserPreferences.string(forKey: "hitomi.defaultExcludedTags") ?? ""
+        let exclusions = browserPreferences.string(forKey: "manga.defaultExcludedTags") ?? ""
         if defaultExcludedTags != exclusions { defaultExcludedTags = exclusions }
         let verified = browserPreferences.bool(forKey: "site_verified")
         if isSiteVerified != verified { isSiteVerified = verified }
+        let siteAddress = browserPreferences.string(forKey: "manga.site_address") ?? "manga.la"
+        if mangaSiteAddress != siteAddress { mangaSiteAddress = siteAddress }
     }
     private let browserPreferences: UserDefaults
+
+    public var mangaSiteAddress: String {
+        didSet {
+            browserPreferences.set(mangaSiteAddress, forKey: "manga.site_address")
+            if browserPreferences != .standard {
+                UserDefaults.standard.set(mangaSiteAddress, forKey: "manga.site_address")
+            }
+        }
+    }
 
     public var useEmbeddedBrowser: Bool {
         didSet {
@@ -150,37 +161,58 @@ public final class AppEnvironment: @unchecked Sendable {
         self.coverQueueState = CoverQueueState()
         self.violetImporter = VioletImportService(appDb: database)
 
-        self.hitomiTheme = AppTheme(rawValue: browserPreferences.string(forKey: "app_theme") ?? "") ?? .dark
+        self.mangaTheme = AppTheme(rawValue: browserPreferences.string(forKey: "app_theme") ?? "") ?? .dark
         self.booruTheme = AppTheme(rawValue: browserPreferences.string(forKey: "booru.app_theme") ?? "") ?? .dark
-        let hitomiColumns = browserPreferences.integer(forKey: "grid_columns")
+        let mangaColumns = browserPreferences.integer(forKey: "grid_columns")
         let booruColumns = browserPreferences.integer(forKey: "booru.grid_columns")
-        self.hitomiColumns = min(5, max(0, hitomiColumns))
+        self.mangaColumns = min(5, max(0, mangaColumns))
         self.booruColumns = min(5, max(0, booruColumns))
-        self.hitomiFolderColumns = min(5, max(0, browserPreferences.integer(forKey: "folder_columns")))
+        self.mangaFolderColumns = min(5, max(0, browserPreferences.integer(forKey: "folder_columns")))
         self.booruFolderColumns = min(5, max(0, browserPreferences.integer(forKey: "booru.folder_columns")))
-        self.defaultTags = browserPreferences.string(forKey: "hitomi.defaultTags") ?? ""
-        self.defaultExcludedTags = browserPreferences.string(forKey: "hitomi.defaultExcludedTags") ?? ""
+        self.defaultTags = browserPreferences.string(forKey: "manga.defaultTags") ?? ""
+        self.defaultExcludedTags = browserPreferences.string(forKey: "manga.defaultExcludedTags") ?? ""
 
         // New opt-in fallback; the old preference selected native UI versus external Safari.
         self.useEmbeddedBrowser = browserPreferences.bool(forKey: "use_embedded_browser")
 
         self.isOnboardingCompleted = browserPreferences.bool(forKey: "onboarding_completed")
         self.isSiteVerified = browserPreferences.bool(forKey: "site_verified")
+        self.mangaSiteAddress = browserPreferences.string(forKey: "manga.site_address") ?? "manga.la"
     }
 
     static func supportsComicsAddress(_ input: String) -> Bool {
         let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return false }
         guard let url = URLComponents(string: value.contains("://") ? value : "https://" + value) else { return false }
-        return url.scheme?.lowercased() == "https" && url.host?.lowercased() == "hitomi.la"
-            && (url.path.isEmpty || url.path == "/") && url.query == nil && url.fragment == nil
-            && url.user == nil && url.password == nil && (url.port == nil || url.port == 443)
+        guard let host = url.host?.lowercased(), !host.isEmpty else { return false }
+        guard url.user == nil && url.password == nil else { return false }
+        guard host.contains(".") || host == "localhost" else { return false }
+        guard !host.hasPrefix(".") && !host.hasSuffix(".") else { return false }
+        if let scheme = url.scheme?.lowercased(), scheme != "https" && scheme != "http" {
+            return false
+        }
+        return true
+    }
+
+    static func normalizedComicsAddress(_ input: String) -> String {
+        let raw = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URLComponents(string: raw.contains("://") ? raw : "https://" + raw),
+              let host = url.host?.lowercased() else {
+            return raw.lowercased()
+        }
+        return host
     }
 
     @discardableResult
     public func verifySite(input: String) -> Bool {
-        let cleaned = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let isValid = cleaned == "hitomi" || Self.supportsComicsAddress(input)
-        if isValid { self.isSiteVerified = true }
+        let cleaned = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isKeyword = cleaned.lowercased() == "manga"
+        let isValid = isKeyword || Self.supportsComicsAddress(input)
+        if isValid {
+            self.isSiteVerified = true
+            let saved = isKeyword ? "manga.la" : Self.normalizedComicsAddress(input)
+            self.mangaSiteAddress = saved
+        }
         return isValid
     }
 

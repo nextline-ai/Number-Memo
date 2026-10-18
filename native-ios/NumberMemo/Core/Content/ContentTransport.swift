@@ -41,7 +41,8 @@ final class ContentTransport: NSObject, URLSessionDataDelegate, @unchecked Senda
     static func allows(_ url: URL) -> Bool {
         guard url.scheme == "https", url.user == nil, url.password == nil,
               url.port == nil || url.port == 443, let host = url.host?.lowercased() else { return false }
-        if host == "tagindex.hitomi.la" { return true }
+        let configured = MangaUrls.configuredHost
+        if host == configured || host.hasSuffix("." + configured) || host == "tagindex.manga.la" { return true }
         return ["ltn", "tn", "atn", "btn", "w1", "w2", "a1", "a2"].contains { host == "\($0).gold-usergeneratedcontent.net" }
     }
 
@@ -56,7 +57,7 @@ final class ContentTransport: NSObject, URLSessionDataDelegate, @unchecked Senda
         try Task.checkCancellation()
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
-        request.setValue(galleryID.map { "https://hitomi.la/reader/\($0).html" } ?? "https://hitomi.la/", forHTTPHeaderField: "Referer")
+        request.setValue(galleryID.map { "\(MangaUrls.home)reader/\($0).html" } ?? MangaUrls.home, forHTTPHeaderField: "Referer")
         if let range { request.setValue("bytes=\(range.lowerBound)-\(range.upperBound - 1)", forHTTPHeaderField: "Range") }
         let cancellation = Cancellation()
         return try await withTaskCancellationHandler {

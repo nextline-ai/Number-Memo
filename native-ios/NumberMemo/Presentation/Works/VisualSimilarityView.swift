@@ -36,7 +36,7 @@ struct VisualSimilarityView: View {
                         Text(L10n.text("Some saved thumbnails could not be read. Available works are shown."))
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns(for: seed.post == nil ? .hitomi : .booru)), spacing: 16) {
+                    LazyVGrid(columns: WorkGridLayout.columns(env.gridColumns(for: seed.post == nil ? .manga : .booru)), spacing: 16) {
                         ForEach(works) { work in
                             Button { open(work) } label: { WorkCardView(work: work) }.buttonStyle(.plain)
                         }

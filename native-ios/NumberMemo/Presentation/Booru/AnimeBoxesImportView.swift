@@ -57,7 +57,7 @@ struct AnimeBoxesImportView: View {
                     Button(L10n.text("Import"), systemImage: "square.and.arrow.down", action: commit)
                         .disabled(loading || backup.servers.isEmpty).accessibilityIdentifier("booru.import.confirm")
                 } footer: {
-                    Text(L10n.text("Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. Hitomi data is unchanged."))
+                    Text(L10n.text("Existing favorites keep their folders. Shared search history and blacklist rules are copied to each imported server. API credentials and cookies must be set up again in server settings. Manga data is unchanged."))
                 }
             }
         }

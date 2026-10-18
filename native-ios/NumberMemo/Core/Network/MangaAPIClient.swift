@@ -1,6 +1,6 @@
 import Foundation
 
-public struct HitomiGalleryInfo: Sendable {
+public struct MangaGalleryInfo: Sendable {
     public let hash: String?
     public let title: String?
     public let artists: String?
@@ -10,13 +10,13 @@ public struct HitomiGalleryInfo: Sendable {
     public let tags: String?
 }
 
-public enum HitomiAPIClient {
+public enum MangaAPIClient {
     private static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
 
-    public static func fetchGalleryInfo(galleryId: Int64) async throws -> HitomiGalleryInfo {
+    public static func fetchGalleryInfo(galleryId: Int64) async throws -> MangaGalleryInfo {
         let urls = [
             "https://ltn.gold-usergeneratedcontent.net/galleries/\(galleryId).js",
-            "https://ltn.hitomi.la/galleries/\(galleryId).js"
+            "https://ltn.manga.la/galleries/\(galleryId).js"
         ]
 
         var lastError: Error?
@@ -26,7 +26,7 @@ public enum HitomiAPIClient {
             guard let url = URL(string: urlString) else { continue }
             var request = URLRequest(url: url)
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-            request.setValue("https://hitomi.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
+            request.setValue("https://manga.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
             request.timeoutInterval = 15
 
             do {
@@ -54,7 +54,7 @@ public enum HitomiAPIClient {
     public static func fetchGalleryFiles(galleryId: Int64) async throws -> [String] {
         let urls = [
             "https://ltn.gold-usergeneratedcontent.net/galleries/\(galleryId).js",
-            "https://ltn.hitomi.la/galleries/\(galleryId).js"
+            "https://ltn.manga.la/galleries/\(galleryId).js"
         ]
 
         var lastError: Error?
@@ -63,7 +63,7 @@ public enum HitomiAPIClient {
             guard let url = URL(string: urlString) else { continue }
             var request = URLRequest(url: url)
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-            request.setValue("https://hitomi.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
+            request.setValue("https://manga.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
             request.timeoutInterval = 15
 
             do {
@@ -102,7 +102,7 @@ public enum HitomiAPIClient {
         return files.compactMap { $0["hash"] as? String }
     }
 
-    private static func parseGalleryJS(_ body: String) throws -> HitomiGalleryInfo {
+    private static func parseGalleryJS(_ body: String) throws -> MangaGalleryInfo {
         var jsonText = body.trimmingCharacters(in: .whitespacesAndNewlines)
         let prefix = "var galleryinfo ="
         if jsonText.hasPrefix(prefix) {
@@ -145,7 +145,7 @@ public enum HitomiAPIClient {
 
         let dateStr = (json["date"] as? String)?.components(separatedBy: " ").first
 
-        return HitomiGalleryInfo(
+        return MangaGalleryInfo(
             hash: hash,
             title: unescapedTitle,
             artists: artistsList.isEmpty ? nil : artistsList.joined(separator: ", "),
@@ -177,7 +177,7 @@ public enum HitomiAPIClient {
             guard let url = URL(string: candidateUrl) else { continue }
             var request = URLRequest(url: url)
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-            request.setValue("https://hitomi.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
+            request.setValue("https://manga.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
             request.setValue("image/webp,image/avif,image/*,*/*;q=0.8", forHTTPHeaderField: "Accept")
             request.timeoutInterval = 15
 

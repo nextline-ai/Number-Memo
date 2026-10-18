@@ -39,19 +39,72 @@ struct BooruServersView: View {
     }
 }
 
+enum ServerType: Hashable, Identifiable {
+    case comics
+    case booru(BooruEngine)
+
+    var id: String {
+        switch self {
+        case .comics: return "comics"
+        case .booru(let engine): return engine.rawValue
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .comics: return L10n.text("Comics Mode")
+        case .booru(let engine): return engine.title
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .comics: return "book"
+        case .booru: return "checkmark.circle"
+        }
+    }
+}
+
 struct BooruServerEditor: View {
     let server: BooruServer?
     var acceptsComics = false
     @Environment(AppEnvironment.self) private var env
-    private var isComicsAddress: Bool { acceptsComics && AppEnvironment.supportsComicsAddress(address) }
     @Environment(BooruStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var address = ""
-    @State private var engineChoice: BooruEngine?
+    @State private var serverTypeChoice: ServerType?
     @State private var showOptions = false
     private var addressURL: URL? { try? BooruServer.validatedURL(address) }
-    private var engine: BooruEngine? { engineChoice ?? addressURL.flatMap(BooruEngine.suggested) }
+
+    static func isComicsDomain(_ input: String) -> Bool {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return false }
+        let raw = trimmed.contains("://") ? trimmed : "https://" + trimmed
+        guard let url = URLComponents(string: raw), let host = url.host?.lowercased() else {
+            return trimmed.hasSuffix(".la")
+        }
+        return host.hasSuffix(".la") || host == "la"
+    }
+
+    private var detectedServerType: ServerType? {
+        if acceptsComics && Self.isComicsDomain(address) {
+            return .comics
+        }
+        if let suggested = addressURL.flatMap(BooruEngine.suggested) {
+            return .booru(suggested)
+        }
+        return nil
+    }
+
+    private var effectiveServerType: ServerType? {
+        serverTypeChoice ?? detectedServerType
+    }
+
+    private var isComics: Bool {
+        effectiveServerType == .comics
+    }
+
     @State private var account = ""
     @State private var apiKey = ""
     @State private var error: String?
@@ -68,23 +121,24 @@ struct BooruServerEditor: View {
                 } header: { Text(L10n.text("Website Address")) } footer: {
                     Text(L10n.text("Enter the website’s home address."))
                 }
-                if isComicsAddress {
-                    Section {
-                        Label(L10n.text("Comics Mode"), systemImage: "book")
-                    }
-                } else {
-                    Section {
-                        Picker(L10n.text("Server Type"), selection: $engineChoice) {
-                            Text(L10n.text("Automatic")).tag(nil as BooruEngine?)
-                            ForEach(BooruEngine.allCases) { Text($0.title).tag(Optional($0)) }
-                        }.accessibilityIdentifier("booru.serverEngine")
-                        if let engine {
-                            Label(engine.title, systemImage: "checkmark.circle").foregroundStyle(.secondary)
-                        } else if !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Text(L10n.text("Select the server type for this address."))
-                                .font(.footnote).foregroundStyle(.secondary)
+                Section {
+                    Picker(L10n.text("Server Type"), selection: $serverTypeChoice) {
+                        Text(L10n.text("Automatic")).tag(nil as ServerType?)
+                        if acceptsComics {
+                            Text(L10n.text("Comics Mode")).tag(Optional(ServerType.comics))
                         }
-                    } header: { Text(L10n.text("Connection")) }
+                        ForEach(BooruEngine.allCases) { engine in
+                            Text(engine.title).tag(Optional(ServerType.booru(engine)))
+                        }
+                    }.accessibilityIdentifier("booru.serverEngine")
+                    if let effectiveServerType {
+                        Label(effectiveServerType.title, systemImage: effectiveServerType.icon).foregroundStyle(.secondary)
+                    } else if !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(L10n.text("Select the server type for this address."))
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                } header: { Text(L10n.text("Connection")) }
+                if case .booru(let engine) = effectiveServerType {
                     Section {
                         DisclosureGroup(isExpanded: $showOptions) {
                             TextField(L10n.text("Name (Optional)"), text: $name).accessibilityIdentifier("booru.serverName")
@@ -110,36 +164,45 @@ struct BooruServerEditor: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button(L10n.text("Cancel")) { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Save"), action: save).disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (!isComicsAddress && engine == nil)).accessibilityIdentifier("booru.serverSave") }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(L10n.text("Save"), action: save)
+                            .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || effectiveServerType == nil)
+                            .accessibilityIdentifier("booru.serverSave")
+                    }
                 }
                 .sheet(isPresented: $validating) { if let server { BooruValidationView(server: server) } }
                 .onAppear {
                     guard !initialized else { return }; initialized = true
                     guard let server else { return }
-                    name = server.displayName; address = server.baseURL.absoluteString; engineChoice = server.engine; showOptions = true
+                    name = server.displayName; address = server.baseURL.absoluteString; serverTypeChoice = .booru(server.engine); showOptions = true
                     do { let credentials = try BooruKeychain.read(serverID: server.id); account = credentials.account; apiKey = credentials.apiKey }
                     catch { self.error = error.localizedDescription }
                 }
         }
     }
     private func save() {
-        if isComicsAddress {
-            if env.verifySite(input: address) { dismiss() }
-            return
+        guard let effectiveServerType else { return }
+        switch effectiveServerType {
+        case .comics:
+            if env.verifySite(input: address) {
+                dismiss()
+            } else {
+                self.error = L10n.text("This address is not supported. Check the website address and try again.")
+            }
+        case .booru(let engine):
+            do {
+                let url = try BooruServer.validatedURL(address)
+                let displayName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let value = BooruServer(id: server?.id ?? UUID().uuidString, name: displayName.isEmpty ? (url.host ?? url.absoluteString) : displayName, baseURL: url, engine: engine)
+                guard !store.servers.contains(where: { $0.id != value.id && $0.baseURL == url }) else { throw BooruError.duplicateServer }
+                let credentials = BooruCredentials(account: account.trimmingCharacters(in: .whitespacesAndNewlines), apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
+                guard credentials.account.isEmpty == credentials.apiKey.isEmpty else { throw BooruError.authentication }
+                try BooruKeychain.save(credentials, serverID: value.id)
+                try store.saveServer(value)
+                if server == nil { try store.setSelectedServers(store.selectedServerIDs + [value.id]) }
+                dismiss()
+            } catch { self.error = error.localizedDescription }
         }
-        do {
-            let url = try BooruServer.validatedURL(address)
-            guard let engine else { return }
-            let displayName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            let value = BooruServer(id: server?.id ?? UUID().uuidString, name: displayName.isEmpty ? (url.host ?? url.absoluteString) : displayName, baseURL: url, engine: engine)
-            guard !store.servers.contains(where: { $0.id != value.id && $0.baseURL == url }) else { throw BooruError.duplicateServer }
-            let credentials = BooruCredentials(account: account.trimmingCharacters(in: .whitespacesAndNewlines), apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
-            guard credentials.account.isEmpty == credentials.apiKey.isEmpty else { throw BooruError.authentication }
-            try BooruKeychain.save(credentials, serverID: value.id)
-            try store.saveServer(value)
-            if server == nil { try store.setSelectedServers(store.selectedServerIDs + [value.id]) }
-            dismiss()
-        } catch { self.error = error.localizedDescription }
     }
 }
 
@@ -222,7 +285,7 @@ struct BooruMoreView: View {
                 }.accessibilityIdentifier("settings.clearCache")
             } header: { Text(L10n.text("Data & Storage")) } footer: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(L10n.text("Booru favorites, tags, artists and history are stored separately from Hitomi, and separately for each server."))
+                    Text(L10n.text("Booru favorites, tags, artists and history are stored separately from manga mode, and separately for each server."))
                     Text(L10n.text("Previews use up to 256 MB and viewer images use up to 512 MB of on-device cache. Two images before and after the current work are preloaded. These caches stay out of iCloud and can be cleared here."))
                 }
             }
@@ -255,7 +318,7 @@ struct WebsiteAddressSuggestion: Identifiable, Equatable {
         .init(host: "yande.re", name: "Yande.re", comics: false),
         .init(host: "konachan.com", name: "Konachan", comics: false),
         .init(host: "rule34.xxx", name: "Rule34", comics: false),
-        .init(host: "hitomi.la", name: "Hitomi", comics: true)
+        .init(host: "manga.la", name: "Manga", comics: true)
     ]
     static func matches(_ input: String, includesComics: Bool, comicsOnly: Bool = false) -> [Self] {
         var prefix = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

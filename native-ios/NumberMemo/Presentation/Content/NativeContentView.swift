@@ -5,7 +5,7 @@ import GRDB
 struct ContentEntryView: View {
     @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
-    var initialUrl: String = HitomiUrls.home
+    var initialUrl: String = MangaUrls.home
     var embedded = false
     var body: some View {
         if !env.isSiteVerified {
@@ -22,8 +22,8 @@ struct ContentEntryView: View {
             }
         } else if env.useEmbeddedBrowser {
             if embedded {
-                NavigationStack { InAppHitomiBrowserView(initialUrl: initialUrl, embedded: true).appRootHeader("Explore") }
-            } else { InAppHitomiBrowserView(initialUrl: initialUrl, embedded: false) }
+                NavigationStack { InAppMangaBrowserView(initialUrl: initialUrl, embedded: true).appRootHeader("Explore") }
+            } else { InAppMangaBrowserView(initialUrl: initialUrl, embedded: false) }
         } else {
             #if DEBUG
             if ContentUITestSupport.enabled {
@@ -72,11 +72,11 @@ public struct NativeContentView: View {
         }
     }
 
-    public init(initialUrl: String = HitomiUrls.home, embedded: Bool = false) {
-        self.init(initialUrl: initialUrl, source: HitomiContentSource.shared, embedded: embedded)
+    public init(initialUrl: String = MangaUrls.home, embedded: Bool = false) {
+        self.init(initialUrl: initialUrl, source: MangaContentSource.shared, embedded: embedded)
     }
 
-    init(initialUrl: String = HitomiUrls.home, source: any ContentProviding, savesProgress: Bool = true, embedded: Bool = false, initialQuery: String? = nil, images: PageImageStore? = nil) {
+    init(initialUrl: String = MangaUrls.home, source: any ContentProviding, savesProgress: Bool = true, embedded: Bool = false, initialQuery: String? = nil, images: PageImageStore? = nil) {
         self.embedded = embedded
         initialRoute = initialQuery.map(ContentRoute.query) ?? ContentRoute.initial(initialUrl)
         self.source = source
@@ -98,7 +98,7 @@ public struct NativeContentView: View {
                 }
         }
         .sheet(item: $presentedGallery) { gallery in
-            NativeContentView(initialUrl: HitomiUrls.galleryUrl(for: gallery.id), source: source,
+            NativeContentView(initialUrl: MangaUrls.galleryUrl(for: gallery.id), source: source,
                               savesProgress: savesProgress, images: images)
                 .environment(\.discoveryContext, gallery.context)
                 .presentationDetents([.large]).presentationDragIndicator(.visible)

@@ -96,7 +96,7 @@ final class LibraryCloudSync {
             guard await availableContainer() == container, generation == accessGeneration,
                   enabled, account == accountID, let currentToken = FileManager.default.ubiquityIdentityToken,
                   Self.digest(try NSKeyedArchiver.archivedData(withRootObject: currentToken, requiringSecureCoding: false)) == accountID else { return }
-            let adapter = LibrarySyncAdapter(hitomi: env.database, booru: env.booru, hitomiDefaults: defaults, booruDefaults: ReaderPreferences.booruDefaults)
+            let adapter = LibrarySyncAdapter(manga: env.database, booru: env.booru, mangaDefaults: defaults, booruDefaults: ReaderPreferences.booruDefaults)
             // Take a fresh snapshot AFTER file I/O so edits made while downloading win.
             cloudBytes = incoming.storedBytes
             cloudDocumentCount = incoming.documentCount

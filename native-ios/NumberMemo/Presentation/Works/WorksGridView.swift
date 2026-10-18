@@ -66,7 +66,7 @@ public struct WorksGridView: View {
                                     .onTapGesture {
                                         if selecting {
                                             if selection.contains(work.galleryId) { selection.remove(work.galleryId) } else { selection.insert(work.galleryId) }
-                                        } else { openHitomi(for: work.galleryId) }
+                                        } else { openManga(for: work.galleryId) }
                                     }
                                     .overlay(alignment: .topTrailing) {
                                         if selecting { Image(systemName: selection.contains(work.galleryId) ? "checkmark.circle.fill" : "circle").font(.title2).foregroundStyle(.white, .blue).padding(10).allowsHitTesting(false) }
@@ -256,8 +256,8 @@ public struct WorksGridView: View {
         }
     }
 
-    private func openHitomi(for galleryId: Int64) {
-        let urlString = "https://hitomi.la/reader/\(galleryId).html#1"
+    private func openManga(for galleryId: Int64) {
+        let urlString = "\(MangaUrls.home)reader/\(galleryId).html#1"
         activeBrowserUrl = urlString
     }
 

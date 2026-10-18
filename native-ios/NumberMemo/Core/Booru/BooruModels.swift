@@ -1,9 +1,9 @@
 import Foundation
 
 enum AppMode: String, CaseIterable, Identifiable {
-    case hitomi, booru
+    case manga, booru
     var id: String { rawValue }
-    var title: String { L10n.text(self == .hitomi ? "Comics Mode" : "Image Mode") }
+    var title: String { L10n.text(self == .manga ? "Comics Mode" : "Image Mode") }
 }
 
 enum BooruEngine: String, Codable, CaseIterable, Identifiable, Sendable {

@@ -39,7 +39,22 @@ public final class VioletImportService: Sendable {
 
     public static func isDataDb(at path: String) -> Bool {
         guard let db = try? openReadOnlyDb(at: path) else { return false }
-        return (try? db.read { try $0.tableExists("HitomiColumnModel") }) ?? false
+        return (try? db.read { try findCatalogTable(in: $0) != nil }) ?? false
+    }
+
+    private static func findCatalogTable(in db: Database) throws -> String? {
+        if try db.tableExists("MangaColumnModel") { return "MangaColumnModel" }
+        let tables = try String.fetchAll(db, sql: "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+        for t in tables {
+            if t.hasSuffix("ColumnModel") { return t }
+        }
+        for t in tables {
+            let columns = try db.columns(in: t).map(\.name)
+            if columns.contains("Id") && columns.contains("Title") && columns.contains("Artists") {
+                return t
+            }
+        }
+        return nil
     }
 
     // MARK: - Safe Column Helpers (Never throw 'try!' on mixed types)
@@ -241,6 +256,12 @@ public final class VioletImportService: Sendable {
         }
 
         let src = try Self.openReadOnlyDb(at: path)
+        let tableName = try src.read { db -> String in
+            guard let name = try Self.findCatalogTable(in: db) else {
+                throw DatabaseError(resultCode: .SQLITE_ERROR, message: "Catalog table not found")
+            }
+            return name
+        }
         let chunkSize = 400
         var matchedTotal = 0
 
@@ -251,7 +272,7 @@ public final class VioletImportService: Sendable {
 
             let sql = """
             SELECT Id, Title, Type, Artists, Characters, Groups, Language, Series, Tags, Published
-            FROM HitomiColumnModel
+            FROM \(tableName)
             WHERE Id IN (\(placeholders))
             """
 
@@ -301,6 +322,12 @@ public final class VioletImportService: Sendable {
 
     public func importDataDb(path: String, progress: (@Sendable (Int) -> Void)? = nil) throws -> Int {
         let src = try Self.openReadOnlyDb(at: path)
+        let tableName = try src.read { db -> String in
+            guard let name = try Self.findCatalogTable(in: db) else {
+                throw DatabaseError(resultCode: .SQLITE_ERROR, message: "Catalog table not found")
+            }
+            return name
+        }
         let pageSize = 1000
         var lastId: Int64 = 0
         var total = 0
@@ -309,7 +336,7 @@ public final class VioletImportService: Sendable {
             let chunk = try src.read { db in
                 let sql = """
                 SELECT Id, Title, Type, Artists, Characters, Groups, Language, Series, Tags, Published
-                FROM HitomiColumnModel
+                FROM \(tableName)
                 WHERE Id > ?
                 ORDER BY Id ASC
                 LIMIT \(pageSize)

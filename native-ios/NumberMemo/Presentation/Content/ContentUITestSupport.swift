@@ -14,9 +14,9 @@ enum ContentUITestSupport {
         }
         env.isOnboardingCompleted = !ProcessInfo.processInfo.arguments.contains("--onboarding-test")
         if !ProcessInfo.processInfo.arguments.contains("--onboarding-test") && !ProcessInfo.processInfo.arguments.contains("--comics-setup-test") {
-            _ = env.verifySite(input: "hitomi.la")
+            _ = env.verifySite(input: "manga.la")
         }
-        if !BooruUITestSupport.enabled && !BooruUITestSupport.liveEnabled { env.mode = .hitomi }
+        if !BooruUITestSupport.enabled && !BooruUITestSupport.liveEnabled { env.mode = .manga }
         if BooruUITestSupport.enabled {
             env.mode = .booru
             if !ProcessInfo.processInfo.arguments.contains("--onboarding-test") && !ProcessInfo.processInfo.arguments.contains("--no-sites-test") {

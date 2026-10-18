@@ -10,7 +10,7 @@ public struct AppRootTabView: View {
 
     public var body: some View {
         RetainedModeContainer(mode: env.mode,
-            hitomi: AnyView(hitomiTabs.environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()),
+            manga: AnyView(mangaTabs.environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()),
             booru: AnyView(BooruRootView(selectedTab: $selectedTab).environment(env).environment(env.booru).environment(\.locale, Locale(identifier: L10n.language)).clearTopScrollEdge()))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
@@ -31,7 +31,7 @@ public struct AppRootTabView: View {
         }
     }
 
-    private var hitomiTabs: some View { ComicsRootTabs(selection: $selectedTab) }
+    private var mangaTabs: some View { ComicsRootTabs(selection: $selectedTab) }
 
     private func setupApp() {
         #if DEBUG
@@ -126,7 +126,7 @@ extension View {
 /// alone leaves a second tab bar in the accessibility tree on recent iOS versions.
 private struct RetainedModeContainer: UIViewControllerRepresentable {
     let mode: AppMode
-    let hitomi: AnyView
+    let manga: AnyView
     let booru: AnyView
     func makeUIViewController(context: Context) -> RetainedModeController { RetainedModeController() }
     func sizeThatFits(_ proposal: ProposedViewSize, uiViewController: RetainedModeController, context: Context) -> CGSize? {
@@ -134,7 +134,7 @@ private struct RetainedModeContainer: UIViewControllerRepresentable {
         return CGSize(width: width, height: height)
     }
     func updateUIViewController(_ controller: RetainedModeController, context: Context) {
-        controller.update(mode: mode, hitomi: hitomi, booru: booru)
+        controller.update(mode: mode, manga: manga, booru: booru)
     }
 }
 
@@ -145,7 +145,7 @@ private final class RetainedModeController: UIViewController {
     private var transitionSnapshot: UIView?
     override var childForStatusBarHidden: UIViewController? { hosts[selected] }
     override var childForStatusBarStyle: UIViewController? { hosts[selected] }
-    func update(mode: AppMode, hitomi: AnyView, booru: AnyView) {
+    func update(mode: AppMode, manga: AnyView, booru: AnyView) {
         let changed = selected != mode
         var snapshot: UIView?
         if changed {
@@ -157,7 +157,7 @@ private final class RetainedModeController: UIViewController {
         }
         selected = mode
         if hosts[mode] == nil {
-            let host = UIHostingController(rootView: mode == .hitomi ? hitomi : booru)
+            let host = UIHostingController(rootView: mode == .manga ? manga : booru)
             addChild(host)
             host.view.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(host.view)
@@ -265,7 +265,7 @@ private struct ComicsRootTabs: View {
     @Environment(AppEnvironment.self) private var env
     @Binding var selection: AppTab
     var body: some View {
-        AppTabLayout(selection: $selection, mode: .hitomi,
+        AppTabLayout(selection: $selection, mode: .manga,
             saved: NavigationStack {
                 FoldersView()
                     .safeAreaInset(edge: .top) { if !env.isSiteVerified { ComicsConnectionCard().padding(.horizontal) } }

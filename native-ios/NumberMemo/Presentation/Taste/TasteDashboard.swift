@@ -12,10 +12,10 @@ struct TasteDashboard: View {
     @State private var saveFeedback: WorkSaveFeedback?
     @State private var opened: TasteRecommendation?
     @State private var detail: TasteTag?
-    private var sources: [String] { mode == .comics ? ["https://hitomi.la"] : env.booru.selectedServers.map(\.canonicalAddress) }
+    private var sources: [String] { mode == .comics ? ["https://manga.la"] : env.booru.selectedServers.map(\.canonicalAddress) }
     private var source: String { sources.first ?? "" }
     private var feed: TasteFeedState { env.taste.feed(mode, sources: sources) }
-    private var columns: [GridItem] { WorkGridLayout.columns(typeSize.isAccessibilitySize ? 1 : env.gridColumns(for: mode == .booru ? .booru : .hitomi)) }
+    private var columns: [GridItem] { WorkGridLayout.columns(typeSize.isAccessibilitySize ? 1 : env.gridColumns(for: mode == .booru ? .booru : .manga)) }
 
     var body: some View {
         ScrollView {

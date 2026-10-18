@@ -3,7 +3,7 @@ import WebKit
 import CryptoKit
 
 /// Browser validation, API requests and media share one profile per Booru server.
-/// Hitomi's default WebKit profile and shared URLSession cookie jar are never used.
+/// Manga mode's default WebKit profile and shared URLSession cookie jar are never used.
 @MainActor
 enum BooruBrowserSession {
     private static var stores: [String: WKWebsiteDataStore] = [:]

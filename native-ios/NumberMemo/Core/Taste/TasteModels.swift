@@ -73,7 +73,7 @@ struct TasteItem: Codable, Hashable, Sendable {
     var key: String { source + "#" + String(id) }
     var eligibleTags: [String] { TasteTagPolicy.filter(tags, metadata: metadata) }
     static func comic(_ id: Int64, tags: String? = nil) -> Self {
-        .init(source: "https://hitomi.la", id: id, tags: (tags ?? "").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        .init(source: "https://manga.la", id: id, tags: (tags ?? "").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) })
     }
 }
 
@@ -189,7 +189,7 @@ struct TasteControl: Codable, Equatable, Sendable {
         func matches(_ exclusion: String) -> Bool {
             let blocked = Self.normalizeAnalysisExclusion(exclusion, mode: mode)
             if normalized == blocked { return true }
-            // Older Hitomi metadata/imports stored tag values without namespaces.
+            // Older metadata/imports stored tag values without namespaces.
             // Match those exact legacy values, never a different explicit namespace.
             guard mode == .comics, !normalized.contains(":"),
                   let colon = blocked.firstIndex(of: ":"),

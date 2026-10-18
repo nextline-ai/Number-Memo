@@ -128,7 +128,7 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(store.favorites(serverIDs: ["gelbooru"], folderID: "site:" + BooruServer.presets[1].canonicalAddress).count, 1)
     }
 
-    func testAnimeBoxesMergeIsIdempotentAndPreservesFoldersAndHitomi() throws {
+    func testAnimeBoxesMergeIsIdempotentAndPreservesFoldersAndManga() throws {
         let defaults = ReaderPreferences.booruDefaults
         let previous = defaults.object(forKey: "search.retentionDays")
         defaults.removeObject(forKey: "search.retentionDays")
@@ -136,8 +136,8 @@ final class BooruLibraryTests: XCTestCase {
         let store = try BooruStore()
         for server in BooruServer.presets { try store.saveServer(server) }
         let backup = try AnimeBoxesBackup.parse(BooruUITestSupport.importFixture)
-        let hitomi = try AppDatabase.inMemory()
-        _ = try hitomi.upsertWork(galleryId: 201, title: "Separate")
+        let manga = try AppDatabase.inMemory()
+        _ = try manga.upsertWork(galleryId: 201, title: "Separate")
         let first = try store.importAnimeBoxes(backup, options: .init())
         XCTAssertEqual(first.added, 2)
         XCTAssertEqual(store.selectedServerIDs, ["danbooru", "gelbooru"])
@@ -156,7 +156,7 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(store.blacklist(serverID: "danbooru"), "spoilers")
         XCTAssertEqual(store.history(serverID: "gelbooru"), ["scenery"], "Imported history is retained indefinitely by default")
         XCTAssertEqual(store.savedTags(serverID: "danbooru", kind: "search"), ["scenery"])
-        XCTAssertEqual(try hitomi.listWorks().map(\.galleryId), [201])
+        XCTAssertEqual(try manga.listWorks().map(\.galleryId), [201])
     }
 
     func testImportedFavoriteIndexSurvivesReopeningAndTracksRemoval() throws {
@@ -208,7 +208,7 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(env.mode, .booru)
         XCTAssertEqual(env.gridColumns, 0)
         XCTAssertFalse(env.isSiteVerified)
-        env.mode = .hitomi
+        env.mode = .manga
         XCTAssertEqual(env.gridColumns, 0)
         env.gridColumns = 4; env.appTheme = .light
         env.defaultTags = "tag:scenery"; env.defaultExcludedTags = "tag:spoilers"
@@ -216,7 +216,7 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(env.gridColumns, 0)
         XCTAssertEqual(env.appTheme, .dark)
         env.gridColumns = 5; env.appTheme = .system
-        env.mode = .hitomi
+        env.mode = .manga
         XCTAssertEqual(env.gridColumns, 4)
         XCTAssertEqual(env.appTheme, .light)
         let restored = AppEnvironment(database: db, browserPreferences: defaults)
@@ -228,7 +228,7 @@ final class BooruLibraryTests: XCTestCase {
         XCTAssertEqual(restored.appTheme, .system)
     }
 
-    func testHitomiDefaultTagsComposeWithoutLosingLanguageArtistOrSort() {
+    func testMangaDefaultTagsComposeWithoutLosingLanguageArtistOrSort() {
         let original = GalleryQuery(language: "japanese", artist: "sample", text: "tag:scenery character:sample", sort: .week)
         let result = original.applyingDefaults(tags: "tag:scenery\ntag:landscape", excluded: "tag:spoilers -tag:gore")
         XCTAssertEqual(result.text, "tag:scenery character:sample tag:landscape -tag:spoilers -tag:gore")

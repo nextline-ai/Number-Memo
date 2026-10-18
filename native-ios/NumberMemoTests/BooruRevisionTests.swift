@@ -7,10 +7,10 @@ final class BooruRevisionTests: XCTestCase {
 
     func testAddressSuggestionsStartAtOneLetterWithoutConnectingAnything() {
         XCTAssertTrue(WebsiteAddressSuggestion.matches("", includesComics: true).isEmpty)
-        XCTAssertEqual(WebsiteAddressSuggestion.matches("h", includesComics: true).map(\.host), ["hitomi.la"])
-        XCTAssertTrue(WebsiteAddressSuggestion.matches("h", includesComics: false).isEmpty)
+        XCTAssertEqual(WebsiteAddressSuggestion.matches("m", includesComics: true).map(\.host), ["manga.la"])
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("m", includesComics: false).isEmpty)
         XCTAssertEqual(WebsiteAddressSuggestion.matches("https://d", includesComics: true).map(\.host), ["danbooru.donmai.us"])
-        XCTAssertTrue(WebsiteAddressSuggestion.matches("https://hitomi.la", includesComics: true).isEmpty)
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("https://manga.la", includesComics: true).isEmpty)
         XCTAssertTrue(WebsiteAddressSuggestion.matches("g", includesComics: true, comicsOnly: true).isEmpty)
     }
     func testSafeOnlySitesDoNotReceiveGeneratedRatingFilters() {
@@ -84,12 +84,21 @@ final class BooruRevisionTests: XCTestCase {
         XCTAssertTrue(empty.selectedServerIDs.isEmpty)
     }
 
-    func testComicsSetupRecognizesOnlySupportedHomeAddresses() {
-        for address in ["hitomi.la", "https://hitomi.la/", " HITOMI.LA ", "https://hitomi.la:443"] {
+    func testComicsSetupSupportsAnyValidHomeAddress() {
+        for address in ["manga.la", "https://manga.la/", " MANGA.LA ", "https://manga.la:443", "https://custommanga.com", "my-comics.org", "http://anothercomic.net"] {
             XCTAssertTrue(AppEnvironment.supportsComicsAddress(address), address)
         }
-        for address in ["", "safebooru.org", "hitomi.la.example.com", "https://hitomi.la@other.example", "http://hitomi.la", "https://hitomi.la/posts", "https://hitomi.la?site=other", "https://hitomi.la:123"] {
+        for address in ["", "   ", "not_a_domain", "https://", "https://manga.la@other.example", "ftp://manga.la"] {
             XCTAssertFalse(AppEnvironment.supportsComicsAddress(address), address)
+        }
+    }
+
+    func testComicsDomainAutoDetection() {
+        for address in ["manga.la", "https://manga.la/", " MANGA.LA ", "https://comics.la", "test.la"] {
+            XCTAssertTrue(BooruServerEditor.isComicsDomain(address), address)
+        }
+        for address in ["", "safebooru.org", "custommanga.com", "danbooru.donmai.us"] {
+            XCTAssertFalse(BooruServerEditor.isComicsDomain(address), address)
         }
     }
 
@@ -98,11 +107,15 @@ final class BooruRevisionTests: XCTestCase {
         let preferences = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { preferences.removePersistentDomain(forName: name) }
         let env = AppEnvironment(database: try AppDatabase.inMemory(), browserPreferences: preferences)
-        XCTAssertFalse(env.verifySite(input: "incorrect.invalid"))
+        XCTAssertFalse(env.verifySite(input: "not_a_domain"))
         XCTAssertFalse(env.isSiteVerified)
-        XCTAssertTrue(env.verifySite(input: "hitomi.la"))
-        XCTAssertFalse(env.verifySite(input: "incorrect.invalid"))
+        XCTAssertTrue(env.verifySite(input: "manga.la"))
+        XCTAssertFalse(env.verifySite(input: "not_a_domain"))
         XCTAssertTrue(env.isSiteVerified)
+        XCTAssertEqual(env.mangaSiteAddress, "manga.la")
+        XCTAssertTrue(env.verifySite(input: "https://custom-manga.org/"))
+        XCTAssertTrue(env.isSiteVerified)
+        XCTAssertEqual(env.mangaSiteAddress, "custom-manga.org")
     }
 
     func testLegacyHTMLListingDetailTagsAndNotes() throws {

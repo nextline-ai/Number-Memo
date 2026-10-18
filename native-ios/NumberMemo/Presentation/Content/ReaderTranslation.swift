@@ -318,7 +318,7 @@ final class LiveTextCanvasView: UIView, ImageAnalysisInteractionDelegate, UIGest
     }
 }
 
-/// Shared bounded decoding and viewport crop for both Hitomi and Booru translation.
+/// Shared bounded decoding and viewport crop for both manga and Booru translation.
 enum ReaderTranslationImage {
     static func decode(source: CGImageSource, rect: CGRect) throws -> UIImage {
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [

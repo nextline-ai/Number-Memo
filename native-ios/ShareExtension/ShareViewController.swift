@@ -198,7 +198,7 @@ final class ShareViewController: UIViewController, UITableViewDataSource, UITabl
     }
 
     private func parseGalleryIds(_ text: String) -> [Int64] {
-        let pattern = #"hitomi(?:\.la|-la\.translate\.goog)/(?:galleries|reader)/(\d{4,10})(?:\.html)?|hitomi(?:\.la|-la\.translate\.goog)/[^/\s]+/[^/\s]*-(\d{4,10})\.html"#
+        let pattern = #"(?:(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/)?(?:galleries|reader)/(\d{4,10})(?:\.html)?|(?:(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/)?[^/\s]+/[^/\s]*-(\d{4,10})\.html"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return [] }
         let ns = text as NSString
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))

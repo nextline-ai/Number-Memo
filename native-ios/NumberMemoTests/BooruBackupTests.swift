@@ -75,8 +75,8 @@ final class BooruBackupTests: XCTestCase {
         let name = "backup-sync-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
-        let a = LibrarySyncAdapter(hitomi: try .inMemory(), booru: restored, hitomiDefaults: defaults, booruDefaults: defaults)
-        let b = LibrarySyncAdapter(hitomi: try .inMemory(), booru: try BooruStore(), hitomiDefaults: defaults, booruDefaults: defaults)
+        let a = LibrarySyncAdapter(manga: try .inMemory(), booru: restored, mangaDefaults: defaults, booruDefaults: defaults)
+        let b = LibrarySyncAdapter(manga: try .inMemory(), booru: try BooruStore(), mangaDefaults: defaults, booruDefaults: defaults)
         var ledger = LibrarySyncLedger()
         ledger.capture(try a.snapshot(), device: "A")
         try b.apply(ledger.changes)

@@ -67,7 +67,7 @@ struct RecommendationService {
     }
     @MainActor
     static func load(mode: TasteMode, snapshot: TasteSnapshot, report: TasteReport?, env: AppEnvironment, language: String,
-                     booruSource: any BooruProviding = BooruClient.shared, comicSource: any ContentProviding = HitomiContentSource.shared, sourceAddress: String? = nil, sourceAddresses: [String]? = nil, preferencesOverride: [String: RecommendationPreferences]? = nil, cursor: RecommendationCursor = .init(), excluding: Set<String> = [], shuffled: Bool = false, seedOffset: Int = 0, requestTimeout: TimeInterval = 35) async throws -> TasteRecommendations {
+                     booruSource: any BooruProviding = BooruClient.shared, comicSource: any ContentProviding = MangaContentSource.shared, sourceAddress: String? = nil, sourceAddresses: [String]? = nil, preferencesOverride: [String: RecommendationPreferences]? = nil, cursor: RecommendationCursor = .init(), excluding: Set<String> = [], shuffled: Bool = false, seedOffset: Int = 0, requestTimeout: TimeInterval = 35) async throws -> TasteRecommendations {
         guard env.taste.control.enabled else { return .init() }
         func settings(for source: String) -> RecommendationPreferences {
             if let value = preferencesOverride?[source] { return value }
@@ -184,9 +184,9 @@ struct RecommendationService {
             }
 
         } else if env.isSiteVerified {
-            let preferences = settings(for: "https://hitomi.la")
+            let preferences = settings(for: "https://manga.la")
             var fetched = Set<Int64>()
-            for seed in seeds("https://hitomi.la") {
+            for seed in seeds("https://manga.la") {
                 activeSeeds.insert(seed.id)
                 guard !cursor.finished.contains(seed.id) else { continue }
                 let page = cursor.pages[seed.id, default: 0]
@@ -197,7 +197,7 @@ struct RecommendationService {
                     let batch = try await comicSource.list(query, offset: page * 24, count: 24)
                     let fingerprint = batch.ids.map(String.init).joined(separator: ",")
                     var ids: [Int64] = []
-                    for id in batch.ids where fetched.insert(id).inserted && !excluding.contains("https://hitomi.la#" + String(id)) {
+                    for id in batch.ids where fetched.insert(id).inserted && !excluding.contains("https://manga.la#" + String(id)) {
                         if try env.database.getWork(galleryId: id) == nil { ids.append(id) }
                     }
                     let pendingIDs = ids
@@ -209,7 +209,7 @@ struct RecommendationService {
                         let id = gallery.id
                         try Task.checkCancellation()
                         guard try env.database.getWork(galleryId: id) == nil else { continue }
-                        let item = TasteItem(source: "https://hitomi.la", id: id, tags: gallery.tags)
+                        let item = TasteItem(source: "https://manga.la", id: id, tags: gallery.tags)
                         guard item.eligibleTags.contains(seed.name), !excluding.contains(item.key) else { continue }
                         let ignored = Set(item.eligibleTags.filter { !env.taste.control.allows($0, source: item.source, mode: mode) }.map(TasteControl.normalizeExclusion))
                         output.items.append(.init(item: item, post: nil, gallery: gallery, reason: seed, score: score(item, tags: tags, ignoring: ignored), rankingTags: Set(item.eligibleTags).filter { !ignored.contains(TasteControl.normalizeExclusion($0)) }))
@@ -218,7 +218,7 @@ struct RecommendationService {
                     output.cursor.fingerprints[seed.id] = fingerprint
                     output.cursor.pages[seed.id] = page + 1
                 } catch is CancellationError { throw CancellationError() }
-                catch { if !output.failures.contains("hitomi.la") { output.failures.append("hitomi.la") } }
+                catch { if !output.failures.contains("manga.la") { output.failures.append("manga.la") } }
             }
         }
         output.cursor.hasMore = activeSeeds.contains { !output.cursor.finished.contains($0) || !(output.cursor.pendingPosts[$0] ?? []).isEmpty }

@@ -30,7 +30,7 @@ enum TasteSources {
         #if DEBUG
         if ContentUITestSupport.enabled { return ContentUITestSupport.source }
         #endif
-        return HitomiContentSource.shared
+        return MangaContentSource.shared
     }
     static let images = PageImageStore(source: comic)
 }
@@ -163,8 +163,8 @@ struct TasteOpenedWork: View {
                     return .recommended(recommendation.reason.name, session: feed.discoverySession)
                 })
                 .environment(env.booru).environment(\.discoveryContext, context)
-        } else if item.item.source == "https://hitomi.la" {
-            ContentEntryView(initialUrl: HitomiUrls.galleryUrl(for: item.item.id))
+        } else if item.item.source == "https://manga.la" {
+            ContentEntryView(initialUrl: MangaUrls.galleryUrl(for: item.item.id))
                 .environment(\.discoveryContext, context)
         } else {
             NavigationStack {
@@ -183,10 +183,10 @@ private struct TasteWorkPresentation: ViewModifier {
     var context: (TasteRecommendation) -> DiscoveryContext
     private func selection(comics: Bool) -> Binding<TasteRecommendation?> {
         Binding(get: {
-            guard let item, (item.item.source == "https://hitomi.la") == comics else { return nil }
+            guard let item, (item.item.source == "https://manga.la") == comics else { return nil }
             return item
         }, set: { next in
-            if next != nil || item.map({ ($0.item.source == "https://hitomi.la") == comics }) == true { item = next }
+            if next != nil || item.map({ ($0.item.source == "https://manga.la") == comics }) == true { item = next }
         })
     }
     func body(content: Content) -> some View {

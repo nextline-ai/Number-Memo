@@ -3,12 +3,12 @@ import WebKit
 
 /// Emergency website access, independent of the native metadata and image adapters.
 /// Restores the WKWebView approach from main without its reader-specific DOM scripts.
-struct InAppHitomiBrowserView: View {
+struct InAppMangaBrowserView: View {
     @Environment(\.dismiss) private var dismiss
     let embedded: Bool
     @State private var model: EmbeddedBrowserModel
 
-    init(initialUrl: String = HitomiUrls.home, embedded: Bool = false) {
+    init(initialUrl: String = MangaUrls.home, embedded: Bool = false) {
         self.embedded = embedded
         _model = State(initialValue: EmbeddedBrowserModel(initialUrl: initialUrl))
     }
@@ -24,7 +24,7 @@ struct InAppHitomiBrowserView: View {
                 VStack(spacing: 2) {
                     Text(model.title.isEmpty ? L10n.text("Built-in Browser") : model.title)
                         .font(.subheadline.bold()).lineLimit(1)
-                    Text(model.address?.host ?? "hitomi.la").font(.caption).foregroundStyle(.secondary)
+                    Text(model.address?.host ?? "manga.la").font(.caption).foregroundStyle(.secondary)
                         .accessibilityIdentifier("browser.address")
                         .accessibilityValue(model.address?.absoluteString ?? model.initialUrl)
                 }
@@ -59,7 +59,7 @@ struct InAppHitomiBrowserView: View {
                             Text(model.address?.absoluteString ?? model.initialUrl)
                             if let address = model.address { ShareLink(item: address) }
                         } label: { Image(systemName: "info.circle").frame(width: 32, height: 32) }
-                            .accessibilityLabel(model.address?.host ?? "hitomi.la")
+                            .accessibilityLabel(model.address?.host ?? "manga.la")
                             .accessibilityIdentifier("browser.address")
                             .accessibilityValue(model.address?.absoluteString ?? model.initialUrl)
                     }

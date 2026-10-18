@@ -1,8 +1,8 @@
 import Foundation
 import CryptoKit
 
-actor HitomiContentSource: ContentProviding {
-    static let shared = HitomiContentSource()
+actor MangaContentSource: ContentProviding {
+    static let shared = MangaContentSource()
     private let transport: ContentTransport
     private let base = "https://ltn.gold-usergeneratedcontent.net/"
     private var documents: [Int64: (NativeGallery, Date)] = [:]
@@ -41,7 +41,7 @@ actor HitomiContentSource: ContentProviding {
             let value = character == " " ? "_" : character == "." ? "dot" : String(character)
             return value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
         }.joined(separator: "/")
-        guard let url = URL(string: "https://tagindex.hitomi.la/" + field + "/" + chars + ".json") else { throw ContentError.invalidQuery }
+        guard let url = URL(string: "https://tagindex.manga.la/" + field + "/" + chars + ".json") else { throw ContentError.invalidQuery }
         return url
     }
 

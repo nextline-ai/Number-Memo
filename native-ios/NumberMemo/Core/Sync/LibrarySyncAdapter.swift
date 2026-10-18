@@ -3,19 +3,19 @@ import GRDB
 
 /// Explicit allowlists keep caches, API keys, cookies, onboarding and device layout local.
 struct LibrarySyncAdapter {
-    let hitomi: AppDatabase
+    let manga: AppDatabase
     let booru: BooruStore
-    let hitomiDefaults: UserDefaults
+    let mangaDefaults: UserDefaults
     let booruDefaults: UserDefaults
-    static let commonPreferences = ["site_verified", "app.language", "app_theme", "booru.app_theme", "hitomi.defaultTags", "hitomi.defaultExcludedTags", "search.retentionDays", "search.rememberHistory", "reader.translationLanguage"]
+    static let commonPreferences = ["site_verified", "app.language", "app_theme", "booru.app_theme", "manga.defaultTags", "manga.defaultExcludedTags", "search.retentionDays", "search.rememberHistory", "reader.translationLanguage"]
     static let booruPreferences = ["search.retentionDays", "reader.translationLanguage", "booru.rememberHistory", "booru.rating", "booru.showNotes"]
     static let columns: [String: [String]] = [
-        "hitomi.library_order": ["key", "value"],
-        "hitomi.folders": ["sync_id", "name", "description", "color", "sort_order", "created_at", "violet_group_id"],
-        "hitomi.works": ["gallery_id", "title", "artists", "language", "type", "series", "groups", "tags", "note", "bookmarked_at", "published_at", "metadata_source", "catalog_matched", "thumb_page"],
-        "hitomi.folder_works": ["folder_id", "work_id", "added_at"],
-        "hitomi.artists": ["name", "kind", "note", "bookmarked_at"],
-        "hitomi.search_history": ["query", "used_at"], "hitomi.saved_searches": ["query"],
+        "manga.library_order": ["key", "value"],
+        "manga.folders": ["sync_id", "name", "description", "color", "sort_order", "created_at", "violet_group_id"],
+        "manga.works": ["gallery_id", "title", "artists", "language", "type", "series", "groups", "tags", "note", "bookmarked_at", "published_at", "metadata_source", "catalog_matched", "thumb_page"],
+        "manga.folder_works": ["folder_id", "work_id", "added_at"],
+        "manga.artists": ["name", "kind", "note", "bookmarked_at"],
+        "manga.search_history": ["query", "used_at"], "manga.saved_searches": ["query"],
         "booru.servers": ["id", "payload", "position"], "booru.folders": ["id", "name", "color", "position"],
         "booru.favorites": ["server_id", "post_id", "payload", "saved_at", "folder_id"],
         "booru.history": ["server_id", "query", "used_at"], "booru.saved_tags": ["server_id", "name", "kind"],
@@ -24,7 +24,7 @@ struct LibrarySyncAdapter {
 
     private func assignFolderIdentities() throws {
         // Also assigns identities to legacy imports and share-extension-created folders.
-        try hitomi.dbWriter.write { db in
+        try manga.dbWriter.write { db in
             for row in try Row.fetchAll(db, sql: "SELECT id, name FROM folders WHERE sync_id IS NULL") {
                 let name: String = row["name"]
                 try db.execute(sql: "UPDATE folders SET sync_id = ? WHERE id = ?", arguments: [name == "미분류" ? "unsorted" : UUID().uuidString, row["id"] as Int64])
@@ -34,10 +34,10 @@ struct LibrarySyncAdapter {
 
     func snapshot() throws -> [String: LibrarySyncRow] {
         try assignFolderIdentities()
-        var rows = try hitomi.dbWriter.read { db -> [LibrarySyncRow] in
+        var rows = try manga.dbWriter.read { db -> [LibrarySyncRow] in
             var result: [LibrarySyncRow] = []
-            for (table, columns) in Self.columns where table.hasPrefix("hitomi.") {
-                let local = String(table.dropFirst(7))
+            for (table, columns) in Self.columns where table.hasPrefix("manga.") {
+                let local = String(table.dropFirst(6))
                 let sql = local == "folder_works"
                     ? "SELECT f.sync_id AS folder_id, w.gallery_id AS work_id, fw.added_at FROM folder_works fw JOIN folders f ON f.id = fw.folder_id JOIN works w ON w.id = fw.work_id"
                     : "SELECT \(columns.joined(separator: ",")) FROM \(local)"
@@ -76,7 +76,7 @@ struct LibrarySyncAdapter {
             }
             return result
         }
-        for (mode, defaults, keys) in [("hitomi", hitomiDefaults, Self.commonPreferences), ("booru", booruDefaults, Self.booruPreferences)] {
+        for (mode, defaults, keys) in [("manga", mangaDefaults, Self.commonPreferences), ("booru", booruDefaults, Self.booruPreferences)] {
             for key in keys {
                 if let value = defaults.object(forKey: key) {
                     let data = try PropertyListSerialization.data(fromPropertyList: ["value": value], format: .binary, options: 0)
@@ -101,10 +101,10 @@ struct LibrarySyncAdapter {
     func apply(_ changes: [String: LibrarySyncChange]) throws {
         try assignFolderIdentities()
         let values = Array(changes.values)
-        try hitomi.dbWriter.write { db in
+        try manga.dbWriter.write { db in
             // Remove dependent links before parents; never replace a whole database.
             for table in ["folder_works", "artists", "works", "folders", "search_history", "saved_searches", "library_order"] {
-                for change in values where change.deleted && change.row.table == "hitomi." + table {
+                for change in values where change.deleted && change.row.table == "manga." + table {
                     var row = change.row
                     if table == "folders", row.values["sync_id"]?.string == "unsorted" { continue }
                     if table == "folder_works" {
@@ -115,7 +115,7 @@ struct LibrarySyncAdapter {
                 }
             }
             for table in ["folders", "works", "artists", "folder_works", "search_history", "saved_searches", "library_order"] {
-                for change in values.sorted(by: { $0.row.key < $1.row.key }) where !change.deleted && change.row.table == "hitomi." + table {
+                for change in values.sorted(by: { $0.row.key < $1.row.key }) where !change.deleted && change.row.table == "manga." + table {
                     var row = change.row
                     if table == "folders", let uid = row.values["sync_id"]?.string, let name = row.values["name"]?.string {
                         if let conflict = try String.fetchOne(db, sql: "SELECT sync_id FROM folders WHERE name = ?", arguments: [name]), conflict != uid {
@@ -194,7 +194,7 @@ struct LibrarySyncAdapter {
         for change in values where change.row.table.hasPrefix("preferences.") {
             let isBooru = change.row.table == "preferences.booru"
             guard let key = change.row.values["key"]?.string, (isBooru ? Self.booruPreferences : Self.commonPreferences).contains(key) else { continue }
-            let defaults = isBooru ? booruDefaults : hitomiDefaults
+            let defaults = isBooru ? booruDefaults : mangaDefaults
             if change.deleted { defaults.removeObject(forKey: key) }
             else if let data = change.row.values["value"]?.data, let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] { defaults.set(plist["value"], forKey: key) }
         }

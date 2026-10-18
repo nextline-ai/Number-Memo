@@ -67,7 +67,7 @@ struct TasteReportsView: View {
         .tint(TastePresentation.accent)
         .accessibilityIdentifier(period == .month ? "taste.monthly" : "taste.weekly")
         .toolbar { ToolbarItem(placement: .principal) {
-            AppModeSwitch(previewMode: Binding(get: { mode == .booru ? .booru : .hitomi }, set: { mode = $0 == .booru ? .booru : .comics }))
+            AppModeSwitch(previewMode: Binding(get: { mode == .booru ? .booru : .manga }, set: { mode = $0 == .booru ? .booru : .comics }))
         } }
         .task(id: requestKey) { await load() }
     }

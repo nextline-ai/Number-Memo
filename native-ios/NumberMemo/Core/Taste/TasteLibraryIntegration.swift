@@ -26,11 +26,11 @@ extension BooruStore {
 extension AppDatabase {
     var tasteStore: TasteStore { .init(database: dbWriter, mode: .comics) }
     func observeTaste(_ gallery: NativeGallery, context: DiscoveryContext) throws {
-        try tasteStore.record(.open, item: .init(source: "https://hitomi.la", id: gallery.id, tags: gallery.tags), context: context)
+        try tasteStore.record(.open, item: .init(source: "https://manga.la", id: gallery.id, tags: gallery.tags), context: context)
     }
     func recordTasteSearch(_ context: DiscoveryContext) throws {
         guard context.origin == .search, !context.included.isEmpty else { return }
-        try tasteStore.record(.search, item: .init(source: "https://hitomi.la", id: 0, tags: Array(context.included)), context: context)
+        try tasteStore.record(.search, item: .init(source: "https://manga.la", id: 0, tags: Array(context.included)), context: context)
     }
     func tasteLibrary() throws -> [TasteItem] {
         try dbWriter.read { db in try Row.fetchAll(db, sql: "SELECT gallery_id, tags FROM works").map { TasteItem.comic($0["gallery_id"], tags: $0["tags"]) } }

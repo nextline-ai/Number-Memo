@@ -144,7 +144,7 @@ public struct OnboardingView: View {
                     Spacer()
                     Image(systemName: "plus").frame(width: 32)
                 }
-                Image(systemName: tutorialMode == .hitomi ? "book.fill" : "photo.fill")
+                Image(systemName: tutorialMode == .manga ? "book.fill" : "photo.fill")
                     .font(.system(size: 64)).foregroundStyle(.tint).contentTransition(.symbolEffect(.replace))
                 Text(tutorialMode.title).font(.title2.bold())
             }.padding(24).background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))

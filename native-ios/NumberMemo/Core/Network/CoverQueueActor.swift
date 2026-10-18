@@ -16,7 +16,7 @@ public final class CoverQueueState: @unchecked Sendable {
 public actor CoverQueueActor {
     private let database: AppDatabase
     private let thumbsDir: URL
-    private let images = PageImageStore(source: HitomiContentSource.shared)
+    private let images = PageImageStore(source: MangaContentSource.shared)
     private var isRunning: Bool = false
     private var isPaused: Bool = false
     private var kickAgain: Bool = false
@@ -130,12 +130,12 @@ public actor CoverQueueActor {
             return
         }
 
-        let gallery = try await HitomiContentSource.shared.gallery(galleryId)
+        let gallery = try await MangaContentSource.shared.gallery(galleryId)
         guard try database.getWork(galleryId: galleryId) != nil else { return }
         _ = try database.upsertWork(
             galleryId: galleryId, title: needTitle ? gallery.title : nil,
             artists: gallery.artists.joined(separator: ", "), language: gallery.language,
-            type: gallery.type, tags: gallery.tags.joined(separator: ", "), metadataSource: "hitomi"
+            type: gallery.type, tags: gallery.tags.joined(separator: ", "), metadataSource: "manga"
         )
         if needCover, !gallery.pages.isEmpty {
             let page = min(max(1, existing?.thumbPage ?? 1), gallery.pages.count)

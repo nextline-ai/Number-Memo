@@ -33,7 +33,7 @@ final class LibrarySyncTests: XCTestCase {
             let name = "library-sync-tests-" + UUID().uuidString; suites.append(name)
             return UserDefaults(suiteName: name)!
         }
-        return LibrarySyncAdapter(hitomi: try .inMemory(), booru: try BooruStore(), hitomiDefaults: defaults(), booruDefaults: defaults())
+        return LibrarySyncAdapter(manga: try .inMemory(), booru: try BooruStore(), mangaDefaults: defaults(), booruDefaults: defaults())
     }
     private func exchange(_ a: LibrarySyncAdapter, _ b: LibrarySyncAdapter, _ la: inout LibrarySyncLedger, _ lb: inout LibrarySyncLedger) throws {
         la.capture(try a.snapshot(), device: "A"); lb.capture(try b.snapshot(), device: "B")
@@ -97,43 +97,43 @@ final class LibrarySyncTests: XCTestCase {
 
     @MainActor func testReloadDoesNotTurnAbsentDefaultsIntoLocalEdits() throws {
         let a = try adapter()
-        let env = AppEnvironment(database: a.hitomi, browserPreferences: a.hitomiDefaults, booru: a.booru)
+        let env = AppEnvironment(database: a.manga, browserPreferences: a.mangaDefaults, booru: a.booru)
         env.reloadSyncedPreferences()
-        for key in LibrarySyncAdapter.commonPreferences { XCTAssertNil(a.hitomiDefaults.object(forKey: key), key) }
+        for key in LibrarySyncAdapter.commonPreferences { XCTAssertNil(a.mangaDefaults.object(forKey: key), key) }
     }
 
     @MainActor func testPreferencesConnectionAndResetSyncWithoutDeviceSettings() throws {
         let a = try adapter(), b = try adapter()
-        a.hitomiDefaults.set(true, forKey: "site_verified")
-        a.hitomiDefaults.set("ja", forKey: "app.language")
-        a.hitomiDefaults.set(false, forKey: LibraryCloudSync.enabledKey)
+        a.mangaDefaults.set(true, forKey: "site_verified")
+        a.mangaDefaults.set("ja", forKey: "app.language")
+        a.mangaDefaults.set(false, forKey: LibraryCloudSync.enabledKey)
         a.booruDefaults.set("en", forKey: "reader.translationLanguage")
         a.booruDefaults.set(5, forKey: "grid_columns")
         var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
         try exchange(a, b, &la, &lb)
-        XCTAssertTrue(b.hitomiDefaults.bool(forKey: "site_verified"))
-        XCTAssertEqual(b.hitomiDefaults.string(forKey: "app.language"), "ja")
+        XCTAssertTrue(b.mangaDefaults.bool(forKey: "site_verified"))
+        XCTAssertEqual(b.mangaDefaults.string(forKey: "app.language"), "ja")
         XCTAssertEqual(b.booruDefaults.string(forKey: "reader.translationLanguage"), "en")
-        XCTAssertNil(b.hitomiDefaults.object(forKey: LibraryCloudSync.enabledKey))
+        XCTAssertNil(b.mangaDefaults.object(forKey: LibraryCloudSync.enabledKey))
         XCTAssertNil(b.booruDefaults.object(forKey: "grid_columns"))
-        a.hitomiDefaults.removeObject(forKey: "app.language")
+        a.mangaDefaults.removeObject(forKey: "app.language")
         try exchange(a, b, &la, &lb)
-        XCTAssertNil(b.hitomiDefaults.object(forKey: "app.language"))
+        XCTAssertNil(b.mangaDefaults.object(forKey: "app.language"))
     }
 
     func testComicsFolderRenameColorAndOrderConvergeAcrossDevices() throws {
         let a = try adapter(), b = try adapter()
-        let first = try XCTUnwrap(a.hitomi.createFolder(name: "First").id)
-        let second = try XCTUnwrap(a.hitomi.createFolder(name: "Second").id)
+        let first = try XCTUnwrap(a.manga.createFolder(name: "First").id)
+        let second = try XCTUnwrap(a.manga.createFolder(name: "Second").id)
         var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
         try exchange(a, b, &la, &lb)
-        try a.hitomi.renameFolder(id: first, name: "Renamed")
-        try a.hitomi.setFolderColor(id: first, color: 0xFF123456)
-        try a.hitomi.reorderFolders([second, first])
+        try a.manga.renameFolder(id: first, name: "Renamed")
+        try a.manga.setFolderColor(id: first, color: 0xFF123456)
+        try a.manga.reorderFolders([second, first])
         try exchange(a, b, &la, &lb)
-        let names = try b.hitomi.listFolders().map(\.name)
+        let names = try b.manga.listFolders().map(\.name)
         XCTAssertEqual(Array(names.prefix(2)), ["Second", "Renamed"])
-        XCTAssertEqual(try b.hitomi.listFolders().first { $0.name == "Renamed" }?.color, 0xFF123456)
+        XCTAssertEqual(try b.manga.listFolders().first { $0.name == "Renamed" }?.color, 0xFF123456)
         let before = lb.changes
         lb.capture(try b.snapshot(), device: "B")
         XCTAssertEqual(lb.changes, before)
@@ -141,25 +141,25 @@ final class LibrarySyncTests: XCTestCase {
 
     func testPersistedLedgerRejectsStalePeerAfterOfflineDeleteAndRestart() throws {
         let a = try adapter(), b = try adapter()
-        _ = try a.hitomi.upsertWork(galleryId: 42, title: "Saved")
+        _ = try a.manga.upsertWork(galleryId: 42, title: "Saved")
         var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
         try exchange(a, b, &la, &lb)
         let stale = lb.changes
-        try a.hitomi.deleteWork(galleryId: 42)
+        try a.manga.deleteWork(galleryId: 42)
         la.capture(try a.snapshot(), device: "A")
         let data = try JSONEncoder().encode(la)
         la = try JSONDecoder().decode(LibrarySyncLedger.self, from: data)
         la.merge(stale)
         try a.apply(la.changes)
-        XCTAssertNil(try a.hitomi.getWork(galleryId: 42))
+        XCTAssertNil(try a.manga.getWork(galleryId: 42))
         lb.merge(la.changes); try b.apply(lb.changes)
-        XCTAssertNil(try b.hitomi.getWork(galleryId: 42))
+        XCTAssertNil(try b.manga.getWork(galleryId: 42))
     }
 
     func testCorruptPeerDoesNotBlockHealthyCloudDocuments() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let a = try adapter(); _ = try a.hitomi.upsertWork(galleryId: 42)
+        let a = try adapter(); _ = try a.manga.upsertWork(galleryId: 42)
         var ledger = LibrarySyncLedger(); ledger.capture(try a.snapshot(), device: "A")
         try CloudLibraryFiles.write(JSONEncoder().encode(LibrarySyncDocument(changes: ledger.changes)), to: root.appendingPathComponent("library-healthy.json"))
         try Data("interrupted".utf8).write(to: root.appendingPathComponent("library-broken.json"))
@@ -169,19 +169,19 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("library-broken.json").path))
         XCTAssertThrowsError(try CloudLibraryFiles.read(in: root))
         let b = try adapter(); try b.apply(result.documents[0].changes)
-        XCTAssertNotNil(try b.hitomi.getWork(galleryId: 42))
+        XCTAssertNotNil(try b.manga.getWork(galleryId: 42))
     }
 
     func testConcurrentFolderRemovalKeepsNewlySavedWorks() throws {
         let a = try adapter(), b = try adapter()
-        let folder = try a.hitomi.createFolder(name: "Reading")
+        let folder = try a.manga.createFolder(name: "Reading")
         var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
         try exchange(a, b, &la, &lb)
-        let other = try XCTUnwrap(b.hitomi.listFolders().first { $0.name == "Reading" })
-        _ = try b.hitomi.upsertWork(galleryId: 99, folderId: other.id)
-        try a.hitomi.dbWriter.write { try $0.execute(sql: "DELETE FROM folders WHERE id = ?", arguments: [folder.id]) }
+        let other = try XCTUnwrap(b.manga.listFolders().first { $0.name == "Reading" })
+        _ = try b.manga.upsertWork(galleryId: 99, folderId: other.id)
+        try a.manga.dbWriter.write { try $0.execute(sql: "DELETE FROM folders WHERE id = ?", arguments: [folder.id]) }
         try exchange(a, b, &la, &lb)
-        XCTAssertEqual(try b.hitomi.getWork(galleryId: 99)?.folders.first?.name, "미분류")
+        XCTAssertEqual(try b.manga.getWork(galleryId: 99)?.folders.first?.name, "미분류")
     }
 
     func testLiveICloudContainerUploadAndCoordinatedRead() async throws {
@@ -191,7 +191,7 @@ final class LibrarySyncTests: XCTestCase {
         let root = try XCTUnwrap(container, "The signed iCloud container must be available")
             .appendingPathComponent("Documents/SyncDiagnostics/" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let row = LibrarySyncRow(table: "hitomi.saved_searches", values: ["query": .text("sync diagnostic")])
+        let row = LibrarySyncRow(table: "manga.saved_searches", values: ["query": .text("sync diagnostic")])
         var ledger = LibrarySyncLedger(); ledger.capture([row.key: row], device: "diagnostic")
         let document = LibrarySyncDocument(changes: ledger.changes)
         let data = try JSONEncoder().encode(document)
@@ -228,25 +228,25 @@ final class LibrarySyncTests: XCTestCase {
 
     func testTwoDevicesMergeFoldersWorksSettingsAndOfflineDeletionWithoutLocalPaths() throws {
         let a = try adapter(), b = try adapter()
-        let fa = try a.hitomi.createFolder(name: "Art"), fb = try b.hitomi.createFolder(name: "Reading")
+        let fa = try a.manga.createFolder(name: "Art"), fb = try b.manga.createFolder(name: "Reading")
         XCTAssertEqual(fa.id, fb.id) // Local IDs collide, global folder identities must not.
-        _ = try a.hitomi.upsertWork(galleryId: 100, folderId: fa.id, title: "First")
-        _ = try b.hitomi.upsertWork(galleryId: 200, folderId: fb.id, title: "Second")
-        try a.hitomi.setThumb(galleryId: 100, status: "ready", path: "/private/device-a/cover.jpg")
-        a.hitomiDefaults.set(5, forKey: "grid_columns")
-        a.hitomiDefaults.set("tag:landscape", forKey: "hitomi.defaultTags")
+        _ = try a.manga.upsertWork(galleryId: 100, folderId: fa.id, title: "First")
+        _ = try b.manga.upsertWork(galleryId: 200, folderId: fb.id, title: "Second")
+        try a.manga.setThumb(galleryId: 100, status: "ready", path: "/private/device-a/cover.jpg")
+        a.mangaDefaults.set(5, forKey: "grid_columns")
+        a.mangaDefaults.set("tag:landscape", forKey: "manga.defaultTags")
         a.booruDefaults.set(true, forKey: "reader.keepAwake")
         var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
         try exchange(a, b, &la, &lb)
-        XCTAssertEqual(try a.hitomi.worksCount(), 2); XCTAssertEqual(try b.hitomi.worksCount(), 2)
-        XCTAssertEqual(try b.hitomi.getWork(galleryId: 100)?.folders.first?.name, "Art")
-        XCTAssertNil(try b.hitomi.getWork(galleryId: 100)?.thumbPath)
-        XCTAssertNil(b.hitomiDefaults.object(forKey: "grid_columns")); XCTAssertNil(b.booruDefaults.object(forKey: "reader.keepAwake"))
-        XCTAssertEqual(b.hitomiDefaults.string(forKey: "hitomi.defaultTags"), "tag:landscape")
-        try a.hitomi.deleteWork(galleryId: 100)
-        _ = try b.hitomi.upsertWork(galleryId: 300, folderId: fb.id)
+        XCTAssertEqual(try a.manga.worksCount(), 2); XCTAssertEqual(try b.manga.worksCount(), 2)
+        XCTAssertEqual(try b.manga.getWork(galleryId: 100)?.folders.first?.name, "Art")
+        XCTAssertNil(try b.manga.getWork(galleryId: 100)?.thumbPath)
+        XCTAssertNil(b.mangaDefaults.object(forKey: "grid_columns")); XCTAssertNil(b.booruDefaults.object(forKey: "reader.keepAwake"))
+        XCTAssertEqual(b.mangaDefaults.string(forKey: "manga.defaultTags"), "tag:landscape")
+        try a.manga.deleteWork(galleryId: 100)
+        _ = try b.manga.upsertWork(galleryId: 300, folderId: fb.id)
         try exchange(a, b, &la, &lb)
-        XCTAssertNil(try b.hitomi.getWork(galleryId: 100)); XCTAssertNotNil(try a.hitomi.getWork(galleryId: 300))
+        XCTAssertNil(try b.manga.getWork(galleryId: 100)); XCTAssertNotNil(try a.manga.getWork(galleryId: 300))
         let old = la.changes
         la.capture(try a.snapshot(), device: "A")
         XCTAssertEqual(old, la.changes, "Applying remote records must not create an endless echo")
@@ -276,20 +276,20 @@ final class LibrarySyncTests: XCTestCase {
     func testFreshDeviceDoesNotOverwriteExistingDefaultFolderColor() throws {
         let a = try adapter(), b = try adapter()
         try a.booru.setFolderColor("unsorted", color: 0xFFABCDEF)
-        let folder = try XCTUnwrap(a.hitomi.listFolders().first?.id)
-        try a.hitomi.setFolderColor(id: folder, color: 0xFF123456)
+        let folder = try XCTUnwrap(a.manga.listFolders().first?.id)
+        try a.manga.setFolderColor(id: folder, color: 0xFF123456)
         var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
         try exchange(a, b, &la, &lb)
         XCTAssertEqual(b.booru.folders().first?.color, 0xFFABCDEF)
-        XCTAssertEqual(try b.hitomi.listFolders().first?.color, 0xFF123456)
+        XCTAssertEqual(try b.manga.listFolders().first?.color, 0xFF123456)
     }
 
     func testFileRoundTripAndDeleteTombstoneDoesNotRetainWorkMetadata() throws {
         let a = try adapter()
-        _ = try a.hitomi.upsertWork(galleryId: 90, title: "Private title")
+        _ = try a.manga.upsertWork(galleryId: 90, title: "Private title")
         var ledger = LibrarySyncLedger(); ledger.capture(try a.snapshot(), device: "A")
-        try a.hitomi.deleteWork(galleryId: 90); ledger.capture(try a.snapshot(), device: "A")
-        let deletion = try XCTUnwrap(ledger.changes.values.first { $0.deleted && $0.row.table == "hitomi.works" })
+        try a.manga.deleteWork(galleryId: 90); ledger.capture(try a.snapshot(), device: "A")
+        let deletion = try XCTUnwrap(ledger.changes.values.first { $0.deleted && $0.row.table == "manga.works" })
         XCTAssertEqual(Set(deletion.row.values.keys), ["gallery_id"])
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -303,13 +303,13 @@ final class LibrarySyncTests: XCTestCase {
         defaults.set(3, forKey: "search.retentionDays")
         defer { if let previous { defaults.set(previous, forKey: "search.retentionDays") } else { defaults.removeObject(forKey: "search.retentionDays") } }
         let a = try adapter()
-        try a.hitomi.recordSearch("tag:landscape tag:sky")
-        try a.hitomi.toggleSavedSearch("tag:landscape tag:sky")
-        try a.hitomi.dbWriter.write { try $0.execute(sql: "UPDATE search_history SET used_at = ?", arguments: [Date().addingTimeInterval(-4 * 86400).timeIntervalSince1970]) }
-        XCTAssertTrue(try a.hitomi.searchHistory().isEmpty)
-        XCTAssertEqual(try a.hitomi.savedSearches(), ["tag:landscape tag:sky"])
-        try a.hitomi.clearSearchHistory()
-        XCTAssertEqual(try a.hitomi.savedSearches().count, 1)
+        try a.manga.recordSearch("tag:landscape tag:sky")
+        try a.manga.toggleSavedSearch("tag:landscape tag:sky")
+        try a.manga.dbWriter.write { try $0.execute(sql: "UPDATE search_history SET used_at = ?", arguments: [Date().addingTimeInterval(-4 * 86400).timeIntervalSince1970]) }
+        XCTAssertTrue(try a.manga.searchHistory().isEmpty)
+        XCTAssertEqual(try a.manga.savedSearches(), ["tag:landscape tag:sky"])
+        try a.manga.clearSearchHistory()
+        XCTAssertEqual(try a.manga.savedSearches().count, 1)
     }
     @MainActor func testBookmarkCopiesTheVisibleCoverIntoFolderPreviews() async throws {
         let env = AppEnvironment(database: try .inMemory(), browserPreferences: UserDefaults(suiteName: "cover-test-" + UUID().uuidString)!)

@@ -197,7 +197,7 @@ struct BooruCookiesView: View {
                         }
                     }
                 }
-            } header: { Text(server.displayName) } footer: { Text(L10n.text("Cookies are isolated from Hitomi and other Booru servers. Resetting signs you out of this server's validation browser.")) }
+            } header: { Text(server.displayName) } footer: { Text(L10n.text("Cookies are isolated from manga mode and other Booru servers. Resetting signs you out of this server's validation browser.")) }
             Section {
                 Button(L10n.text("Reset Cookies"), role: .destructive) { confirmReset = true }
                     .disabled(resetting).accessibilityIdentifier("booru.resetCookies")

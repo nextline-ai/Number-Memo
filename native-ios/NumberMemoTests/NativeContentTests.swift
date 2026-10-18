@@ -38,7 +38,7 @@ final class NativeContentTests: XCTestCase {
     }
 
     @MainActor func testBrowserRejectsUnsafeNavigationSchemesAndCredentials() {
-        for raw in ["https://hitomi.la/reader/123.html#1", "https://example.com/", "http://example.com/"] {
+        for raw in ["https://manga.la/reader/123.html#1", "https://example.com/", "http://example.com/"] {
             XCTAssertTrue(EmbeddedBrowserModel.allows(URL(string: raw)!))
         }
         for raw in ["javascript:alert(1)", "file:///tmp/private", "data:text/html,test", "https://user:password@example.com", "numbermemo://123"] {
@@ -98,7 +98,7 @@ final class NativeContentTests: XCTestCase {
         XCTAssertEqual(context.token, "female:sa")
         XCTAssertEqual(context.inserting(TagSuggestion(namespace: "female", name: "sample tag", count: 42)),
                        "language:korean  -female:sample_tag ")
-        for input in ["", "a", "female:", "12345", "female:sa ", "https://hitomi.la/reader/12345.html", "unknown:sa", "female:a:b"] {
+        for input in ["", "a", "female:", "12345", "female:sa ", "https://manga.la/reader/12345.html", "unknown:sa", "female:a:b"] {
             XCTAssertNil(TagCompletionContext(input), input)
         }
     }
@@ -113,19 +113,19 @@ final class NativeContentTests: XCTestCase {
     }
 
     func testSuggestionURLMatchesCharacterIndexAndPolicy() throws {
-        XCTAssertEqual(try HitomiContentSource.suggestionURL("language:KO").absoluteString,
-                       "https://tagindex.hitomi.la/language/k/o.json")
-        XCTAssertEqual(try HitomiContentSource.suggestionURL("a_b.c").path, "/global/a/_/b/dot/c.json")
-        XCTAssertThrowsError(try HitomiContentSource.suggestionURL("bad:aa"))
-        XCTAssertTrue(ContentTransport.allows(try HitomiContentSource.suggestionURL("language:ko")))
-        XCTAssertFalse(ContentTransport.allows(URL(string: "https://tagindex.hitomi.la.evil.example/a")!))
+        XCTAssertEqual(try MangaContentSource.suggestionURL("language:KO").absoluteString,
+                       "https://tagindex.manga.la/language/k/o.json")
+        XCTAssertEqual(try MangaContentSource.suggestionURL("a_b.c").path, "/global/a/_/b/dot/c.json")
+        XCTAssertThrowsError(try MangaContentSource.suggestionURL("bad:aa"))
+        XCTAssertTrue(ContentTransport.allows(try MangaContentSource.suggestionURL("language:ko")))
+        XCTAssertFalse(ContentTransport.allows(URL(string: "https://tagindex.manga.la.evil.example/a")!))
     }
 
     func testSuggestionCacheAvoidsRepeatedNetworkAndSkipsShortInput() async throws {
         SuggestionFixtureURLProtocol.reset()
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [SuggestionFixtureURLProtocol.self]
-        let source = HitomiContentSource(transport: ContentTransport(configuration: config))
+        let source = MangaContentSource(transport: ContentTransport(configuration: config))
         let first = try await source.suggestions(for: "language:ko")
         let second = try await source.suggestions(for: "language:KO")
         let skipped = try await source.suggestions(for: "k")
@@ -201,24 +201,24 @@ final class NativeContentTests: XCTestCase {
 
     func testRequestPolicyRejectsForeignHostsAndCredentials() {
         for raw in ["http://w1.gold-usergeneratedcontent.net/a", "https://w1.gold-usergeneratedcontent.net.evil.example/a",
-                    "https://user@w1.gold-usergeneratedcontent.net/a", "https://hitomi.la/", "https://example.com/"] {
+                    "https://user@w1.gold-usergeneratedcontent.net/a", "https://manga.la/", "https://example.com/"] {
             XCTAssertFalse(ContentTransport.allows(URL(string: raw)!))
         }
         XCTAssertTrue(ContentTransport.allows(URL(string: "https://a2.gold-usergeneratedcontent.net/a")!))
     }
 
     func testReaderRoutesUseTrustedHostAndPage() {
-        XCTAssertEqual(ContentRoute.initial("https://hitomi.la/reader/12345.html#7"), .reader(12345, 7))
-        XCTAssertEqual(ContentRoute.initial("https://hitomi.la/artist/a%20b-all.html"), .artist("a b"))
+        XCTAssertEqual(ContentRoute.initial("https://manga.la/reader/12345.html#7"), .reader(12345, 7))
+        XCTAssertEqual(ContentRoute.initial("https://manga.la/artist/a%20b-all.html"), .artist("a b"))
         XCTAssertNil(ContentRoute.initial("https://evil.example/reader/12345.html"))
     }
 
     func testRangeRequiresExactOffsets() throws {
         let url = URL(string: "https://ltn.gold-usergeneratedcontent.net/index-korean.nozomi")!
         let response = HTTPURLResponse(url: url, statusCode: 206, httpVersion: nil, headerFields: ["Content-Range": "bytes 4-11/100"])!
-        XCTAssertEqual(try HitomiContentSource.validateRange(response, start: 4, received: 8), 100)
-        XCTAssertThrowsError(try HitomiContentSource.validateRange(response, start: 0, received: 8))
-        XCTAssertThrowsError(try HitomiContentSource.validateRange(response, start: 4, received: 7))
+        XCTAssertEqual(try MangaContentSource.validateRange(response, start: 4, received: 8), 100)
+        XCTAssertThrowsError(try MangaContentSource.validateRange(response, start: 0, received: 8))
+        XCTAssertThrowsError(try MangaContentSource.validateRange(response, start: 4, received: 7))
     }
 
     func testBinaryDataRejectsTruncationAndOverflow() throws {
@@ -245,7 +245,7 @@ final class NativeContentTests: XCTestCase {
 final class NativeContentLiveTests: XCTestCase {
     @MainActor func testLiveBrowserLoadsWebsiteWithoutNativeAdapter() async throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["NUMBER_MEMO_LIVE_TESTS"] == "1")
-        let model = EmbeddedBrowserModel(initialUrl: HitomiUrls.home)
+        let model = EmbeddedBrowserModel(initialUrl: MangaUrls.home)
         model.start()
         for _ in 0..<150 {
             try await Task.sleep(for: .milliseconds(200))
@@ -253,7 +253,7 @@ final class NativeContentLiveTests: XCTestCase {
         }
         XCTAssertNil(model.error)
         XCTAssertFalse(model.loading)
-        XCTAssertEqual(model.webView.url?.host, "hitomi.la")
+        XCTAssertEqual(model.webView.url?.host, "manga.la")
         let ready = try await model.webView.evaluateJavaScript("document.readyState") as? String
         XCTAssertEqual(ready, "complete")
         let hasBody = try await model.webView.evaluateJavaScript("document.body != null && document.body.childElementCount > 0") as? Bool
@@ -263,13 +263,13 @@ final class NativeContentLiveTests: XCTestCase {
 
     func testLiveTagSuggestionsOnDevice() async throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["NUMBER_MEMO_LIVE_TESTS"] == "1")
-        let suggestions = try await HitomiContentSource().suggestions(for: "language:ko")
+        let suggestions = try await MangaContentSource().suggestions(for: "language:ko")
         XCTAssertTrue(suggestions.contains { $0.token == "language:korean" && $0.count > 0 })
     }
 
     func testLivePopularPeriodsOnDevice() async throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["NUMBER_MEMO_LIVE_TESTS"] == "1")
-        let source = HitomiContentSource()
+        let source = MangaContentSource()
         for sort in GallerySort.allCases where sort != .latest {
             let batch = try await source.list(GalleryQuery(sort: sort), offset: 0, count: 3)
             XCTAssertEqual(batch.ids.count, 3)
@@ -282,7 +282,7 @@ final class NativeContentLiveTests: XCTestCase {
 
     func testLiveMetadataImageDecodeAndSearchOnDevice() async throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["NUMBER_MEMO_LIVE_TESTS"] == "1")
-        let source = HitomiContentSource()
+        let source = MangaContentSource()
         let first = try await source.list(GalleryQuery(), offset: 0, count: 2)
         XCTAssertEqual(first.ids.count, 2)
         let next = try await source.list(GalleryQuery(), offset: 2, count: 2)

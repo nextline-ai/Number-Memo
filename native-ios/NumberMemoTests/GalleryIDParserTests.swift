@@ -3,26 +3,26 @@ import GRDB
 @testable import NumberMemo
 
 final class GalleryIDParserTests: XCTestCase {
-    func testStandardHitomiUrl() {
-        let url = "https://hitomi.la/galleries/1234567.html"
+    func testStandardMangaUrl() {
+        let url = "https://manga.la/galleries/1234567.html"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [1234567])
     }
 
     func testReaderUrl() {
-        let url = "https://hitomi.la/reader/9876543.html#1"
+        let url = "https://manga.la/reader/9876543.html#1"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [9876543])
     }
 
     func testTranslatedGoogleUrl() {
-        let url = "https://hitomi-la.translate.goog/galleries/2345678.html?_x_tr_sl=auto&_x_tr_tl=ko"
+        let url = "https://manga-la.translate.goog/galleries/2345678.html?_x_tr_sl=auto&_x_tr_tl=ko"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [2345678])
     }
 
     func testNestedGoogleTranslateUrl() {
-        let url = "https://translate.google.com/translate?u=https%3A%2F%2Fhitomi.la%2Fgalleries%2F3456789.html"
+        let url = "https://translate.google.com/translate?u=https%3A%2F%2Fmanga.la%2Fgalleries%2F3456789.html"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [3456789])
     }
@@ -33,8 +33,8 @@ final class GalleryIDParserTests: XCTestCase {
         XCTAssertEqual(ids, [123456, 7891011, 4567890])
     }
 
-    func testHitomiUrlWithYearInTitle() {
-        let text = "2024 Hitomi Comic https://hitomi.la/galleries/888888.html"
+    func testMangaUrlWithYearInTitle() {
+        let text = "2024 Manga Comic https://manga.la/galleries/888888.html"
         let ids = GalleryIDParser.parse(text)
         XCTAssertEqual(ids, [888888], "Should prioritize the gallery URL and ignore the year 2024")
     }

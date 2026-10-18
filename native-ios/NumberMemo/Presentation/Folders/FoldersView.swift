@@ -87,7 +87,7 @@ public struct FoldersView: View {
                             .font(.system(size: 17, weight: .medium))
                     }
                     .accessibilityLabel(L10n.text("Create Folder"))
-                    .accessibilityIdentifier("hitomi.createFolder")
+                    .accessibilityIdentifier("manga.createFolder")
 
                     Button {
                         showAddSheet = true
