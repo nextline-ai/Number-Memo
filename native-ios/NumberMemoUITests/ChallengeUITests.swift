@@ -124,7 +124,7 @@ final class ChallengeUITests: XCTestCase {
         XCTAssertFalse(app.switches["Replace Matching Challenges"].exists)
         screenshot(app, "Challenge backup")
     }
-    func testAdvancedRulesRemainAvailableAndDefaultRatingIsAll() {
+    func testAdvancedRulesRemainAvailableWithoutRatingSelector() {
         let app = launch()
         screenshot(app, "Challenge library")
         reveal(app, "challenge.new").tap()
@@ -147,9 +147,8 @@ final class ChallengeUITests: XCTestCase {
         reveal(app, "challenge.source").tap()
         XCTAssertFalse(app.buttons["Rating, All Ratings"].exists)
         element(app, "challenge.sourceDone").tap()
-        let rating = reveal(app, "booru.rating")
-        XCTAssertTrue(rating.label.contains("All Ratings"))
-        screenshot(app, "Single image rating filter")
+        XCTAssertFalse(element(app, "booru.rating").exists)
+        screenshot(app, "Reference search without rating selector")
     }
 
     func testExampleIsReusedAndCanBeDeletedFromVisibleMenu() {

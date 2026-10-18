@@ -88,7 +88,7 @@ final class TasteFeedState {
                 var value = try await env.taste.snapshot(mode, period: .recommendations, offset: 0)
                 try Task.checkCancellation()
                 guard generation == token else { return }
-                let addresses = mode == .comics ? ["https://manga.la"] : sourceAddresses ?? env.booru.selectedServers.map(\.canonicalAddress)
+                let addresses = mode == .comics ? [MangaUrls.source] : sourceAddresses ?? env.booru.selectedServers.map(\.canonicalAddress)
                 value.tags.removeAll { !addresses.contains($0.source) }
                 let control = env.taste.control
                 let preferences = Dictionary(uniqueKeysWithValues: addresses.map { ($0, control.preferences(source: $0)) })

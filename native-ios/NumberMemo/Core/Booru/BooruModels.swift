@@ -52,6 +52,8 @@ struct BooruServer: Codable, Identifiable, Hashable, Sendable {
         while parts.path.hasSuffix("/") { parts.path.removeLast() }
         return parts.string ?? url.absoluteString
     }
+
+    // Decoding legacy server metadata; never generates search tags.
     var usesModernRatings: Bool { engine == .danbooru || isGelbooruWebsite }
 
     #if DEBUG
@@ -106,32 +108,6 @@ struct BooruServer: Codable, Identifiable, Hashable, Sendable {
             else if !query.isEmpty { parts.queryItems?.append(.init(name: "tags", value: query)) }
         }
         return parts.url!
-    }
-}
-
-enum BooruRating: String, CaseIterable, Identifiable, Sendable {
-    case all, general, sensitive, questionable, explicit
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .all: return L10n.text("All Ratings")
-        case .general: return L10n.text("General / Safe")
-        case .sensitive: return L10n.text("Sensitive")
-        case .questionable: return L10n.text("Questionable")
-        case .explicit: return L10n.text("Explicit")
-        }
-    }
-    static func options(for servers: [BooruServer]) -> [Self] {
-        let rated = servers.filter { !$0.isSafeOnly }
-        guard !rated.isEmpty else { return [.all] }
-        return allCases.filter { $0 != .sensitive || rated.allSatisfy(\.usesModernRatings) }
-    }
-    func query(_ input: String, server: BooruServer) -> String {
-        // All means no generated rating tags and no client-side rejection of unrated legacy posts.
-        guard self != .all, !server.isSafeOnly else { return input }
-        let value = self == .general && !server.usesModernRatings ? "safe" : rawValue
-        let terms = input.split(whereSeparator: \.isWhitespace).filter { !$0.hasPrefix("rating:") && !$0.hasPrefix("-rating:") }
-        return (terms.map(String.init) + ["rating:" + value]).joined(separator: " ")
     }
 }
 
@@ -391,13 +367,6 @@ struct BooruFolder: Identifiable, Hashable, Sendable {
 extension BooruPost {
     func onServer(_ id: String) -> Self {
         Self(serverID: id, postID: postID, previewURL: previewURL, sampleURL: sampleURL, fileURL: fileURL, width: width, height: height, tags: tags, artists: artists, rating: rating, score: score, fileExtension: fileExtension, poolIDs: poolIDs, metadataTags: metadataTags, favoriteCount: favoriteCount, upvoteCount: upvoteCount, commentCount: commentCount)
-    }
-}
-
-extension BooruServer {
-    var isSafeOnly: Bool {
-        let host = baseURL.host?.lowercased() ?? ""
-        return host == "safebooru.org" || host == "www.safebooru.org" || host == "safebooru.donmai.us"
     }
 }
 

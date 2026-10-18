@@ -2,6 +2,17 @@ import XCTest
 @testable import NumberMemo
 
 final class TasteFeedTests: XCTestCase {
+    private var originalSite: String?
+    override func setUp() {
+        super.setUp()
+        originalSite = UserDefaults.standard.string(forKey: "manga.site_address")
+        UserDefaults.standard.set("comics.example", forKey: "manga.site_address")
+    }
+    override func tearDown() {
+        UserDefaults.standard.set(originalSite, forKey: "manga.site_address")
+        super.tearDown()
+    }
+
     @MainActor func testGoldOnlyRecommendationPagesAdvanceAndRepeatedRestrictedPagesStop() async throws {
         for repeatsRestrictedPage in [false, true] {
             let env = AppEnvironment.preview(), server = BooruServer.presets[0]
@@ -94,10 +105,10 @@ final class TasteFeedTests: XCTestCase {
     }
 
     @MainActor func testComicRecommendationsBatchSavedChecksAndRecheckAfterMetadata() async throws {
-        let env = AppEnvironment.preview(); env.isSiteVerified = true
+        let env = AppEnvironment.preview(); _ = env.verifySite(input: "comics.example")
         _ = try env.database.upsertWork(galleryId: 1)
         let source = SavingComicTasteSource(database: env.database)
-        let tag = TasteTag(source: "https://manga.la", name: "tag:scenery", general: 5)
+        let tag = TasteTag(source: "https://comics.example", name: "tag:scenery", general: 5)
         let snapshot = TasteSnapshot(tags: [tag], saves: 5, opens: 0, searches: 0, activity: [:], digest: "saved-checks", period: nil)
         let result = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "all", comicSource: source)
         let requested = await source.requested
@@ -107,7 +118,7 @@ final class TasteFeedTests: XCTestCase {
     }
 
     func testPrecomputedRecommendationScoresExactlyMatchTheOriginalFormula() {
-        let sources = ["https://one.example", "https://two.example", "https://manga.la"]
+        let sources = ["https://one.example", "https://two.example", "https://comics.example"]
         var tags: [TasteTag] = []
         for (sourceIndex, source) in sources.enumerated() {
             for index in 0..<18 {
@@ -186,7 +197,7 @@ final class TasteFeedTests: XCTestCase {
             var withoutIgnored = item; withoutIgnored.tags = ["blue_hair", "solo_artist"]
             XCTAssertEqual(RecommendationService.score(item, tags: [tag], ignoring: TasteControl().analysisExcluded(.booru)), RecommendationService.score(withoutIgnored, tags: [tag]))
         }
-        let comic = TasteItem(source: "https://manga.la", id: 1, tags: ["female:solo_female", "male:solo_male", "tag:digital", "tag:group", "artist:group", "tag:watercolor"])
+        let comic = TasteItem(source: "https://comics.example", id: 1, tags: ["female:solo_female", "male:solo_male", "tag:digital", "tag:group", "artist:group", "tag:watercolor"])
         let result = TasteAnalyzer.analyze([TasteEvent(kind: .seed, item: comic)], control: .init(), mode: .comics)
         XCTAssertEqual(Set(result.tags.map(\.name)), ["artist:group", "tag:watercolor"])
     }
@@ -323,10 +334,10 @@ final class TasteFeedTests: XCTestCase {
     func testExclusionsMatchWhitespaceWithoutRemovingOtherNamespaces() {
         let control = TasteControl()
         for tag in ["female:solo female", "female:solo_female", " FEMALE : solo\u{00a0}female ", "female:solo__female", "female:solo\tfemale"] {
-            XCTAssertFalse(control.allows(tag, source: "https://manga.la", mode: .comics), tag)
+            XCTAssertFalse(control.allows(tag, source: "https://comics.example", mode: .comics), tag)
         }
         for tag in ["artist:solo_female", "female:solo_female_artist", "tag:watercolor"] {
-            XCTAssertTrue(control.allows(tag, source: "https://manga.la", mode: .comics), tag)
+            XCTAssertTrue(control.allows(tag, source: "https://comics.example", mode: .comics), tag)
         }
     }
     func testLegacyUnqualifiedComicTagsAndUnicodeSpacingAreExcludedEverywhere() {
@@ -351,7 +362,7 @@ final class TasteFeedTests: XCTestCase {
         control.analysisExclusions = ["comics": ["female:solo_female", "male:solo_male", "tag:digital", "tag:group"]]
         control = try JSONDecoder().decode(TasteControl.self, from: JSONEncoder().encode(control))
         let actual = NativeGallery.parseTags([["tag": "sole female", "female": "1"], ["tag": "sole male", "male": "1"], ["tag": "watercolor"]])
-        let item = TasteItem(source: "https://manga.la", id: 1, tags: actual + ["sole female", "sole_male", "artist:solo_female", "female:sole_female_artist"])
+        let item = TasteItem(source: "https://comics.example", id: 1, tags: actual + ["sole female", "sole_male", "artist:solo_female", "female:sole_female_artist"])
         let event = TasteEvent(kind: .save, item: item, context: .init(origin: .search, query: "female:sole_female"))
         let period = DateInterval(start: .distantPast, end: .distantFuture)
         for range: DateInterval? in [nil, period] {
@@ -542,16 +553,16 @@ extension TasteFeedTests {
         } catch { XCTAssertTrue(error is URLError); XCTAssertFalse(error is UnsupportedBooruSort) }
     }
     @MainActor func testComicRecommendationLanguageAndRequiredTagsAreExplicit() async throws {
-        let env = AppEnvironment.preview(); env.isSiteVerified = true
+        let env = AppEnvironment.preview(); _ = env.verifySite(input: "comics.example")
         env.defaultTags = "implicit_tag"
         let source = CapturingComicTasteSource()
-        let tag = TasteTag(source: "https://manga.la", name: "tag:scenery", general: 5)
+        let tag = TasteTag(source: "https://comics.example", name: "tag:scenery", general: 5)
         let snapshot = TasteSnapshot(tags: [tag], saves: 5, opens: 0, searches: 0, activity: [:], digest: "language", period: nil)
         _ = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "korean", comicSource: source)
         var requests = await source.queries
         XCTAssertEqual(requests.last?.language, "all")
         XCTAssertFalse(requests.last?.text.contains("implicit_tag") ?? true)
-        env.taste.change { $0.setPreferences(.init(includedTags: ["tag:watercolor"], language: "japanese", sort: .month), source: "https://manga.la") }
+        env.taste.change { $0.setPreferences(.init(includedTags: ["tag:watercolor"], language: "japanese", sort: .month), source: "https://comics.example") }
         _ = try await RecommendationService.load(mode: .comics, snapshot: snapshot, report: nil, env: env, language: "korean", comicSource: source)
         requests = await source.queries
         XCTAssertEqual(requests.last?.language, "japanese")

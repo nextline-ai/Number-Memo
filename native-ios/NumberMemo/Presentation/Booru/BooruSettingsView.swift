@@ -319,8 +319,7 @@ struct WebsiteAddressSuggestion: Identifiable, Equatable {
         .init(host: "safebooru.donmai.us", name: "Safebooru Danbooru", comics: false),
         .init(host: "yande.re", name: "Yande.re", comics: false),
         .init(host: "konachan.com", name: "Konachan", comics: false),
-        .init(host: "rule34.xxx", name: "Rule34", comics: false),
-        .init(host: "manga.la", name: "Manga", comics: true)
+        .init(host: "rule34.xxx", name: "Rule34", comics: false)
     ]
     static func matches(_ input: String, includesComics: Bool, comicsOnly: Bool = false) -> [Self] {
         var prefix = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

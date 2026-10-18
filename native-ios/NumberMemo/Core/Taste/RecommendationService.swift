@@ -132,7 +132,6 @@ struct RecommendationService {
             return rotate(matching.filter { !$0.discovery }, count: 2) + rotate(matching.filter(\.discovery), count: 1)
         }
         if mode == .booru {
-            let rating = BooruRating(rawValue: ReaderPreferences.booruDefaults.string(forKey: "booru.rating") ?? "all") ?? .all
             let saved = env.booru.favoriteIDs
             // Each server owns its seed selection, cursor, filtering and timeout.
             // HTML-backed engines fetch fewer seeds because detail requests serialize in WebKit.
@@ -148,7 +147,7 @@ struct RecommendationService {
             await withTaskGroup(of: TasteRecommendations.self) { group in
                 for (server, selected, blacklist) in plans {
                     let preferences = settings(for: server.canonicalAddress)
-                    let scoped = selected.map { (seed: $0, key: server.id + "|" + server.engine.rawValue + "|" + rating.rawValue + "|" + $0.id) }
+                    let scoped = selected.map { (seed: $0, key: server.id + "|" + server.engine.rawValue + "|" + $0.id) }
                     activeSeeds.formUnion(scoped.map(\.key))
                     group.addTask { @MainActor in
                         var result = TasteRecommendations(); result.cursor = cursor
@@ -166,7 +165,7 @@ struct RecommendationService {
                                     // Give each listing the same document-loading allowance as Explore.
                                     // A slow detail page must not discard a successful listing.
                                     let batch = try await RecommendationDeadline.run(seconds: requestTimeout) {
-                                        try await BooruSortValidation.posts(source: booruSource, server: server, query: rating.query(query, server: server), page: page, sort: sort)
+                                        try await BooruSortValidation.posts(source: booruSource, server: server, query: query, page: page, sort: sort)
                                     }
                                     try Task.checkCancellation()
                                     env.booru.recordGoldRestrictions(serverID: server.id, postIDs: batch.goldRestrictedIDs)
@@ -183,7 +182,7 @@ struct RecommendationService {
                                     try Task.checkCancellation()
                                     guard env.booru.isVisible(post), !excluding.contains(server.canonicalAddress + "#" + String(post.postID)) else { continue }
                                     var names = Set(post.tags.map(TasteTagPolicy.normalize))
-                                    let needsDetails = !names.contains(seed.name) || !preferences.includedTags.allSatisfy(names.contains) || rating != .all && post.rating.isEmpty
+                                    let needsDetails = !names.contains(seed.name) || !preferences.includedTags.allSatisfy(names.contains)
                                     if server.engine.usesGelbooruPages && needsDetails {
                                         let remaining = detailBudget - Date().timeIntervalSince(detailStart)
                                         guard hydrated < 4, remaining > 0 else { deferred.append(post); continue }
@@ -198,7 +197,7 @@ struct RecommendationService {
                                         catch BooruPostAccessError.goldRequired { env.booru.recordGoldRestriction(unresolved); continue }
                                         catch { detailFailures = true; continue }
                                     }
-                                    guard env.booru.isVisible(post), !blacklist.contains(post), ratingAllows(rating, post: post, server: server) else { continue }
+                                    guard env.booru.isVisible(post), !blacklist.contains(post) else { continue }
                                     let item = TasteItem(source: server.canonicalAddress, id: post.postID, tags: post.tags, metadata: post.metadataTags ?? [])
                                     let eligible = Set(item.eligibleTags)
                                     guard eligible.contains(seed.name), preferences.includedTags.allSatisfy(names.contains) else { continue }
@@ -230,9 +229,9 @@ struct RecommendationService {
             }
 
         } else if env.isSiteVerified {
-            let preferences = settings(for: "https://manga.la")
+            let preferences = settings(for: MangaUrls.source)
             var fetched = Set<Int64>()
-            for seed in seeds("https://manga.la") {
+            for seed in seeds(MangaUrls.source) {
                 activeSeeds.insert(seed.id)
                 guard !cursor.finished.contains(seed.id) else { continue }
                 let page = cursor.pages[seed.id, default: 0]
@@ -242,7 +241,7 @@ struct RecommendationService {
                     let query = GalleryQuery(language: preferences.language, text: seed.name, sort: GallerySort(rawValue: preferences.sort.rawValue) ?? .latest).applyingDefaults(tags: preferences.includedTags.joined(separator: " "), excluded: env.defaultExcludedTags)
                     let batch = try await comicSource.list(query, offset: page * 24, count: 24)
                     let fingerprint = batch.ids.map(String.init).joined(separator: ",")
-                    let candidates = batch.ids.filter { fetched.insert($0).inserted && !excluding.contains("https://manga.la#" + String($0)) }
+                    let candidates = batch.ids.filter { fetched.insert($0).inserted && !excluding.contains(MangaUrls.source + "#" + String($0)) }
                     let saved = try savedComicIDs(candidates, database: env.database)
                     let ids = candidates.filter { !saved.contains($0) }
                     let pendingIDs = ids
@@ -257,7 +256,7 @@ struct RecommendationService {
                         let id = gallery.id
                         try Task.checkCancellation()
                         guard !savedAfterLoading.contains(id) else { continue }
-                        let item = TasteItem(source: "https://manga.la", id: id, tags: gallery.tags)
+                        let item = TasteItem(source: MangaUrls.source, id: id, tags: gallery.tags)
                         let eligible = Set(item.eligibleTags)
                         guard eligible.contains(seed.name), !excluding.contains(item.key) else { continue }
                         let rankingTags = eligible.filter { env.taste.control.allows($0, source: item.source, mode: mode) }
@@ -267,7 +266,7 @@ struct RecommendationService {
                     output.cursor.fingerprints[seed.id] = fingerprint
                     output.cursor.pages[seed.id] = page + 1
                 } catch is CancellationError { throw CancellationError() }
-                catch { if !output.failures.contains("manga.la") { output.failures.append("manga.la") } }
+                catch { if !output.failures.contains(MangaUrls.configuredHost) { output.failures.append(MangaUrls.configuredHost) } }
             }
         }
         output.cursor.hasMore = activeSeeds.contains { !output.cursor.finished.contains($0) || !(output.cursor.pendingPosts[$0] ?? []).isEmpty }
@@ -318,12 +317,7 @@ struct RecommendationService {
             return results.keys.sorted().compactMap { results[$0] }
         }
     }
-    static func ratingAllows(_ rating: BooruRating, post: BooruPost, server: BooruServer) -> Bool {
-        guard rating != .all, !server.isSafeOnly else { return true }
-        let expected: String
-        switch rating { case .general: expected = "g"; case .sensitive: expected = "s"; case .questionable: expected = "q"; case .explicit: expected = "e"; case .all: return true }
-        return post.rating == expected
-    }
+
 }
 
 /// A deadline must return even when a WebKit callback ignores task cancellation.

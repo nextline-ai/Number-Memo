@@ -7,7 +7,6 @@ struct BooruEmbeddedBrowserView: View {
     let query: String
     let poolID: Int64?
     let sort: BooruSort
-    let rating: BooruRating
     var preferredServerID: String?
     @State private var selectedID: String?
     @SwiftUI.AppStorage("booru.useEmbeddedBrowser", store: ReaderPreferences.booruDefaults) private var useEmbeddedBrowser = false
@@ -28,7 +27,7 @@ struct BooruEmbeddedBrowserView: View {
                     Button(L10n.text("Show Image Grid"), systemImage: "square.grid.2x2") { useEmbeddedBrowser = false }
                         .labelStyle(.iconOnly).accessibilityIdentifier("booru.nativeGrid")
                 }.font(.subheadline).padding(.horizontal, 20).frame(height: 44)
-                BooruWebsiteView(server: server, url: server.browsingURL(query: sort.query(rating.query(query, server: server), engine: server.engine), poolID: poolID))
+                BooruWebsiteView(server: server, url: server.browsingURL(query: sort.query(query, engine: server.engine), poolID: poolID))
                     .id(server.id)
             }
         } else { ContentUnavailableView(L10n.text("No Servers"), systemImage: "globe") }

@@ -42,7 +42,8 @@ final class ContentTransport: NSObject, URLSessionDataDelegate, @unchecked Senda
         guard url.scheme == "https", url.user == nil, url.password == nil,
               url.port == nil || url.port == 443, let host = url.host?.lowercased() else { return false }
         let configured = MangaUrls.configuredHost
-        if host == configured || host.hasSuffix("." + configured) || host == "tagindex.manga.la" { return true }
+        guard !configured.isEmpty else { return false }
+        if host == configured || host.hasSuffix("." + configured) { return true }
         return ["ltn", "tn", "atn", "btn", "w1", "w2", "a1", "a2"].contains { host == "\($0).gold-usergeneratedcontent.net" }
     }
 

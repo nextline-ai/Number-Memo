@@ -2,15 +2,10 @@ import SwiftUI
 
 /// Shared filtering for live results and saved folders; random searches are not taste evidence.
 enum ChallengeMediaFilter {
-    static func matches(_ post: BooruPost, tags: [String], rating: BooruRating, blacklist: String, safeOnly: Bool) -> Bool {
+    static func matches(_ post: BooruPost, tags: [String], blacklist: String) -> Bool {
         guard !BooruBlacklist(blacklist).contains(post) else { return false }
         let available = Set(post.tags.map { $0.lowercased() })
-        guard tags.allSatisfy({ available.contains($0.lowercased()) }) else { return false }
-        if rating == .all || safeOnly { return true }
-        let wanted: String
-        switch rating { case .general: wanted = "g"; case .sensitive: wanted = "s"; case .questionable: wanted = "q"; case .explicit: wanted = "e"; case .all: return true }
-        let actual = ["general": "g", "safe": "g", "sensitive": "s", "questionable": "q", "explicit": "e"][post.rating] ?? post.rating
-        return actual == wanted
+        return tags.allSatisfy({ available.contains($0.lowercased()) })
     }
 }
 
@@ -72,17 +67,20 @@ struct ChallengeFolderSource: BooruProviding {
     let source: any BooruProviding
     func posts(server: BooruServer, query: String, page: Int) async throws -> BooruBatch {
         let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
-        let ratingValue = terms.first { $0.hasPrefix("rating:") }.map { String($0.dropFirst(7)) }
-        let rating = ratingValue == "safe" ? BooruRating.general : BooruRating(rawValue: ratingValue ?? "all") ?? .all
-        let tags = terms.filter { !$0.hasPrefix("rating:") && !$0.hasPrefix("order:") && !$0.hasPrefix("sort:") }
+        let tags = terms.filter { !$0.hasPrefix("order:") && !$0.hasPrefix("sort:") }
         let popular = terms.contains("order:score") || terms.contains("sort:score:desc")
         let all = await MainActor.run {
             store.visibleFavorites(folderID: folderID).filter { post in
                 let available = Set(post.tags.map { $0.lowercased() })
                 let matches = tags.allSatisfy { term in
-                    term.hasPrefix("-") ? !available.contains(String(term.dropFirst()).lowercased()) : available.contains(term.lowercased())
+                    let negative = term.hasPrefix("-")
+                    let value = negative ? String(term.dropFirst()) : term
+                    let match = value.hasPrefix("rating:")
+                        ? value.dropFirst(7).lowercased() == post.rating.lowercased()
+                        : available.contains(value.lowercased())
+                    return negative ? !match : match
                 }
-                return matches && post.serverID == server.id && ChallengeMediaFilter.matches(post, tags: [], rating: rating, blacklist: store.blacklist(serverID: server.id), safeOnly: server.isSafeOnly)
+                return matches && post.serverID == server.id && ChallengeMediaFilter.matches(post, tags: [], blacklist: store.blacklist(serverID: server.id))
             }
         }
         let ordered = popular ? all.sorted { $0.score == $1.score ? $0.postID > $1.postID : $0.score > $1.score } : all

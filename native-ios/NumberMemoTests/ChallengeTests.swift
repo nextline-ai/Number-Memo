@@ -26,16 +26,9 @@ final class ChallengeTests: XCTestCase {
         let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(resumed)) as? [String: Any])
         XCTAssertNil(encoded["rating"])
         let controller = try ChallengeSessionController(game: restored)
-        XCTAssertEqual(controller.imageRating, .all)
-        controller.rating(.general); controller.draw(); controller.reveal()
-        XCTAssertEqual(controller.imageRating, .general)
+        controller.draw(); controller.reveal()
         XCTAssertEqual(controller.session.mission?.tags.count, 1)
         XCTAssertFalse(controller.session.mission!.tags.contains { $0.contains(":") })
-        controller.skip(); controller.draw()
-        XCTAssertEqual(controller.imageRating, .general, "Only the visible image filter controls rating, across missions")
-        let fresh = try ChallengeSessionController(game: restored)
-        XCTAssertEqual(fresh.imageRating, .all)
-        XCTAssertEqual(BooruRating.all.query("scenery", server: BooruServer.presets[0]), "scenery")
     }
     func testHelpTabsRoundTripAndLegacyCompatibility() throws {
         var definition = game()
@@ -84,15 +77,15 @@ final class ChallengeTests: XCTestCase {
         }
         try store.setBlacklist("id:1", serverID: server.id)
         let source = ChallengeFolderSource(store: store, folderID: folder, source: BooruFixtureSource())
-        let first = try await source.posts(server: server, query: "scenery mountain rating:general", page: 0)
-        let second = try await source.posts(server: server, query: "mountain scenery rating:general", page: 1)
+        let first = try await source.posts(server: server, query: "scenery mountain rating:g", page: 0)
+        let second = try await source.posts(server: server, query: "mountain scenery rating:g", page: 1)
         XCTAssertEqual(first.posts.count, 40); XCTAssertTrue(first.hasMore)
         XCTAssertEqual(second.posts.count, 4); XCTAssertFalse(second.hasMore)
         XCTAssertEqual(Set((first.posts + second.posts).map(\.id)).count, 44)
         XCTAssertFalse((first.posts + second.posts).contains { $0.postID == 1 })
         let excluded = try await source.posts(server: server, query: "scenery -mountain", page: 0)
         XCTAssertTrue(excluded.posts.isEmpty)
-        let rating = try await source.posts(server: server, query: "rating:explicit", page: 0)
+        let rating = try await source.posts(server: server, query: "rating:custom", page: 0)
         XCTAssertTrue(rating.posts.isEmpty)
     }
     private func game() -> ChallengeDefinition {
@@ -274,17 +267,13 @@ final class ChallengeTests: XCTestCase {
         XCTAssertEqual(copies.count, 2)
         for copy in copies { XCTAssertNoThrow(try copy.validate()) }
     }
-    func testMediaFilteringRespectsTagsRatingsAndBlocks() {
+    func testMediaFilteringRespectsTagsAndBlocks() {
         let post = BooruFixtureSource.post(101, server: BooruServer.presets[0])
-        XCTAssertTrue(ChallengeMediaFilter.matches(post, tags: ["scenery"], rating: .general, blacklist: "", safeOnly: false))
+        XCTAssertTrue(ChallengeMediaFilter.matches(post, tags: ["scenery"], blacklist: ""))
         for block in ["scenery", "id:101", "artist:sample_artist"] {
-            XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: [], rating: .general, blacklist: block, safeOnly: false))
+            XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: [], blacklist: block))
         }
-        XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: ["missing"], rating: .all, blacklist: "", safeOnly: false))
-        XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: [], rating: .explicit, blacklist: "", safeOnly: false))
-        let legacy = BooruServer(id: "legacy", name: "Legacy", baseURL: URL(string: "https://example.com")!, engine: .moebooru)
-        XCTAssertEqual(BooruRating.general.query("scenery", server: legacy), "scenery rating:safe")
-        XCTAssertEqual(BooruRating.general.query("scenery", server: BooruServer.presets[0]), "scenery rating:general")
+        XCTAssertFalse(ChallengeMediaFilter.matches(post, tags: ["missing"], blacklist: ""))
     }
     func testCloudDefinitionMergeDeletionAndSessionExclusion() throws {
         let suites = ["challenge-a-" + UUID().uuidString, "challenge-b-" + UUID().uuidString]

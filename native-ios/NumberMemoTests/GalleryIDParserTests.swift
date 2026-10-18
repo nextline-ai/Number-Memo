@@ -4,25 +4,25 @@ import GRDB
 
 final class GalleryIDParserTests: XCTestCase {
     func testStandardMangaUrl() {
-        let url = "https://manga.la/galleries/1234567.html"
+        let url = "https://comics.example/galleries/1234567.html"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [1234567])
     }
 
     func testReaderUrl() {
-        let url = "https://manga.la/reader/9876543.html#1"
+        let url = "https://comics.example/reader/9876543.html#1"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [9876543])
     }
 
-    func testTranslatedGoogleUrl() {
-        let url = "https://manga-la.translate.goog/galleries/2345678.html?_x_tr_sl=auto&_x_tr_tl=ko"
+    func testProxyUrl() {
+        let url = "https://proxy.example/galleries/2345678.html?lang=ko"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [2345678])
     }
 
-    func testNestedGoogleTranslateUrl() {
-        let url = "https://translate.google.com/translate?u=https%3A%2F%2Fmanga.la%2Fgalleries%2F3456789.html"
+    func testNestedShareUrl() {
+        let url = "https://share.example/link?u=https%3A%2F%2Fcomics.example%2Fgalleries%2F3456789.html"
         let ids = GalleryIDParser.parse(url)
         XCTAssertEqual(ids, [3456789])
     }
@@ -34,7 +34,7 @@ final class GalleryIDParserTests: XCTestCase {
     }
 
     func testMangaUrlWithYearInTitle() {
-        let text = "2024 Manga Comic https://manga.la/galleries/888888.html"
+        let text = "2024 Manga Comic https://comics.example/galleries/888888.html"
         let ids = GalleryIDParser.parse(text)
         XCTAssertEqual(ids, [888888], "Should prioritize the gallery URL and ignore the year 2024")
     }

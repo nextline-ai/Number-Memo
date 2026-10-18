@@ -85,9 +85,7 @@
 "Enter Service Address" = "서비스 주소 입력";
 "Enter a folder name" = "폴더 이름을 입력하세요";
 "Enter a title" = "제목을 입력하세요";
-"Enter the correct address (manga.la) to enable the library and shortcuts." = "지원되는 사이트 주소를 입력하여 만화 모드를 연결하세요.";
 "Enter the correct service address in Settings." = "설정에서 서비스 주소를 올바르게 입력해주세요.";
-"Enter the website address to get started.\n(Example: manga.la)" = "지원되는 사이트 주소를 입력하여 만화 모드를 연결하세요.";
 "Exit" = "나가기";
 "Exit the Work" = "작품에서 나가기";
 "Explore" = "탐색";
@@ -216,7 +214,6 @@
 "Search, number, or link" = "검색어, 번호 또는 링크";
 "Select the Violet folder" = "Violet 폴더 선택";
 "Select user.db or data.db" = "user.db 또는 data.db 파일 선택";
-"Service Enabled (manga.la)" = "지원되는 사이트 주소를 입력하여 만화 모드를 연결하세요.";
 "Settings" = "설정";
 "Show Page Number" = "페이지 번호 표시";
 "Show Quick Menu at Bottom" = "하단에 퀵 메뉴 표시";
@@ -465,17 +462,11 @@
 "Switch from the top" = "화면 위에서 모드 전환";
 "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported." = "Danbooru, Gelbooru, Old Gelbooru(v0.1.11), Moebooru 호환 서버를 지원합니다.";
 
-"All Ratings" = "전체 수위";
 
-"General / Safe" = "일반 / 안전";
 
-"Sensitive" = "민감";
 
-"Questionable" = "선정적";
 
-"Explicit" = "성인";
 
-"Rating" = "수위";
 
 "Show Image Grid" = "이미지 그리드로 보기";
 

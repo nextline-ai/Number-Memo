@@ -5,7 +5,7 @@ struct TasteAnalysisExclusionsView: View {
     @State private var mode: TasteMode
     @State private var input = ""
     @State private var selectedSource = ""
-    private var source: String { mode == .comics ? "https://manga.la" : (env.booru.servers.first { $0.canonicalAddress == selectedSource } ?? env.booru.selectedServer ?? env.booru.servers.first)?.canonicalAddress ?? "" }
+    private var source: String { mode == .comics ? MangaUrls.source : (env.booru.servers.first { $0.canonicalAddress == selectedSource } ?? env.booru.selectedServer ?? env.booru.servers.first)?.canonicalAddress ?? "" }
     init(mode: TasteMode, source: String = "") { _mode = State(initialValue: mode); _selectedSource = State(initialValue: source) }
     private var tags: [String] { env.taste.control.analysisExcluded(mode, source: source).sorted() }
     var body: some View {

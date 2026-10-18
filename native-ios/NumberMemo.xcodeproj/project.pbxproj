@@ -72,7 +72,6 @@
 		8C1EF4C86FFC853636A02F5B /* InAppMangaBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 719A5D25F1F9894E27DC3085 /* InAppMangaBrowserView.swift */; };
 		90019AE476E229454637E2CC /* BooruStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C17FACAAF2D1F2F2E286128 /* BooruStore.swift */; };
 		9222CF5DF347B12600C8154F /* BooruTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A5E549BC3A992CAE3BE32D /* BooruTests.swift */; };
-		96AF9AB6C1BE483D1261596F /* ChargingSplashAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1F9E769A14ACF6FD24623C /* ChargingSplashAnimationView.swift */; };
 		96BCAB8DC5D043D004A9C5A0 /* BooruSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78765B26524FE1CE2081058D /* BooruSettingsView.swift */; };
 		99F1C17749127F4204D93452 /* FolderOrderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF5F65B1C5D31EE473644196 /* FolderOrderView.swift */; };
 		9AE4AA3721DEDE1610B8B5A0 /* BooruReleaseLiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A688C07943C20ABCE3EE27BA /* BooruReleaseLiveTests.swift */; };
@@ -211,7 +210,6 @@
 		3A1C14EBB331C745654EA7FB /* BooruBrowserSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BooruBrowserSession.swift; sourceTree = "<group>"; };
 		3A5EFD7523ECEC99D902F3E8 /* ModeAppearanceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModeAppearanceSettings.swift; sourceTree = "<group>"; };
 		3E787CBAAE755DAE79AB33E9 /* AppModeSwitch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModeSwitch.swift; sourceTree = "<group>"; };
-		3F1F9E769A14ACF6FD24623C /* ChargingSplashAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargingSplashAnimationView.swift; sourceTree = "<group>"; };
 		40C7B7E6E50ACC442C7E4B8D /* NumberMemoTests/TasteFeedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemoTests/TasteFeedTests.swift; sourceTree = SOURCE_ROOT; };
 		40D4E140C517DE74300D02DE /* NumberMemo/Core/Taste/TasteSyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/TasteSyncCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		45ED0863DCAE0B4FB5CFE3BE /* NumberMemo/Presentation/Taste/TasteSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Presentation/Taste/TasteSettingsView.swift; sourceTree = SOURCE_ROOT; };
@@ -376,7 +374,6 @@
 		2F9A802BEFC8CF8802D043E9 /* Animations */ = {
 			isa = PBXGroup;
 			children = (
-				3F1F9E769A14ACF6FD24623C /* ChargingSplashAnimationView.swift */,
 			);
 			path = Animations;
 			sourceTree = "<group>";
@@ -952,7 +949,6 @@
 				2D21DD66D25E3C3B77F695D8 /* BooruValidationView.swift in Sources */,
 				47C5B6BA4230B0E3AFB0FDFE /* BooruWebTransport.swift in Sources */,
 				894D1911C4BCC72FE63C1B75 /* CDNRouting.swift in Sources */,
-				96AF9AB6C1BE483D1261596F /* ChargingSplashAnimationView.swift in Sources */,
 				FCA0DAA4EF75DC0DCD831B98 /* CloudSyncSection.swift in Sources */,
 				B05E6ABDFF62133125716693 /* ContentTransport.swift in Sources */,
 				34491643E77AC96F09A6150F /* ContentUITestSupport.swift in Sources */,

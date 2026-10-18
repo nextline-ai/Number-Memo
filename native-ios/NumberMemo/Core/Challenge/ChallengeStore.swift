@@ -87,8 +87,6 @@ final class ChallengeSessionController: Identifiable {
     let id = UUID()
     private(set) var session: ChallengeSession
     var error: String?
-    // UI-only selection: imported definitions and saved sessions never set this filter.
-    var imageRating: BooruRating = .all
     private(set) var stoppedReels = 0
     private(set) var unavailable = false
     private let store: ChallengeStore?
@@ -165,6 +163,5 @@ final class ChallengeSessionController: Identifiable {
     func source(kind: String, servers: [String], folder: String?) {
         change { $0.sourceKind = kind; $0.serverIDs = servers; $0.folderID = folder; $0.selectedPost = nil }
     }
-    func rating(_ value: BooruRating) { imageRating = value }
     func speed(_ value: String) { change { $0.spinSpeed = value } }
 }

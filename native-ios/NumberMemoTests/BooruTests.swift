@@ -2,6 +2,29 @@ import XCTest
 @testable import NumberMemo
 
 final class BooruTests: XCTestCase {
+    @MainActor func testManualServerQueriesSurviveWarmupPaginationAndRefresh() async throws {
+        let defaults = ReaderPreferences.booruDefaults
+        let previous = defaults.object(forKey: "booru.rating")
+        defer { defaults.set(previous, forKey: "booru.rating") }
+        defaults.set("explicit", forKey: "booru.rating") // Obsolete preferences have no effect.
+        for engine in BooruEngine.allCases {
+            let server = BooruServer(id: engine.rawValue, name: "Custom", baseURL: URL(string: "https://images.example")!, engine: engine)
+            let source = LaunchBooruSource(nativeCounts: [server.id: 2])
+            let warmup = LaunchFeedWarmup(manga: FixtureContentSource(), booru: source, thumbnail: { _, _ in })
+            let query = "scenery  rating:custom -rating:other"
+            _ = try await warmup.booruPage(server: server, query: query, sort: .latest)
+            let loader = BooruFeedLoader()
+            await loader.load(servers: [server], source: source, query: query, reset: true, startup: warmup, useLaunchPage: true)
+            await loader.load(servers: [server], source: source, query: query, reset: false, startup: warmup)
+            await loader.load(servers: [server], source: source, query: query, reset: true, startup: warmup)
+            let requests = await source.requests
+            XCTAssertEqual(requests.map(\.query), [query, query, query])
+            XCTAssertEqual(requests.map(\.page), [0, 1, 0])
+            let items = URLComponents(url: server.browsingURL(query: query), resolvingAgainstBaseURL: false)?.queryItems
+            XCTAssertEqual(items?.first { $0.name == "tags" }?.value, query)
+        }
+    }
+
     func testMediaRedirectsDropCredentialsWhileAPIRedirectsStayScoped() throws {
         let original = URL(string: "https://example.com/image")!
         let session = URLSession(configuration: .ephemeral)
@@ -647,7 +670,7 @@ final class BooruTests: XCTestCase {
         let warmup = LaunchFeedWarmup(manga: ContentUITestSupport.source, booru: source, thumbnail: { url, server in
             try await probe.perform(stage: "thumbnail", key: server.id + ":" + url.absoluteString)
         })
-        let task = Task { await warmup.run(mangaQuery: nil, site: "manga.la", servers: [first, second], rating: .all) }
+        let task = Task { await warmup.run(mangaQuery: nil, site: "comics.example", servers: [first, second]) }
         for _ in 0..<200 {
             if await probe.started("page").count == 2 { break }
             try await Task.sleep(for: .milliseconds(5))
@@ -673,13 +696,13 @@ final class BooruTests: XCTestCase {
         XCTAssertTrue(thumbnailKeys.allSatisfy { $0.contains("/preview/") })
         XCTAssertTrue(thumbnailKeys.contains { $0.hasPrefix(first.id + ":") })
         XCTAssertTrue(thumbnailKeys.contains { $0.hasPrefix(second.id + ":") })
-        await warmup.run(mangaQuery: nil, site: "manga.la", servers: [first, second], rating: .all)
+        await warmup.run(mangaQuery: nil, site: "comics.example", servers: [first, second])
         let repeatedRequests = await source.requests
         let repeatedThumbnails = await probe.started("thumbnail")
         XCTAssertEqual(repeatedRequests, firstRequests)
         XCTAssertEqual(repeatedThumbnails, thumbnailKeys)
-        let firstPage = try await warmup.booruPage(server: first, query: "", rating: .all, sort: .latest)
-        let secondPage = try await warmup.booruPage(server: second, query: "", rating: .all, sort: .latest)
+        let firstPage = try await warmup.booruPage(server: first, query: "", sort: .latest)
+        let secondPage = try await warmup.booruPage(server: second, query: "", sort: .latest)
         XCTAssertEqual(firstPage.posts.count, 40, "Preview limits must not truncate the native page consumed by the feed")
         XCTAssertEqual(secondPage.posts.count, 20)
         let finalRequests = await source.requests
@@ -690,7 +713,7 @@ final class BooruTests: XCTestCase {
         let server = BooruServer(id: "warm-refresh", name: "Refresh", baseURL: URL(string: "https://refresh.example")!, engine: .danbooru)
         let source = LaunchBooruSource(nativeCounts: [server.id: 40])
         let warmup = LaunchFeedWarmup(manga: ContentUITestSupport.source, booru: source, thumbnail: { _, _ in })
-        await warmup.run(mangaQuery: nil, site: "manga.la", servers: [server], rating: .all)
+        await warmup.run(mangaQuery: nil, site: "comics.example", servers: [server])
         let loader = BooruFeedLoader()
         await loader.load(servers: [server], source: source, query: "", reset: true, startup: warmup, useLaunchPage: true)
         let initialRequests = await source.requests

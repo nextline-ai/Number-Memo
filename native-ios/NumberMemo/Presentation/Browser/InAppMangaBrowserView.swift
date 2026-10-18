@@ -24,7 +24,7 @@ struct InAppMangaBrowserView: View {
                 VStack(spacing: 2) {
                     Text(model.title.isEmpty ? L10n.text("Built-in Browser") : model.title)
                         .font(.subheadline.bold()).lineLimit(1)
-                    Text(model.address?.host ?? "manga.la").font(.caption).foregroundStyle(.secondary)
+                    Text(model.address?.host ?? MangaUrls.configuredHost).font(.caption).foregroundStyle(.secondary)
                         .accessibilityIdentifier("browser.address")
                         .accessibilityValue(model.address?.absoluteString ?? model.initialUrl)
                 }
@@ -59,7 +59,7 @@ struct InAppMangaBrowserView: View {
                             Text(model.address?.absoluteString ?? model.initialUrl)
                             if let address = model.address { ShareLink(item: address) }
                         } label: { Image(systemName: "info.circle").frame(width: 32, height: 32) }
-                            .accessibilityLabel(model.address?.host ?? "manga.la")
+                            .accessibilityLabel(model.address?.host ?? MangaUrls.configuredHost)
                             .accessibilityIdentifier("browser.address")
                             .accessibilityValue(model.address?.absoluteString ?? model.initialUrl)
                     }

@@ -85,9 +85,7 @@
 "Enter Service Address" = "サービスアドレスを入力";
 "Enter a folder name" = "フォルダ名を入力してください";
 "Enter a title" = "タイトルを入力";
-"Enter the correct address (manga.la) to enable the library and shortcuts." = "対応サイトのアドレスを入力して漫画モードに接続してください。";
 "Enter the correct service address in Settings." = "設定で正しいサービスアドレスを入力してください。";
-"Enter the website address to get started.\n(Example: manga.la)" = "対応サイトのアドレスを入力して漫画モードに接続してください。";
 "Exit" = "閉じる";
 "Exit the Work" = "作品を閉じる";
 "Explore" = "探索";
@@ -216,7 +214,6 @@
 "Search, number, or link" = "検索語・番号・リンク";
 "Select the Violet folder" = "Violetフォルダを選択";
 "Select user.db or data.db" = "user.dbまたはdata.dbを選択";
-"Service Enabled (manga.la)" = "対応サイトのアドレスを入力して漫画モードに接続してください。";
 "Settings" = "設定";
 "Show Page Number" = "ページ番号を表示";
 "Show Quick Menu at Bottom" = "下部にクイックメニューを表示";
@@ -465,17 +462,11 @@
 "Switch from the top" = "画面上部でモードを切り替え";
 "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported." = "Danbooru、Gelbooru、Old Gelbooru (v0.1.11)、Moebooru互換サーバーに対応しています。";
 
-"All Ratings" = "すべてのレーティング";
 
-"General / Safe" = "一般 / セーフ";
 
-"Sensitive" = "センシティブ";
 
-"Questionable" = "やや成人向け";
 
-"Explicit" = "成人向け";
 
-"Rating" = "レーティング";
 
 "Show Image Grid" = "画像グリッドに戻る";
 

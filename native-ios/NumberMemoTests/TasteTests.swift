@@ -4,6 +4,17 @@ import UIKit
 @testable import NumberMemo
 
 final class TasteTests: XCTestCase {
+    private var originalSite: String?
+    override func setUp() {
+        super.setUp()
+        originalSite = UserDefaults.standard.string(forKey: "manga.site_address")
+        UserDefaults.standard.set("comics.example", forKey: "manga.site_address")
+    }
+    override func tearDown() {
+        UserDefaults.standard.set(originalSite, forKey: "manga.site_address")
+        super.tearDown()
+    }
+
     func testSpeculativeCoverBackfillHonorsPowerAndThermalLimits() {
         XCTAssertTrue(CoverQueuePolicy.allowsBackfill(lowPowerMode: false, thermalState: .nominal))
         XCTAssertTrue(CoverQueuePolicy.allowsBackfill(lowPowerMode: false, thermalState: .fair))

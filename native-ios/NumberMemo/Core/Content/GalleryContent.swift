@@ -173,7 +173,7 @@ enum ContentRoute: Hashable {
 
     static func initial(_ raw: String) -> ContentRoute? {
         guard let url = URL(string: raw), url.scheme == "https",
-              (url.host?.lowercased() == "manga.la" || url.host?.lowercased() == MangaUrls.configuredHost) else { return nil }
+              !MangaUrls.configuredHost.isEmpty, url.host?.lowercased() == MangaUrls.configuredHost else { return nil }
         if let id = GalleryIDParser.parse(raw).first {
             if url.path.hasPrefix("/reader/") { return .reader(id, max(1, Int(url.fragment ?? "1") ?? 1)) }
             return .gallery(id)

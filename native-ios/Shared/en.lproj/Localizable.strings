@@ -85,9 +85,7 @@
 "Enter Service Address" = "Enter Service Address";
 "Enter a folder name" = "Enter a folder name";
 "Enter a title" = "Enter a title";
-"Enter the correct address (manga.la) to enable the library and shortcuts." = "Enter a supported website address to connect comics mode.";
 "Enter the correct service address in Settings." = "Enter the correct service address in Settings.";
-"Enter the website address to get started.\n(Example: manga.la)" = "Enter a supported website address to connect comics mode.";
 "Exit" = "Exit";
 "Exit the Work" = "Exit the Work";
 "Explore" = "Explore";
@@ -216,7 +214,6 @@
 "Search, number, or link" = "Search, number, or link";
 "Select the Violet folder" = "Select the Violet folder";
 "Select user.db or data.db" = "Select user.db or data.db";
-"Service Enabled (manga.la)" = "Enter a supported website address to connect comics mode.";
 "Settings" = "Settings";
 "Show Page Number" = "Show Page Number";
 "Show Quick Menu at Bottom" = "Show Quick Menu at Bottom";
@@ -465,17 +462,11 @@
 "Switch from the top" = "Switch from the top";
 "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported." = "Danbooru, Gelbooru, Old Gelbooru (v0.1.11) and Moebooru compatible servers are supported.";
 
-"All Ratings" = "All Ratings";
 
-"General / Safe" = "General / Safe";
 
-"Sensitive" = "Sensitive";
 
-"Questionable" = "Questionable";
 
-"Explicit" = "Explicit";
 
-"Rating" = "Rating";
 
 "Show Image Grid" = "Show Image Grid";
 

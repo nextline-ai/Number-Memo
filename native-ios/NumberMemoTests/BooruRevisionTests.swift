@@ -5,25 +5,44 @@ import WebKit
 final class BooruRevisionTests: XCTestCase {
     private let legacy = BooruServer(id: "legacy", name: "Legacy", baseURL: URL(string: "https://example.booru.org")!, engine: .oldGelbooru)
 
-    func testAddressSuggestionsStartAtOneLetterWithoutConnectingAnything() {
-        XCTAssertTrue(WebsiteAddressSuggestion.matches("", includesComics: true).isEmpty)
-        XCTAssertEqual(WebsiteAddressSuggestion.matches("m", includesComics: true).map(\.host), ["manga.la"])
-        XCTAssertTrue(WebsiteAddressSuggestion.matches("m", includesComics: false).isEmpty)
-        XCTAssertEqual(WebsiteAddressSuggestion.matches("https://d", includesComics: true).map(\.host), ["danbooru.donmai.us"])
-        XCTAssertTrue(WebsiteAddressSuggestion.matches("https://manga.la", includesComics: true).isEmpty)
-        XCTAssertTrue(WebsiteAddressSuggestion.matches("g", includesComics: true, comicsOnly: true).isEmpty)
-    }
-    func testSafeOnlySitesDoNotReceiveGeneratedRatingFilters() {
-        let safe = BooruServer.presets[2], dan = BooruServer.presets[0]
-        XCTAssertTrue(safe.isSafeOnly)
-        XCTAssertEqual(BooruRating.options(for: [safe]), [.all])
-        XCTAssertEqual(BooruRating.explicit.query("landscape", server: safe), "landscape")
-        XCTAssertTrue(BooruRating.options(for: [safe, dan]).contains(.sensitive))
-        XCTAssertEqual(BooruRating.general.query("landscape", server: dan), "landscape rating:general")
-        let lookalike = BooruServer(id: "other", name: "other", baseURL: URL(string: "https://safebooru.org.example.com")!, engine: .gelbooru)
-        XCTAssertFalse(lookalike.isSafeOnly)
+    func testComicsHasNoImplicitHostAndRequiresAnAddress() throws {
+        let defaults = UserDefaults.standard
+        let previous = defaults.object(forKey: "manga.site_address")
+        defer { defaults.set(previous, forKey: "manga.site_address") }
+        defaults.removeObject(forKey: "manga.site_address")
+        XCTAssertEqual(MangaUrls.home, "")
+        XCTAssertEqual(MangaUrls.configuredHost, "")
+        XCTAssertEqual(MangaUrls.galleryUrl(for: 12345), "")
+        XCTAssertNil(ContentRoute.initial("https://comics.example/reader/12345.html"))
+        XCTAssertFalse(ContentTransport.allows(URL(string: "https://tagindex.comics.example/a")!))
+        XCTAssertFalse(ContentTransport.allows(URL(string: "https://ltn.gold-usergeneratedcontent.net/a")!))
+        XCTAssertThrowsError(try MangaContentSource.suggestionURL("language:ko"))
+        let suite = "no-default-host-" + UUID().uuidString
+        let preferences = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { preferences.removePersistentDomain(forName: suite) }
+        preferences.set(true, forKey: "site_verified")
+        let env = AppEnvironment(database: try .inMemory(), browserPreferences: preferences)
+        XCTAssertEqual(env.mangaSiteAddress, "")
+        XCTAssertFalse(env.isSiteVerified)
+        XCTAssertFalse(env.verifySite(input: "manga"))
+        XCTAssertTrue(env.verifySite(input: "https://my-comics.example/"))
+        XCTAssertEqual(MangaUrls.home, "https://my-comics.example/")
+        XCTAssertEqual(MangaUrls.source, "https://my-comics.example")
+        XCTAssertEqual(MangaUrls.galleryUrl(for: 12345), "https://my-comics.example/galleries/12345.html")
+        XCTAssertEqual(try MangaContentSource.suggestionURL("language:ko").host, "tagindex.my-comics.example")
+        XCTAssertEqual(ContentRoute.initial("https://my-comics.example/reader/12345.html#2"), .reader(12345, 2))
+        XCTAssertNil(ContentRoute.initial("https://comics.example/reader/12345.html"))
+        XCTAssertNil(ContentRoute.initial("https://my-comics.example.evil.example/reader/12345.html"))
     }
 
+    func testAddressSuggestionsStartAtOneLetterWithoutConnectingAnything() {
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("", includesComics: true).isEmpty)
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("m", includesComics: true).isEmpty)
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("m", includesComics: false).isEmpty)
+        XCTAssertEqual(WebsiteAddressSuggestion.matches("https://d", includesComics: true).map(\.host), ["danbooru.donmai.us"])
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("https://comics.example", includesComics: true).isEmpty)
+        XCTAssertTrue(WebsiteAddressSuggestion.matches("g", includesComics: true, comicsOnly: true).isEmpty)
+    }
     func testDanbooruPublicPoolListParsesNamesCountsAndIgnoresPagination() throws {
         let data = Data("""
         <html><div id="c-pools"><table><tr><th>Name</th><th>Count</th></tr>
@@ -85,19 +104,19 @@ final class BooruRevisionTests: XCTestCase {
     }
 
     func testComicsSetupSupportsAnyValidHomeAddress() {
-        for address in ["manga.la", "https://manga.la/", " MANGA.LA ", "https://manga.la:443", "https://custommanga.com", "my-comics.org", "http://anothercomic.net"] {
+        for address in ["comics.example", "https://comics.example/", " COMICS.EXAMPLE ", "https://comics.example:443", "https://custommanga.com", "my-comics.org", "http://anothercomic.net"] {
             XCTAssertTrue(AppEnvironment.supportsComicsAddress(address), address)
         }
-        for address in ["", "   ", "not_a_domain", "https://", "https://manga.la@other.example", "ftp://manga.la"] {
+        for address in ["", "   ", "not_a_domain", "https://", "https://comics.example@other.example", "ftp://comics.example"] {
             XCTAssertFalse(AppEnvironment.supportsComicsAddress(address), address)
         }
     }
 
     func testComicsDomainAutoDetection() {
-        for address in ["manga.la", "https://manga.la/", " MANGA.LA ", "https://comics.la", "test.la"] {
+        for address in ["https://comics.la", "test.la"] {
             XCTAssertTrue(BooruServerEditor.isComicsDomain(address), address)
         }
-        for address in ["", "safebooru.org", "custommanga.com", "danbooru.donmai.us"] {
+        for address in ["", "comics.example", "safebooru.org", "custommanga.com", "danbooru.donmai.us"] {
             XCTAssertFalse(BooruServerEditor.isComicsDomain(address), address)
         }
     }
@@ -109,10 +128,10 @@ final class BooruRevisionTests: XCTestCase {
         let env = AppEnvironment(database: try AppDatabase.inMemory(), browserPreferences: preferences)
         XCTAssertFalse(env.verifySite(input: "not_a_domain"))
         XCTAssertFalse(env.isSiteVerified)
-        XCTAssertTrue(env.verifySite(input: "manga.la"))
+        XCTAssertTrue(env.verifySite(input: "comics.example"))
         XCTAssertFalse(env.verifySite(input: "not_a_domain"))
         XCTAssertTrue(env.isSiteVerified)
-        XCTAssertEqual(env.mangaSiteAddress, "manga.la")
+        XCTAssertEqual(env.mangaSiteAddress, "comics.example")
         XCTAssertTrue(env.verifySite(input: "https://custom-manga.org/"))
         XCTAssertTrue(env.isSiteVerified)
         XCTAssertEqual(env.mangaSiteAddress, "custom-manga.org")
@@ -150,12 +169,8 @@ final class BooruRevisionTests: XCTestCase {
         XCTAssertThrowsError(try BooruLegacyHTML.posts(Data("<html>Just a moment...</html>".utf8), server: legacy))
     }
 
-    func testRatingDisabledLeavesLegacyQueryAndUnratedPostsIntact() throws {
-        XCTAssertEqual(BooruRating.all.query("", server: legacy), "")
+    func testLegacyQueryAndUnratedPostsRemainIntact() throws {
         XCTAssertEqual(legacy.browsingURL(query: "").query, "page=post&s=list")
-        XCTAssertEqual(BooruRating.all.query("scenery", server: legacy), "scenery")
-        XCTAssertEqual(BooruRating.general.query("scenery", server: legacy), "scenery rating:safe")
-        XCTAssertEqual(BooruRating.general.query("scenery", server: BooruServer.presets[0]), "scenery rating:general")
         XCTAssertEqual(try BooruDecoder.post(["id": 1, "rating": "s"], server: BooruServer.presets[1]).rating, "s")
         let data = Data("<html><a id='p7'><img src='/preview.jpg' title='scenery'></a></html>".utf8)
         let posts = try BooruLegacyHTML.posts(data, server: legacy)

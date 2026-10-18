@@ -11,7 +11,7 @@ public enum MangaUrls {
                 return "https://\(clean)/"
             }
         }
-        return "https://manga.la/"
+        return ""
     }
 
     public static var home: String {
@@ -19,63 +19,22 @@ public enum MangaUrls {
     }
 
     public static var configuredHost: String {
-        URL(string: home)?.host?.lowercased() ?? "manga.la"
+        URL(string: home)?.host?.lowercased() ?? ""
     }
 
+    public static var source: String { String(home.dropLast(home.hasSuffix("/") ? 1 : 0)) }
+
     public static func galleryUrl(for galleryId: Int64) -> String {
-        "\(home)galleries/\(galleryId).html"
+        home.isEmpty ? "" : "\(home)galleries/\(galleryId).html"
     }
 
     public static func artistAllUrl(for artist: String) -> String {
+        guard !home.isEmpty else { return "" }
         let trimmed = artist.trimmingCharacters(in: .whitespacesAndNewlines)
         let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? trimmed
         return "\(home)artist/\(encoded)-all.html"
     }
 
-    public static func isTranslatedUrl(_ urlString: String) -> Bool {
-        guard let host = URL(string: urlString)?.host?.lowercased() else { return false }
-        return host.contains("translate.google") || host.contains("translate.goog")
-    }
-
-    public static func originalMangaUrl(_ urlString: String) -> String? {
-        guard let url = URL(string: urlString) else { return nil }
-        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-           let nested = components.queryItems?.first(where: { $0.name == "u" })?.value,
-           nested.contains("manga") || nested.contains("galleries") || nested.contains("reader") {
-            return nested
-        }
-        let host = url.host?.lowercased() ?? ""
-        let currentHost = configuredHost
-        if host.contains("-la.translate.goog") || host.contains("manga-la.translate.goog") || host.hasSuffix(".translate.goog") {
-            var comp = URLComponents()
-            comp.scheme = "https"
-            comp.host = currentHost
-            comp.path = url.path
-            return comp.string
-        }
-        if host.hasSuffix(currentHost) || host.hasSuffix("manga.la") {
-            return urlString
-        }
-        return nil
-    }
-
-    public static func translatedMangaUrl(_ urlString: String) -> String {
-        let original = originalMangaUrl(urlString) ?? urlString
-        guard let url = URL(string: original), let host = url.host, !host.isEmpty else {
-            return original
-        }
-        let path = url.path.isEmpty ? "/" : url.path
-        var comp = URLComponents()
-        comp.scheme = "https"
-        comp.host = host.replacingOccurrences(of: ".", with: "-") + ".translate.goog"
-        comp.path = path
-        comp.queryItems = [
-            URLQueryItem(name: "_x_tr_sl", value: "auto"),
-            URLQueryItem(name: "_x_tr_tl", value: "ko"),
-            URLQueryItem(name: "_x_tr_hl", value: "ko"),
-        ]
-        return comp.string ?? original
-    }
 }
 
 public enum GalleryIDParser {

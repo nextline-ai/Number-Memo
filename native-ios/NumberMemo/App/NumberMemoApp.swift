@@ -206,35 +206,22 @@ struct NumberMemoApp: App {
 
     @State private var isSplashScreenVisible = true
     @State private var isResumeSplashVisible = false
-    @State private var showChargingSplash = false
     @State private var backgroundSync = BackgroundLibrarySync()
     @State private var launchThermalAllowed = ProcessInfo.processInfo.thermalState != .serious && ProcessInfo.processInfo.thermalState != .critical
-    @SwiftUI.AppStorage("booru.rating", store: ReaderPreferences.booruDefaults) private var launchRating: BooruRating = .all
     private struct LaunchRequest: Hashable {
         let active: Bool
         let query: GalleryQuery?
         let site: String
         let servers: [BooruServer]
-        let rating: BooruRating
     }
     private var launchRequest: LaunchRequest {
         let enabled = !isContentUITest || ProcessInfo.processInfo.arguments.contains("--launch-warmup-test")
         let servers = env.booru.selectedServers
-        let rating = BooruRating.options(for: servers).contains(launchRating) ? launchRating : .all
         return LaunchRequest(active: enabled && scenePhase == .active && launchThermalAllowed && env.isOnboardingCompleted,
                              query: env.isSiteVerified ? env.launchMangaQuery : nil, site: env.mangaSiteAddress,
-                             servers: servers, rating: rating)
+                             servers: servers)
     }
     private var splashEnabled: Bool { !isContentUITest || ProcessInfo.processInfo.arguments.contains("--splash-ui-test") }
-    #if os(iOS) && !targetEnvironment(macCatalyst)
-    @State private var previousBatteryState: UIDevice.BatteryState = .unknown
-    #endif
-
-    public init() {
-        #if os(iOS) && !targetEnvironment(macCatalyst)
-        UIDevice.current.isBatteryMonitoringEnabled = true
-        #endif
-    }
 
     var body: some Scene {
         WindowGroup {
@@ -257,9 +244,6 @@ struct NumberMemoApp: App {
                 AppRootTabView().environment(env)
                 #endif
 
-                // White Liquid Charging Splash Animation
-                ChargingSplashAnimationView(isTriggered: $showChargingSplash)
-
                 // Cold launch holds 1.2 seconds and slides for 1.8 seconds while active.
                 if isSplashScreenVisible && splashEnabled {
                     SplashScreenOverlay(isVisible: $isSplashScreenVisible, active: scenePhase == .active)
@@ -279,7 +263,7 @@ struct NumberMemoApp: App {
                 let request = launchRequest
                 guard request.active else { return }
                 await env.launchFeeds.run(mangaQuery: request.query, site: request.site, servers: request.servers,
-                                          rating: request.rating, preferredMode: env.mode)
+                                          preferredMode: env.mode)
             }
             .task(id: "\(scenePhase):\(env.sync.enabled):\(isSplashScreenVisible):\(isResumeSplashVisible)") {
                 guard !isContentUITest, scenePhase == .active, !isSplashScreenVisible, !isResumeSplashVisible else { return }
@@ -313,12 +297,6 @@ struct NumberMemoApp: App {
             .preferredColorScheme(env.appTheme.colorScheme)
             .environment(\.locale, Locale(identifier: L10n.language))
             .id(env.appLanguage)
-            .task {
-                #if os(iOS) && !targetEnvironment(macCatalyst)
-                UIDevice.current.isBatteryMonitoringEnabled = true
-                previousBatteryState = UIDevice.current.batteryState
-                #endif
-            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
                 if !isSplashScreenVisible || !splashEnabled { isResumeSplashVisible = true }
                 PrivacyCoverManager.shared.show()
@@ -327,15 +305,6 @@ struct NumberMemoApp: App {
                 let timing: SplashTiming = splashEnabled && !isSplashScreenVisible ? .resume : .init(hold: 0, slide: 0)
                 PrivacyCoverManager.shared.hide(timing: timing) { isResumeSplashVisible = false }
             }
-            #if os(iOS) && !targetEnvironment(macCatalyst)
-            .onReceive(NotificationCenter.default.publisher(for: UIDevice.batteryStateDidChangeNotification)) { _ in
-                let current = UIDevice.current.batteryState
-                if (current == .charging || current == .full) && previousBatteryState != .charging && previousBatteryState != .full {
-                    if (!isSplashScreenVisible || !splashEnabled) && !isResumeSplashVisible { showChargingSplash = true }
-                }
-                previousBatteryState = current
-            }
-            #endif
             .fullScreenCover(isPresented: Binding(
                 get: {
                     let allowsOnboarding = !isContentUITest || ProcessInfo.processInfo.arguments.contains("--onboarding-test")

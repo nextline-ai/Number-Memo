@@ -14,7 +14,7 @@ enum ContentUITestSupport {
         }
         env.isOnboardingCompleted = !ProcessInfo.processInfo.arguments.contains("--onboarding-test")
         if !ProcessInfo.processInfo.arguments.contains("--onboarding-test") && !ProcessInfo.processInfo.arguments.contains("--comics-setup-test") {
-            _ = env.verifySite(input: "manga.la")
+            _ = env.verifySite(input: "comics.example")
         }
         if !BooruUITestSupport.enabled && !BooruUITestSupport.liveEnabled { env.mode = .manga }
         if BooruUITestSupport.enabled {

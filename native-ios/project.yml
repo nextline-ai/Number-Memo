@@ -24,6 +24,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: NumberMemo
+      - path: AppIcon.icon
       - path: Shared
     dependencies:
       - package: GRDB

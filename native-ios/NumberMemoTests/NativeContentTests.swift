@@ -3,6 +3,17 @@ import UIKit
 @testable import NumberMemo
 
 final class NativeContentTests: XCTestCase {
+    private var originalSite: String?
+    override func setUp() {
+        super.setUp()
+        originalSite = UserDefaults.standard.string(forKey: "manga.site_address")
+        UserDefaults.standard.set("comics.example", forKey: "manga.site_address")
+    }
+    override func tearDown() {
+        UserDefaults.standard.set(originalSite, forKey: "manga.site_address")
+        super.tearDown()
+    }
+
     private let sampleHash = String(repeating: "0", count: 61) + "abc"
     private var routing: String {
         """
@@ -38,7 +49,7 @@ final class NativeContentTests: XCTestCase {
     }
 
     @MainActor func testBrowserRejectsUnsafeNavigationSchemesAndCredentials() {
-        for raw in ["https://manga.la/reader/123.html#1", "https://example.com/", "http://example.com/"] {
+        for raw in ["https://comics.example/reader/123.html#1", "https://example.com/", "http://example.com/"] {
             XCTAssertTrue(EmbeddedBrowserModel.allows(URL(string: raw)!))
         }
         for raw in ["javascript:alert(1)", "file:///tmp/private", "data:text/html,test", "https://user:password@example.com", "numbermemo://123"] {
@@ -98,7 +109,7 @@ final class NativeContentTests: XCTestCase {
         XCTAssertEqual(context.token, "female:sa")
         XCTAssertEqual(context.inserting(TagSuggestion(namespace: "female", name: "sample tag", count: 42)),
                        "language:korean  -female:sample_tag ")
-        for input in ["", "a", "female:", "12345", "female:sa ", "https://manga.la/reader/12345.html", "unknown:sa", "female:a:b"] {
+        for input in ["", "a", "female:", "12345", "female:sa ", "https://comics.example/reader/12345.html", "unknown:sa", "female:a:b"] {
             XCTAssertNil(TagCompletionContext(input), input)
         }
     }
@@ -114,11 +125,11 @@ final class NativeContentTests: XCTestCase {
 
     func testSuggestionURLMatchesCharacterIndexAndPolicy() throws {
         XCTAssertEqual(try MangaContentSource.suggestionURL("language:KO").absoluteString,
-                       "https://tagindex.manga.la/language/k/o.json")
+                       "https://tagindex.comics.example/language/k/o.json")
         XCTAssertEqual(try MangaContentSource.suggestionURL("a_b.c").path, "/global/a/_/b/dot/c.json")
         XCTAssertThrowsError(try MangaContentSource.suggestionURL("bad:aa"))
         XCTAssertTrue(ContentTransport.allows(try MangaContentSource.suggestionURL("language:ko")))
-        XCTAssertFalse(ContentTransport.allows(URL(string: "https://tagindex.manga.la.evil.example/a")!))
+        XCTAssertFalse(ContentTransport.allows(URL(string: "https://tagindex.comics.example.evil.example/a")!))
     }
 
     func testSuggestionCacheAvoidsRepeatedNetworkAndSkipsShortInput() async throws {
@@ -208,7 +219,7 @@ final class NativeContentTests: XCTestCase {
         }
         defaults.set("custom-comics.example", forKey: "manga.site_address")
         for raw in ["http://w1.gold-usergeneratedcontent.net/a", "https://w1.gold-usergeneratedcontent.net.evil.example/a",
-                    "https://user@w1.gold-usergeneratedcontent.net/a", "https://manga.la/", "https://example.com/",
+                    "https://user@w1.gold-usergeneratedcontent.net/a", "https://example.com/",
                     "https://custom-comics.example.evil.example/", "https://user@custom-comics.example/", "http://custom-comics.example/"] {
             XCTAssertFalse(ContentTransport.allows(URL(string: raw)!))
         }
@@ -218,8 +229,8 @@ final class NativeContentTests: XCTestCase {
     }
 
     func testReaderRoutesUseTrustedHostAndPage() {
-        XCTAssertEqual(ContentRoute.initial("https://manga.la/reader/12345.html#7"), .reader(12345, 7))
-        XCTAssertEqual(ContentRoute.initial("https://manga.la/artist/a%20b-all.html"), .artist("a b"))
+        XCTAssertEqual(ContentRoute.initial("https://comics.example/reader/12345.html#7"), .reader(12345, 7))
+        XCTAssertEqual(ContentRoute.initial("https://comics.example/artist/a%20b-all.html"), .artist("a b"))
         XCTAssertNil(ContentRoute.initial("https://evil.example/reader/12345.html"))
     }
 
@@ -273,7 +284,7 @@ final class NativeContentLiveTests: XCTestCase {
         }
         XCTAssertNil(model.error)
         XCTAssertFalse(model.loading)
-        XCTAssertEqual(model.webView.url?.host, "manga.la")
+        XCTAssertEqual(model.webView.url?.host, "comics.example")
         let ready = try await model.webView.evaluateJavaScript("document.readyState") as? String
         XCTAssertEqual(ready, "complete")
         let hasBody = try await model.webView.evaluateJavaScript("document.body != null && document.body.childElementCount > 0") as? Bool
@@ -456,7 +467,7 @@ extension NativeContentTests {
         let images = PageImageStore(source: source, diskCapacity: 0)
         let warmup = LaunchFeedWarmup(manga: source, booru: BooruFixtureSource(), images: images)
         let query = GalleryQuery(language: "english", text: "tag:scenery -tag:spoiler")
-        await warmup.run(mangaQuery: query, site: "custom.example", servers: [], rating: .all)
+        await warmup.run(mangaQuery: query, site: "custom.example", servers: [])
         let calls = await source.listCalls, galleries = await source.galleryIDs, thumbnails = await source.thumbnailIDs
         XCTAssertEqual(calls.map(\.offset), [0])
         XCTAssertEqual(calls.map(\.count), [24], "The API page stays intact; only cover speculation is capped")
@@ -475,7 +486,7 @@ extension NativeContentTests {
         await loader.load(query, reset: false).value
         XCTAssertEqual(loader.ids, (1...48).map(Int64.init))
         loader.suspend(); loader.resume()
-        await warmup.run(mangaQuery: query, site: "custom.example", servers: [], rating: .all)
+        await warmup.run(mangaQuery: query, site: "custom.example", servers: [])
         let resumedCalls = await source.listCalls, resumedThumbnails = await source.thumbnailIDs
         XCTAssertEqual(resumedCalls.map(\.offset), [0, 24])
         XCTAssertEqual(resumedThumbnails.count, 10, "Returning from another app must not restart completed warmup")
@@ -492,11 +503,11 @@ extension NativeContentTests {
     @MainActor func testCancelledInitialComicConsumerCanReuseWarmPageOnResume() async throws {
         let source = LaunchComicSource(data: launchPixel(), blocked: true)
         let warmup = LaunchFeedWarmup(manga: source, booru: BooruFixtureSource())
-        let query = GalleryQuery(), key = LaunchFeedWarmup.MangaKey(site: "manga.la", query: query)
+        let query = GalleryQuery(), key = LaunchFeedWarmup.MangaKey(site: "comics.example", query: query)
         let cache = warmup.mangaPages
-        let background = Task { try await warmup.mangaPage(query: query, site: "manga.la") }
+        let background = Task { try await warmup.mangaPage(query: query, site: "comics.example") }
         try await waitForLaunch { await cache.consumerCount(for: key) == 1 }
-        let initial = Task { try await warmup.mangaPage(query: query, site: "manga.la", initialConsumer: true) }
+        let initial = Task { try await warmup.mangaPage(query: query, site: "comics.example", initialConsumer: true) }
         try await waitForLaunch { await cache.consumerCount(for: key) == 2 }
         initial.cancel()
         try await waitForLaunch { await cache.consumerCount(for: key) == 1 }
@@ -504,7 +515,7 @@ extension NativeContentTests {
         _ = try await background.value
         do { _ = try await initial.value; XCTFail("Expected the hidden initial consumer to cancel") }
         catch { XCTAssertTrue(error is CancellationError) }
-        let resumed = try await warmup.mangaPage(query: query, site: "manga.la", initialConsumer: true)
+        let resumed = try await warmup.mangaPage(query: query, site: "comics.example", initialConsumer: true)
         XCTAssertEqual(resumed.ids.count, 24)
         let calls = await source.listCalls
         XCTAssertEqual(calls.count, 1, "Cancellation cannot consume the initial warm-page handoff")
@@ -514,18 +525,18 @@ extension NativeContentTests {
         let source = LaunchComicSource(data: launchPixel(), blockedImages: true)
         let warmup = LaunchFeedWarmup(manga: source, booru: BooruFixtureSource())
         let query = GalleryQuery()
-        let first = Task { await warmup.run(mangaQuery: query, site: "manga.la", servers: [], rating: .all) }
+        let first = Task { await warmup.run(mangaQuery: query, site: "comics.example", servers: []) }
         try await waitForLaunch { await source.thumbnailIDs.count == 2 }
         first.cancel(); await first.value
         let stopped = await source.thumbnailIDs
         XCTAssertEqual(stopped.count, 2, "A canceled launch must not start queued thumbnail work")
         await source.allowImages()
-        await warmup.run(mangaQuery: query, site: "manga.la", servers: [], rating: .all)
+        await warmup.run(mangaQuery: query, site: "comics.example", servers: [])
         let calls = await source.listCalls, thumbnails = await source.thumbnailIDs
         XCTAssertEqual(calls.count, 1, "App activation resumes unfinished covers using the first page already fetched")
         XCTAssertEqual(Set(thumbnails), Set((1...10).map(Int64.init)))
         let completedCount = thumbnails.count
-        await warmup.run(mangaQuery: query, site: "manga.la", servers: [], rating: .all)
+        await warmup.run(mangaQuery: query, site: "comics.example", servers: [])
         let repeated = await source.thumbnailIDs
         XCTAssertEqual(repeated.count, completedCount)
     }

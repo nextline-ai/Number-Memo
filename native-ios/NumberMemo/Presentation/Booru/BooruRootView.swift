@@ -144,7 +144,7 @@ final class BooruFeedLoader {
         await load(servers: [server], source: source, query: query, poolID: poolID, reset: reset)
     }
 
-    func load(servers: [BooruServer], source: any BooruProviding, query: String, poolID: Int64? = nil, sort: BooruSort = .latest, rating: BooruRating = .all, reset: Bool, contentID: String? = nil, startup: LaunchFeedWarmup? = nil, useLaunchPage: Bool = false, onGoldRestricted: ((String, [Int64]) -> Void)? = nil) async {
+    func load(servers: [BooruServer], source: any BooruProviding, query: String, poolID: Int64? = nil, sort: BooruSort = .latest, reset: Bool, contentID: String? = nil, startup: LaunchFeedWarmup? = nil, useLaunchPage: Bool = false, onGoldRestricted: ((String, [Int64]) -> Void)? = nil) async {
         if !reset && (loading || !hasMore) { return }
         if reset { generation = UUID() }
         let token = generation
@@ -165,11 +165,11 @@ final class BooruFeedLoader {
                         let batch: BooruBatch
                         if let poolID { batch = try await source.poolPosts(server: server, poolID: poolID, page: page) }
                         else if reset, useLaunchPage, let startup {
-                            batch = try await startup.booruPage(server: server, query: query, rating: rating, sort: sort, initialConsumer: true)
+                            batch = try await startup.booruPage(server: server, query: query, sort: sort, initialConsumer: true)
                         } else {
-                            if reset, let startup { await startup.invalidateBooru(server: server, query: query, rating: rating, sort: sort) }
+                            if reset, let startup { await startup.invalidateBooru(server: server, query: query, sort: sort) }
                             try Task.checkCancellation()
-                            batch = try await BooruSortValidation.posts(source: source, server: server, query: rating.query(query, server: server), page: page, sort: sort)
+                            batch = try await BooruSortValidation.posts(source: source, server: server, query: query, page: page, sort: sort)
                         }
                         return (server.id, batch, nil)
                     } catch is UnsupportedBooruSort { return (server.id, nil, "unsupported-sort") }
@@ -198,7 +198,7 @@ final class BooruFeedLoader {
                     publish(nextPosts); pages = nextPages; pageFingerprints = nextFingerprints; errors = nextErrors; remaining = nextRemaining
                     self.contentID = contentID; didLoad = true
                     if reset && useLaunchPage, batch != nil, let server = servers.first(where: { $0.id == id }) {
-                        startup?.didPublishBooru(server: server, query: query, rating: rating, sort: sort)
+                        startup?.didPublishBooru(server: server, query: query, sort: sort)
                     }
                 }
             }
@@ -210,7 +210,7 @@ final class BooruFeedLoader {
         self.contentID = contentID; didLoad = true
         if reset && useLaunchPage {
             for server in servers where nextPages[server.id] != nil {
-                startup?.didPublishBooru(server: server, query: query, rating: rating, sort: sort)
+                startup?.didPublishBooru(server: server, query: query, sort: sort)
             }
         }
     }
@@ -254,7 +254,6 @@ struct BooruFeedView: View {
     @State private var searchSlotPinned = false
     @State private var paginationFooterVisible = false
     @State private var loadedRequest: String?
-    @SwiftUI.AppStorage("booru.rating", store: ReaderPreferences.booruDefaults) private var savedRating: BooruRating = .all
     @SwiftUI.AppStorage("booru.useEmbeddedBrowser", store: ReaderPreferences.booruDefaults) private var useEmbeddedBrowser = false
     @State private var selectedPost: BooruPost?
     @State private var viewerPosition: BooruPost?
@@ -270,13 +269,6 @@ struct BooruFeedView: View {
         self.startup = startup
         self.challenge = challenge; self.header = header
         _searchText = State(initialValue: initialQuery); _query = State(initialValue: initialQuery)
-    }
-    private var rating: BooruRating {
-        get { challenge?.imageRating ?? savedRating }
-        nonmutating set {
-            if let challenge { challenge.rating(newValue) }
-            else { savedRating = newValue }
-        }
     }
     private func openBrowser(_ id: String? = nil) {
         browserServerID = id
@@ -296,18 +288,18 @@ struct BooruFeedView: View {
     var body: some View {
         Group {
             if useEmbeddedBrowser && challenge == nil {
-                BooruEmbeddedBrowserView(servers: servers, query: query, poolID: pool?.id, sort: sort, rating: rating, preferredServerID: browserServerID)
+                BooruEmbeddedBrowserView(servers: servers, query: query, poolID: pool?.id, sort: sort, preferredServerID: browserServerID)
             } else { nativeFeed }
         }
         .workSaveFeedback($saveFeedback, identifier: "booru.saveStatus")
         .navigationTitle(challenge?.session.definition.title ?? pool?.name.replacingOccurrences(of: "_", with: " ") ?? L10n.text("Explore"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $validating) { server in
-            BooruValidationView(server: server, initialURL: server.browsingURL(query: sort.query(rating.query(query, server: server), engine: server.engine), poolID: pool?.id))
+            BooruValidationView(server: server, initialURL: server.browsingURL(query: sort.query(query, engine: server.engine), poolID: pool?.id))
         }
         .sheet(isPresented: $challengeBrowser) {
             NavigationStack {
-                BooruEmbeddedBrowserView(servers: servers, query: query, poolID: pool?.id, sort: sort, rating: rating, preferredServerID: browserServerID)
+                BooruEmbeddedBrowserView(servers: servers, query: query, poolID: pool?.id, sort: sort, preferredServerID: browserServerID)
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button(L10n.text("Done")) { challengeBrowser = false } } }
             }.tint(.purple)
         }
@@ -353,7 +345,7 @@ struct BooruFeedView: View {
                             Label(server.displayName, systemImage: "server.rack").font(.headline)
                             Text(loader.errors[server.id] ?? "").font(.subheadline).foregroundStyle(.secondary)
                             DisclosureGroup(L10n.text("Search Tags")) {
-                                Text(sort.query(rating.query(query, server: server), engine: server.engine))
+                                Text(sort.query(query, engine: server.engine))
                                     .font(.caption.monospaced()).textSelection(.enabled)
                             }
                             if server.engine == .danbooru && query.split(whereSeparator: \.isWhitespace).count >= 2 {
@@ -443,10 +435,8 @@ struct BooruFeedView: View {
         }
         .animation(isSearchBarVisible ? .spring(response: 0.35, dampingFraction: 0.86) : .easeInOut(duration: 0.32), value: isSearchBarVisible)
         .onChange(of: searchFocused) { _, focused in if focused { isSearchBarVisible = true } }
-        .onAppear { if !BooruRating.options(for: servers).contains(rating) { rating = .all } }
         .onChange(of: servers) { _, _ in
             updateBlacklists()
-            if !BooruRating.options(for: servers).contains(rating) { rating = .all }
             if !sortOptions.contains(sort) { sort = .latest; acceptedSort = .latest }
         }
         .onChange(of: store.revision) { _, _ in updateBlacklists() }
@@ -474,16 +464,11 @@ struct BooruFeedView: View {
             }
         }
     }
-    private var requestKey: String { query + "|\(sort.rawValue)|\(rating.rawValue)|\(retry)|" + servers.map { $0.id + $0.canonicalAddress + $0.engine.rawValue }.joined(separator: ",") }
+    private var requestKey: String { query + "|\(sort.rawValue)|\(retry)|" + servers.map { $0.id + $0.canonicalAddress + $0.engine.rawValue }.joined(separator: ",") }
     private var sortOptions: [BooruSort] { BooruSort.options(for: servers, local: challenge?.session.sourceKind == "folder") }
     private var filters: some View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout())
         return layout {
-            if BooruRating.options(for: servers).count > 1 {
-                BrowseFilterMenu(title: rating.title, icon: "line.3.horizontal.decrease") {
-                    Picker(L10n.text("Rating"), selection: Binding(get: { rating }, set: { rating = $0 })) { ForEach(BooruRating.options(for: servers)) { Text($0.title).tag($0) } }
-                }.accessibilityIdentifier("booru.rating")
-            }
             if !typeSize.isAccessibilitySize { Spacer() }
             BrowseFilterMenu(title: sort.title, icon: "arrow.up.arrow.down") {
                 Picker(L10n.text("Sort"), selection: $sort) { ForEach(sortOptions) { Text($0.title).tag($0) } }
@@ -544,7 +529,7 @@ struct BooruFeedView: View {
     private func load(reset: Bool, useLaunchPage: Bool = false) async {
         guard isActive else { return }
         let requested = sort
-        await loader.load(servers: servers, source: source, query: query, poolID: pool?.id, sort: requested, rating: rating, reset: reset,
+        await loader.load(servers: servers, source: source, query: query, poolID: pool?.id, sort: requested, reset: reset,
                           contentID: requestKey, startup: startup, useLaunchPage: useLaunchPage,
                           onGoldRestricted: { store.recordGoldRestrictions(serverID: $0, postIDs: $1) })
         guard !Task.isCancelled, sort == requested else { return }

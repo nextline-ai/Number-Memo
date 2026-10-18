@@ -111,7 +111,7 @@ actor LaunchWorkSlots {
 @MainActor
 final class LaunchFeedWarmup {
     struct MangaKey: Hashable, Sendable { let site: String; let query: GalleryQuery }
-    struct BooruKey: Hashable, Sendable { let server: BooruServer; let query: String; let rating: BooruRating; let sort: BooruSort }
+    struct BooruKey: Hashable, Sendable { let server: BooruServer; let query: String; let sort: BooruSort }
     private enum Job: Hashable, Sendable { case manga(MangaKey), booru(BooruKey) }
     private enum Prepared: Sendable { case manga(Job, [Int64]), booru(Job, BooruServer, [BooruPost]) }
     private enum Cover: Sendable { case manga(Int64), booru(URL, BooruServer) }
@@ -146,15 +146,15 @@ final class LaunchFeedWarmup {
         try Task.checkCancellation()
         return page
     }
-    func booruPage(server: BooruServer, query: String, rating: BooruRating, sort: BooruSort, initialConsumer: Bool = false) async throws -> BooruBatch {
+    func booruPage(server: BooruServer, query: String, sort: BooruSort, initialConsumer: Bool = false) async throws -> BooruBatch {
         let source = booru, slots = slots
-        let key = BooruKey(server: server, query: query, rating: rating, sort: sort)
+        let key = BooruKey(server: server, query: query, sort: sort)
         if initialConsumer, consumed.contains(.booru(key)) {
-            return try await BooruSortValidation.posts(source: source, server: server, query: rating.query(query, server: server), page: 0, sort: sort)
+            return try await BooruSortValidation.posts(source: source, server: server, query: query, page: 0, sort: sort)
         }
         let page = try await booruPages.value(for: key) {
             try await slots.perform {
-                try await BooruSortValidation.posts(source: source, server: server, query: rating.query(query, server: server), page: 0, sort: sort)
+                try await BooruSortValidation.posts(source: source, server: server, query: query, page: 0, sort: sort)
             }
         }
         try Task.checkCancellation()
@@ -165,21 +165,21 @@ final class LaunchFeedWarmup {
     func didPublishManga(query: GalleryQuery, site: String) {
         consumed.insert(.manga(MangaKey(site: site, query: query)))
     }
-    func didPublishBooru(server: BooruServer, query: String, rating: BooruRating, sort: BooruSort) {
-        consumed.insert(.booru(BooruKey(server: server, query: query, rating: rating, sort: sort)))
+    func didPublishBooru(server: BooruServer, query: String, sort: BooruSort) {
+        consumed.insert(.booru(BooruKey(server: server, query: query, sort: sort)))
     }
     func invalidateManga(query: GalleryQuery, site: String) async {
         let key = MangaKey(site: site, query: query)
         consumed.insert(.manga(key)); completed.insert(.manga(key))
         await mangaPages.invalidate(key)
     }
-    func invalidateBooru(server: BooruServer, query: String, rating: BooruRating, sort: BooruSort) async {
-        let key = BooruKey(server: server, query: query, rating: rating, sort: sort)
+    func invalidateBooru(server: BooruServer, query: String, sort: BooruSort) async {
+        let key = BooruKey(server: server, query: query, sort: sort)
         consumed.insert(.booru(key)); completed.insert(.booru(key))
         await booruPages.invalidate(key)
     }
 
-    func run(mangaQuery: GalleryQuery?, site: String, servers: [BooruServer], rating: BooruRating, preferredMode: AppMode = .manga) async {
+    func run(mangaQuery: GalleryQuery?, site: String, servers: [BooruServer], preferredMode: AppMode = .manga) async {
         guard !Task.isCancelled else { return }
         let previous = work, token = UUID()
         previous?.cancel(); generation = token
@@ -189,7 +189,7 @@ final class LaunchFeedWarmup {
             await previous?.value
             guard let self, !Task.isCancelled else { return }
             var jobs = mangaQuery.map { [Job.manga(MangaKey(site: site, query: $0))] } ?? []
-            jobs += servers.map { .booru(BooruKey(server: $0, query: "", rating: rating, sort: .latest)) }
+            jobs += servers.map { .booru(BooruKey(server: $0, query: "", sort: .latest)) }
             if preferredMode == .booru, mangaQuery != nil, !servers.isEmpty { jobs.swapAt(0, 1) }
             jobs.removeAll { self.completed.contains($0) }
             var prepared: [Prepared] = []
@@ -243,7 +243,7 @@ final class LaunchFeedWarmup {
                 let page = try await mangaPage(query: key.query, site: key.site)
                 return .manga(job, page.ids)
             case .booru(let key):
-                let page = try await booruPage(server: key.server, query: key.query, rating: key.rating, sort: key.sort)
+                let page = try await booruPage(server: key.server, query: key.query, sort: key.sort)
                 return .booru(job, key.server, page.posts)
             }
         } catch { return nil }
@@ -374,9 +374,9 @@ public final class AppEnvironment: @unchecked Sendable {
         if defaultTags != tags { defaultTags = tags }
         let exclusions = browserPreferences.string(forKey: "manga.defaultExcludedTags") ?? ""
         if defaultExcludedTags != exclusions { defaultExcludedTags = exclusions }
-        let verified = browserPreferences.bool(forKey: "site_verified")
+        let verified = browserPreferences.bool(forKey: "site_verified") && Self.supportsComicsAddress(browserPreferences.string(forKey: "manga.site_address") ?? "")
         if isSiteVerified != verified { isSiteVerified = verified }
-        let siteAddress = browserPreferences.string(forKey: "manga.site_address") ?? "manga.la"
+        let siteAddress = browserPreferences.string(forKey: "manga.site_address") ?? ""
         if mangaSiteAddress != siteAddress { mangaSiteAddress = siteAddress }
     }
     private let browserPreferences: UserDefaults
@@ -438,8 +438,8 @@ public final class AppEnvironment: @unchecked Sendable {
         self.useEmbeddedBrowser = browserPreferences.bool(forKey: "use_embedded_browser")
 
         self.isOnboardingCompleted = browserPreferences.bool(forKey: "onboarding_completed")
-        self.isSiteVerified = browserPreferences.bool(forKey: "site_verified")
-        self.mangaSiteAddress = browserPreferences.string(forKey: "manga.site_address") ?? "manga.la"
+        self.isSiteVerified = browserPreferences.bool(forKey: "site_verified") && Self.supportsComicsAddress(browserPreferences.string(forKey: "manga.site_address") ?? "")
+        self.mangaSiteAddress = browserPreferences.string(forKey: "manga.site_address") ?? ""
     }
 
     static func supportsComicsAddress(_ input: String) -> Bool {
@@ -468,11 +468,10 @@ public final class AppEnvironment: @unchecked Sendable {
     @discardableResult
     public func verifySite(input: String) -> Bool {
         let cleaned = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isKeyword = cleaned.lowercased() == "manga"
-        let isValid = isKeyword || Self.supportsComicsAddress(input)
+        let isValid = Self.supportsComicsAddress(cleaned)
         if isValid {
             self.isSiteVerified = true
-            let saved = isKeyword ? "manga.la" : Self.normalizedComicsAddress(input)
+            let saved = Self.normalizedComicsAddress(cleaned)
             self.mangaSiteAddress = saved
         }
         return isValid

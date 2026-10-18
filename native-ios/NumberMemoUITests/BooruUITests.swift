@@ -1181,7 +1181,7 @@ final class BooruUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         element(app, "comics.enterAddress").tap()
         let input = element(app, "comics.address")
-        input.tap(); input.typeText("manga.la")
+        input.tap(); input.typeText("comics.example")
         element(app, "comics.connect").tap()
         XCTAssertTrue(element(app, "content.search").waitForExistence(timeout: 5))
         XCTAssertFalse(element(app, "comics.connectionCard").exists)
@@ -1200,7 +1200,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(app.alerts["Invalid Address"].waitForExistence(timeout: 5))
         app.alerts.buttons["OK"].tap()
         input.tap()
-        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "not-a-domain".count) + "manga.la")
+        input.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "not-a-domain".count) + "comics.example")
         element(app, "comics.connect").tap()
         XCTAssertTrue(app.tabBars.buttons["Explore"].waitForExistence(timeout: 5))
         XCTAssertFalse(element(app, "comics.enterAddress").exists)
@@ -1229,7 +1229,8 @@ final class BooruUITests: XCTestCase {
         element(app, "onboarding.addServer").tap()
         let address = element(app, "booru.serverURL")
         XCTAssertTrue(address.waitForExistence(timeout: 5))
-        address.tap(); address.typeText("https://manga.la/")
+        address.tap(); address.typeText("https://comics.example/")
+        element(app, "booru.serverEngine").tap(); app.buttons["만화 모드"].tap()
         XCTAssertTrue(app.staticTexts["만화 모드"].exists)
         XCTAssertTrue(element(app, "booru.serverEngine").exists)
         capture(app, "Comics address in initial connection")
@@ -1280,12 +1281,9 @@ final class BooruUITests: XCTestCase {
         XCTAssertEqual(app.tabBars.buttons.element(boundBy: 0).label, "Saved")
     }
 
-    func testRatingAndBrowserFallbackSettings() {
+    func testSearchWithoutRatingSelectorAndBrowserFallbackSettings() {
         let app = launch()
-        element(app, "booru.rating").tap(); app.buttons["General / Safe"].tap()
-        XCTAssertTrue(element(app, "booru.rating").label.contains("General / Safe"))
-        element(app, "booru.rating").tap(); app.buttons["All Ratings"].tap()
-        capture(app, "Booru shared search and rating controls")
+        XCTAssertFalse(element(app, "booru.rating").exists)
         app.tabBars.buttons["More"].tap()
         let browserToggle = reveal(app, "booru.browserToggle")
         browserToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
@@ -1300,7 +1298,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "booru.post.101").waitForExistence(timeout: 5))
     }
 
-    func testLiveLegacyGalleryWithRatingDisabled() throws {
+    func testLiveLegacyGalleryWithoutGeneratedFilters() throws {
         guard ProcessInfo.processInfo.environment["NUMBER_MEMO_BOORU_LIVE_TESTS"] == "1",
               let address = ProcessInfo.processInfo.environment["NUMBER_MEMO_LEGACY_SERVERS"]?.split(separator: ",").first,
               address.hasPrefix("https://") else { throw XCTSkip("Opt-in legacy server required") }
@@ -1311,7 +1309,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "booru.validationWeb").waitForExistence(timeout: 10))
         Thread.sleep(forTimeInterval: 8)
         element(app, "booru.validationDone").tap(); app.tabBars.buttons["Explore"].tap()
-        XCTAssertTrue(element(app, "booru.rating").label.contains("All Ratings"))
+        XCTAssertFalse(element(app, "booru.rating").exists)
         let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'booru.post.'")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 40), "Legacy public gallery should load without a rating condition")
         card.tap()
@@ -1462,7 +1460,8 @@ final class BooruUITests: XCTestCase {
         let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'booru.post.'")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 35), "Explore must load through the retained validation browser")
         app.buttons["Clear Search"].tap()
-        element(app, "booru.rating").tap(); app.buttons["General / Safe"].tap()
+        let ratingQuery = element(app, "booru.search")
+        ratingQuery.tap(); ratingQuery.typeText("rating:general"); app.keyboards.buttons["Search"].tap()
         element(app, "booru.sort").tap(); app.buttons["Popular · Score"].tap()
         XCTAssertTrue(card.waitForExistence(timeout: 40), "Danbooru score sorting must recover from server timeouts")
         capture(app, "Danbooru score exploration after browser validation")

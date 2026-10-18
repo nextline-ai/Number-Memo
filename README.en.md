@@ -27,7 +27,7 @@ Open **More → Library Management** to export or restore a JSON backup, or impo
 
 | | Comics mode | Image mode (Booru) |
 | --- | --- | --- |
-| Browse | Gallery search, popular galleries, artists | Multiple servers together, latest or popular, rating filters |
+| Browse | Gallery search, popular galleries, artists | Multiple servers together, latest or popular, manual tag queries |
 | Save | Gallery bookmarks and folders | Image favorites and folders |
 | Search | Tag autocomplete, default tags and exclusions | Tag autocomplete, search history, per-server blacklists |
 | View | Full-screen reader, reading direction, continuous scrolling | Large images, GIFs, videos, pools and notes |
@@ -46,7 +46,7 @@ Saved items, tags, artists, appearance, and viewer settings are separate for eac
 - Add servers in **More → Servers**. Supported types include Danbooru, Gelbooru, Old Gelbooru (v0.1.11, used by booru.org), and Moebooru.
 - Select multiple servers from the top server menu to include them in both Explore and Saved.
 - **Hold an image in Explore or the viewer to save it. Hold again to remove it.** Use **Save to Folder** in the viewer menu to choose a folder.
-- Popular sorts by highest score. Use the adjacent **Rating** menu to filter results; **All Ratings** applies no automatic rating filter.
+- Popular sorts by highest score. Enter any rating conditions directly in search using the tags supported by that server. The app does not inject or rewrite rating tags.
 - Open **More → Pools** for ordered image collections. Images with notes can display the site's annotations or translations.
 
 Appearance, language, browsing, and media settings are directly accessible in **More**.
@@ -73,7 +73,7 @@ Temporary connection failures are retried up to three times. If they continue, f
 
 1. Open **Validate Client** from the Booru error screen or server settings. Complete the website's verification and tap **Done** to retry. Some searches require additional verification on that search page.
 2. If the problem continues, enable **More → Use Embedded Browser**, or switch from the error screen. Tap the browser's grid button to return to native browsing.
-3. For booru.org sites, try **All Ratings**. You can also enter server credentials or reset cookies in the server settings when needed.
+3. Check that your search terms are supported by that server. You can also enter server credentials or reset cookies in the server settings when needed.
 
 **Danbooru usually limits regular accounts to two search tags.** To search with more tags, upgrade your account on the website and enter your username and API key in the app's server settings. **Gelbooru does not have this two-tag limit.**
 
@@ -111,11 +111,11 @@ Open **Image Mode → More → Challenge Roulette** to draw a subject, method an
 
 Create, duplicate and edit challenges without editing JSON. The beginner editor has three steps: introduce the game, enter choices, and pick a goal. Choices can be edited inline or pasted in batches. Quick goals provide common time/count presets. Supporting groups, template variables, probabilities, score bands and endings remain available under **Advanced Rules**. Preview does not save progress. Complete missions manually; skipping awards no points.
 
-**How to Play** displays the game instructions before and during play. Write them as plain text, including line breaks, in the JSON `detail` field. Choose ratings only in the reference-image filter. Opening a play screen starts at **All**, and the choice remains in memory across its missions. Rating settings are excluded from game JSON, backups, and saved sessions.
+**How to Play** displays the game instructions before and during play. Write them as plain text, including line breaks, in the JSON `detail` field. Enter reference-image search conditions directly in the search field. Game JSON, backups, and saved sessions do not generate rating conditions.
 
 **Challenge Backup and Import** exports definitions to a JSON file or imports a validated file immediately (maximum 10 MB). Matching IDs become new copies. A toast confirms successful import. Images, accounts, source choices and progress are excluded. Challenge backup is separate from image-library backup.
 
-Definitions follow the existing iCloud setting and last-change conflict rules. Sessions and source choices stay on each device; running sessions retain their original rules until restarted. Automatically drawn tags are not deliberate search/taste evidence. Existing rating choices and blocking remain in effect. Saved-folder originals still need a connection when not cached.
+Definitions follow the existing iCloud setting and last-change conflict rules. Sessions and source choices stay on each device; running sessions retain their original rules until restarted. Automatically drawn tags are not deliberate search/taste evidence. Existing tag and artist blocking remains in effect. Saved-folder originals still need a connection when not cached.
 
 For hand-authored JSON, start with the [croquis example backup](docs/challenge-example.json). The version 1 format contains a `games` array; templates accept `{reel1}`, `{reel2}`, `{goal}` and ordered `{extra1}` variables. Time ranges use seconds and weights are positive integers.
 

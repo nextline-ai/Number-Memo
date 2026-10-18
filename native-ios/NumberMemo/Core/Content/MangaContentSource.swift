@@ -73,7 +73,8 @@ actor MangaContentSource: ContentProviding {
             let value = character == " " ? "_" : character == "." ? "dot" : String(character)
             return value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
         }.joined(separator: "/")
-        guard let url = URL(string: "https://tagindex.manga.la/" + field + "/" + chars + ".json") else { throw ContentError.invalidQuery }
+        guard !MangaUrls.configuredHost.isEmpty,
+              let url = URL(string: "https://tagindex." + MangaUrls.configuredHost + "/" + field + "/" + chars + ".json") else { throw ContentError.invalidQuery }
         return url
     }
 

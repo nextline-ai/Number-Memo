@@ -15,7 +15,7 @@ struct TasteDashboard: View {
     @State private var detail: TasteTag?
     @State private var comicPrefetchTask: Task<Void, Never>?
     @State private var prefetchAnchor: Int?
-    private var sources: [String] { mode == .comics ? ["https://manga.la"] : env.booru.selectedServers.map(\.canonicalAddress) }
+    private var sources: [String] { mode == .comics ? [MangaUrls.source] : env.booru.selectedServers.map(\.canonicalAddress) }
     private var source: String { sources.first ?? "" }
     private var isActiveMode: Bool { env.mode == (mode == .booru ? .booru : .manga) }
     private var feed: TasteFeedState { env.taste.feed(mode, sources: sources) }

@@ -14,9 +14,10 @@ public enum MangaAPIClient {
     private static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
 
     public static func fetchGalleryInfo(galleryId: Int64) async throws -> MangaGalleryInfo {
+        guard !MangaUrls.configuredHost.isEmpty else { throw URLError(.unsupportedURL) }
         let urls = [
             "https://ltn.gold-usergeneratedcontent.net/galleries/\(galleryId).js",
-            "https://ltn.manga.la/galleries/\(galleryId).js"
+            "\(MangaUrls.home)galleries/\(galleryId).js"
         ]
 
         var lastError: Error?
@@ -26,7 +27,7 @@ public enum MangaAPIClient {
             guard let url = URL(string: urlString) else { continue }
             var request = URLRequest(url: url)
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-            request.setValue("https://manga.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
+            request.setValue(MangaUrls.galleryUrl(for: galleryId), forHTTPHeaderField: "Referer")
             request.timeoutInterval = 15
 
             do {
@@ -52,9 +53,10 @@ public enum MangaAPIClient {
     }
 
     public static func fetchGalleryFiles(galleryId: Int64) async throws -> [String] {
+        guard !MangaUrls.configuredHost.isEmpty else { throw URLError(.unsupportedURL) }
         let urls = [
             "https://ltn.gold-usergeneratedcontent.net/galleries/\(galleryId).js",
-            "https://ltn.manga.la/galleries/\(galleryId).js"
+            "\(MangaUrls.home)galleries/\(galleryId).js"
         ]
 
         var lastError: Error?
@@ -63,7 +65,7 @@ public enum MangaAPIClient {
             guard let url = URL(string: urlString) else { continue }
             var request = URLRequest(url: url)
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-            request.setValue("https://manga.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
+            request.setValue(MangaUrls.galleryUrl(for: galleryId), forHTTPHeaderField: "Referer")
             request.timeoutInterval = 15
 
             do {
@@ -157,6 +159,7 @@ public enum MangaAPIClient {
     }
 
     public static func downloadCover(galleryId: Int64, hash: String, destinationDir: URL) async throws -> URL {
+        guard !MangaUrls.configuredHost.isEmpty else { throw URLError(.unsupportedURL) }
         guard hash.count >= 3 else { throw URLError(.badURL) }
         let a = String(hash.suffix(1))
         let bStart = hash.index(hash.endIndex, offsetBy: -3)
@@ -177,7 +180,7 @@ public enum MangaAPIClient {
             guard let url = URL(string: candidateUrl) else { continue }
             var request = URLRequest(url: url)
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-            request.setValue("https://manga.la/galleries/\(galleryId).html", forHTTPHeaderField: "Referer")
+            request.setValue(MangaUrls.galleryUrl(for: galleryId), forHTTPHeaderField: "Referer")
             request.setValue("image/webp,image/avif,image/*,*/*;q=0.8", forHTTPHeaderField: "Accept")
             request.timeoutInterval = 15
 

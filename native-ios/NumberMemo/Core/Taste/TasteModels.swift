@@ -73,7 +73,7 @@ struct TasteItem: Codable, Hashable, Sendable {
     var key: String { source + "#" + String(id) }
     var eligibleTags: [String] { TasteTagPolicy.filter(tags, metadata: metadata) }
     static func comic(_ id: Int64, tags: String? = nil) -> Self {
-        .init(source: "https://manga.la", id: id, tags: (tags ?? "").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        .init(source: MangaUrls.source, id: id, tags: (tags ?? "").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) })
     }
 }
 
