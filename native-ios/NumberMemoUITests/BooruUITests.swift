@@ -64,8 +64,12 @@ final class BooruUITests: XCTestCase {
     }
     private func openMenu(_ app: XCUIApplication) {
         if !element(app, "booru.menuClose").exists {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            if !element(app, "booru.menuClose").waitForExistence(timeout: 1) { app.twoFingerTap() }
+            let media = element(app, "booru.media")
+            XCTAssertTrue(media.waitForExistence(timeout: 5))
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label IN %@", ["ready", "playing", "ended", "error"]), object: element(app, "booru.mediaStatus"))
+            XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 15), .completed)
+            media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            if !element(app, "booru.menuClose").waitForExistence(timeout: 1) { media.twoFingerTap() }
             XCTAssertTrue(element(app, "booru.menuClose").waitForExistence(timeout: 5))
         }
     }
@@ -640,10 +644,10 @@ final class BooruUITests: XCTestCase {
         for _ in 0..<6 where !element(app, "booru.serversLink").isHittable { app.swipeDown() }
         element(app, "booru.serversLink").tap()
         element(app, "booru.addServer").tap()
-        element(app, "booru.serverOptions").tap()
-        element(app, "booru.serverName").tap(); element(app, "booru.serverName").typeText("My Booru")
         element(app, "booru.serverURL").tap(); element(app, "booru.serverURL").typeText("https://example.com")
         element(app, "booru.serverEngine").tap(); app.buttons["Danbooru"].tap()
+        reveal(app, "booru.serverOptions").tap()
+        element(app, "booru.serverName").tap(); element(app, "booru.serverName").typeText("My Booru")
         element(app, "booru.serverSave").tap()
         XCTAssertTrue(app.staticTexts["My Booru"].waitForExistence(timeout: 5))
         capture(app, "Custom server configured")
@@ -868,7 +872,7 @@ final class BooruUITests: XCTestCase {
         let app = launch()
         selectMode(app, "manga")
         app.tabBars.buttons["Settings"].tap()
-        element(app, "settings.onboarding").tap()
+        reveal(app, "settings.onboarding").tap()
         XCTAssertTrue(element(app, "onboarding.addServer").waitForExistence(timeout: 10))
         element(app, "onboarding.continue").tap()
         XCTAssertTrue(element(app, "onboarding.violetImport").waitForExistence(timeout: 5))
@@ -878,7 +882,7 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Saved"].waitForExistence(timeout: 5))
 
         for (mode, button) in [("booru", "booru.createFolder"), ("manga", "manga.createFolder")] {
-            element(app, "app.mode." + mode).tap()
+            selectMode(app, mode)
             app.tabBars.buttons["Saved"].tap()
             let createFolder = element(app, button)
             XCTAssertTrue(createFolder.waitForExistence(timeout: 5)); createFolder.tap()
@@ -973,9 +977,11 @@ final class BooruUITests: XCTestCase {
         XCTAssertTrue(element(app, "booru.import.result").waitForExistence(timeout: 10))
         XCTAssertTrue(element(app, "booru.import.result").label.contains("2 favorites added"))
         app.tabBars.buttons["Saved"].tap()
-        element(app, "booru.folder.anime-boxes").tap()
+        XCTAssertTrue(element(app, "booru.folder.site:https://danbooru.donmai.us").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "booru.folder.site:https://gelbooru.com").exists)
+        element(app, "booru.allFavorites").tap()
         XCTAssertEqual(app.buttons.matching(identifier: "booru.post.201").count, 2)
-        capture(app, "Imported favorites in Anime Boxes folder")
+        capture(app, "Imported favorites organized by server")
     }
 
     func testMangaDefaultTagsAndGridSettingsStayInTheirMode() {

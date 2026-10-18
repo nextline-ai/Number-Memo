@@ -200,10 +200,20 @@ final class NativeContentTests: XCTestCase {
     }
 
     func testRequestPolicyRejectsForeignHostsAndCredentials() {
+        let defaults = UserDefaults.standard
+        let previous = defaults.object(forKey: "manga.site_address")
+        defer {
+            if let previous { defaults.set(previous, forKey: "manga.site_address") }
+            else { defaults.removeObject(forKey: "manga.site_address") }
+        }
+        defaults.set("custom-comics.example", forKey: "manga.site_address")
         for raw in ["http://w1.gold-usergeneratedcontent.net/a", "https://w1.gold-usergeneratedcontent.net.evil.example/a",
-                    "https://user@w1.gold-usergeneratedcontent.net/a", "https://manga.la/", "https://example.com/"] {
+                    "https://user@w1.gold-usergeneratedcontent.net/a", "https://manga.la/", "https://example.com/",
+                    "https://custom-comics.example.evil.example/", "https://user@custom-comics.example/", "http://custom-comics.example/"] {
             XCTAssertFalse(ContentTransport.allows(URL(string: raw)!))
         }
+        XCTAssertTrue(ContentTransport.allows(URL(string: "https://custom-comics.example/")!))
+        XCTAssertTrue(ContentTransport.allows(URL(string: "https://tagindex.custom-comics.example/a")!))
         XCTAssertTrue(ContentTransport.allows(URL(string: "https://a2.gold-usergeneratedcontent.net/a")!))
     }
 
