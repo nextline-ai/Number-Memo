@@ -60,9 +60,6 @@ struct TasteDashboard: View {
                 AppToolbarActions {
                     if mode == .booru { BooruServerMenu(compact: true) }
                     NavigationLink { TasteSettingsView(mode: mode, source: source) } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel(L10n.text("Settings"))
-                    Button(action: refresh) { Image(systemName: "arrow.clockwise") }
-                        .disabled(feed.loading || !env.taste.control.enabled)
-                        .accessibilityLabel(L10n.text("Refresh recommendations")).accessibilityIdentifier("taste.refresh")
                 }
             }
             if isRoot {

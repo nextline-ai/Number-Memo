@@ -9,8 +9,6 @@ public struct SettingsView: View {
     public var body: some View {
         @Bindable var env = env
         List {
-            ModeAppearanceSettings()
-            LanguageSettingsSection()
             Section {
                 NavigationLink { ComicsConnectionSettings() } label: {
                     Label(L10n.text("Website Connection"), systemImage: "globe")
@@ -20,6 +18,8 @@ public struct SettingsView: View {
             } header: { Text(L10n.text("Browsing")) } footer: {
                 Text(L10n.text("Use the website if the native viewer stops working. Turn off to return to the native viewer."))
             }
+            ModeAppearanceSettings()
+            LanguageSettingsSection()
             MangaDefaultTagsSettings()
             ReaderSettingsSection(booru: false, isPresented: $showReader)
             SearchHistorySettings()
