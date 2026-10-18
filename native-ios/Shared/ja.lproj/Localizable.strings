@@ -849,3 +849,4 @@
 
 "No servers selected" = "サーバーが選択されていません";
 "Choose servers using the server button above. Your saved works are kept." = "上部のサーバーボタンから選んでください。保存した作品は保持されています。";
+"Move or remove the works in Uncategorized before deleting it." = "未分類フォルダに作品があります。作品を移動または削除してからフォルダを削除してください。";

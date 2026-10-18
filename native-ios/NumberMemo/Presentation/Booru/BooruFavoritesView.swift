@@ -13,6 +13,7 @@ struct BooruFavoritesView: View {
     @State private var renaming: BooruFolder?
     @State private var showRename = false
     @State private var renameDraft = ""
+    @State private var folderMessage: String?
     private var posts: [BooruPost] { store.visibleFavorites() }
     var body: some View {
         ScrollView {
@@ -36,7 +37,12 @@ struct BooruFavoritesView: View {
                                 Button(L10n.text("Reorder Folders"), systemImage: "arrow.up.arrow.down") { reordering = true }
                                 if folder.id != "unsorted" {
                                     Button(L10n.text("Rename Folder"), systemImage: "pencil") { renaming = folder; renameDraft = folder.displayName; showRename = true }
-                                    Button(L10n.text("Delete Folder"), systemImage: "trash", role: .destructive) { deleting = folder }
+                                }
+                                Button(L10n.text("Delete Folder"), systemImage: "trash", role: .destructive) {
+                                    if folder.id == "unsorted" {
+                                        do { try store.deleteFolder(folder.id) }
+                                        catch { folderMessage = error.localizedDescription }
+                                    } else { deleting = folder }
                                 }
                             }
                     }
@@ -50,6 +56,7 @@ struct BooruFavoritesView: View {
                     .accessibilityLabel(L10n.text("Create Folder")).accessibilityIdentifier("booru.createFolder")
             }
         } }
+        .transientMessage($folderMessage)
         .booruCreateFolderAlert(isPresented: $creating, name: $newFolderName)
         .sheet(isPresented: $reordering) { FolderOrderView(booru: true) }
         .sheet(item: $editing) { item in

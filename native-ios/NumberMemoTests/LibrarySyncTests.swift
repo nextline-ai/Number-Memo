@@ -172,6 +172,28 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertNotNil(try b.manga.getWork(galleryId: 42))
     }
 
+    func testEmptyDefaultDeletionSyncsAndConcurrentFavoritesAreProtected() throws {
+        let a = try adapter(), b = try adapter()
+        try a.booru.database.write { try BooruStore.ensureUnsorted(in: $0) }
+        var la = LibrarySyncLedger(), lb = LibrarySyncLedger()
+        try exchange(a, b, &la, &lb)
+        try a.manga.deleteFolder(id: try XCTUnwrap(a.manga.listFolders().first?.id))
+        try a.booru.deleteFolder("unsorted")
+        try exchange(a, b, &la, &lb)
+        XCTAssertTrue(try b.manga.listFolders().isEmpty)
+        XCTAssertTrue(b.booru.folders().isEmpty)
+
+        let server = BooruServer.presets[0]
+        try b.booru.saveServer(server)
+        try b.booru.database.write { try BooruStore.ensureUnsorted(in: $0) }
+        let post = BooruFixtureSource.post(83, server: server)
+        try b.booru.saveFavorite(post, folderID: "unsorted")
+        try b.apply(la.changes)
+        XCTAssertTrue(b.booru.isFavorite(post))
+        XCTAssertEqual(b.booru.folderID(for: post), "unsorted")
+        XCTAssertTrue(b.booru.folders().contains { $0.id == "unsorted" })
+    }
+
     func testConcurrentFolderRemovalKeepsNewlySavedWorks() throws {
         let a = try adapter(), b = try adapter()
         let folder = try a.manga.createFolder(name: "Reading")
@@ -257,6 +279,7 @@ final class LibrarySyncTests: XCTestCase {
         let sb = BooruServer(id: "b", name: "Gelbooru", baseURL: URL(string: "https://www.gelbooru.com/")!, engine: .gelbooru)
         try a.booru.saveServer(sa); try b.booru.saveServer(sb)
         let folder = try a.booru.saveFolder(name: "Favorites", color: 0xFF112233)
+        try a.booru.database.write { try BooruStore.ensureUnsorted(in: $0) }
         try a.booru.reorderFolders([folder, "unsorted"])
         let post = BooruPost(serverID: sa.id, postID: 123, width: 100, height: 100, tags: ["landscape"], artists: [], rating: "g", score: 1, fileExtension: "jpg")
         try a.booru.saveFavorite(post, folderID: folder)
@@ -275,6 +298,7 @@ final class LibrarySyncTests: XCTestCase {
     }
     func testFreshDeviceDoesNotOverwriteExistingDefaultFolderColor() throws {
         let a = try adapter(), b = try adapter()
+        try a.booru.database.write { try BooruStore.ensureUnsorted(in: $0) }
         try a.booru.setFolderColor("unsorted", color: 0xFFABCDEF)
         let folder = try XCTUnwrap(a.manga.listFolders().first?.id)
         try a.manga.setFolderColor(id: folder, color: 0xFF123456)

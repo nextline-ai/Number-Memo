@@ -1,6 +1,11 @@
 import Foundation
 import GRDB
 
+enum FolderDeletionError: LocalizedError {
+    case containsWorks
+    var errorDescription: String? { L10n.text("Move or remove the works in Uncategorized before deleting it.") }
+}
+
 public final class AppDatabase: Sendable {
     public let dbWriter: any DatabaseWriter
 
@@ -15,14 +20,14 @@ public final class AppDatabase: Sendable {
         config.foreignKeysEnabled = true
         let dbQueue = try DatabaseQueue(path: path, configuration: config)
         let db = try AppDatabase(dbQueue)
-        try db.ensureDefaultFolder()
+        try db.repairOrphanWorks()
         return db
     }
 
     public static func inMemory() throws -> AppDatabase {
         let dbQueue = try DatabaseQueue(configuration: Configuration())
         let db = try AppDatabase(dbQueue)
-        try db.ensureDefaultFolder()
+        try db.repairOrphanWorks()
         return db
     }
 
@@ -103,6 +108,7 @@ public final class AppDatabase: Sendable {
                 t.column("received_at", .text).notNull()
                 t.column("processed_at", .text)
             }
+            try db.create(index: "idx_folder_works_work_id", on: "folder_works", columns: ["work_id"])
         }
 
         migrator.registerMigration("v2_thumb_page") { db in
@@ -129,6 +135,15 @@ public final class AppDatabase: Sendable {
         migrator.registerMigration("v5_taste") { try TasteStore.migrate($0) }
         migrator.registerMigration("v6_visual_fingerprints") { try VisualFingerprintStore.migrate($0) }
         migrator.registerMigration("v7_visual_cleanup") { try VisualFingerprintStore.installDeletionTrigger($0) }
+        migrator.registerMigration("v8_default_folder_lifecycle") { db in
+            // Bootstrap once. Reopening an empty library must not recreate a deleted folder.
+            if try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM folders") == 0 {
+                _ = try Self.unfiledFolder(in: db)
+            }
+        }
+        migrator.registerMigration("v9_index_folder_works_work_id") { db in
+            try db.create(index: "idx_folder_works_work_id", on: "folder_works", columns: ["work_id"], ifNotExists: true)
+        }
         return migrator
     }
 
@@ -212,6 +227,17 @@ public final class AppDatabase: Sendable {
     public func nextUniqueFolderColor(excluding: Set<Int64> = []) -> Int64 {
         (try? dbWriter.read { db in nextUniqueFolderColor(in: db, excluding: excluding) })
             ?? Self.curatedFolderColors.first!
+    }
+
+    static func unfiledFolder(in db: Database) throws -> Folder {
+        if let existing = try Folder.fetchOne(db, sql: "SELECT * FROM folders WHERE sync_id = 'unsorted' OR name = '미분류' LIMIT 1") { return existing }
+        try db.execute(sql: "INSERT INTO folders (name, description, color, sort_order, created_at, sync_id) VALUES ('미분류', '기본 폴더', 4280391411, 1, ?, 'unsorted')", arguments: [ISO8601DateFormatter().string(from: Date())])
+        return try Folder.fetchOne(db, key: db.lastInsertedRowID)!
+    }
+
+    private func repairOrphanWorks() throws {
+        let orphaned = try dbWriter.read { try Bool.fetchOne($0, sql: "SELECT EXISTS(SELECT 1 FROM works WHERE id NOT IN (SELECT work_id FROM folder_works))") == true }
+        if orphaned { _ = try ensureDefaultFolder() }
     }
 
     @discardableResult
@@ -356,10 +382,16 @@ public final class AppDatabase: Sendable {
 
     public func deleteFolder(id: Int64) throws {
         try dbWriter.write { db in
-            guard let defaultFolder = try Folder.fetchOne(db, sql: "SELECT * FROM folders WHERE name = '미분류' AND id != ? LIMIT 1", arguments: [id])
-                ?? Folder.fetchOne(db, sql: "SELECT * FROM folders WHERE id != ? ORDER BY sort_order ASC, id ASC LIMIT 1", arguments: [id]) else {
+            guard let folder = try Folder.fetchOne(db, key: id) else { return }
+            let hasWorks = try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM folder_works WHERE folder_id = ?)", arguments: [id]) == true
+            if folder.name == "미분류", hasWorks { throw FolderDeletionError.containsWorks }
+            if !hasWorks {
+                try db.execute(sql: "DELETE FROM folders WHERE id = ?", arguments: [id])
                 return
             }
+            let defaultFolder = try Folder.fetchOne(db, sql: "SELECT * FROM folders WHERE name = '미분류' AND id != ? LIMIT 1", arguments: [id])
+                ?? Folder.fetchOne(db, sql: "SELECT * FROM folders WHERE id != ? ORDER BY sort_order ASC, id ASC LIMIT 1", arguments: [id])
+                ?? Self.unfiledFolder(in: db)
             // Move works to default folder
             try db.execute(
                 sql: """
@@ -529,8 +561,12 @@ public final class AppDatabase: Sendable {
                 work = newWork
             }
 
-            // Bind to folder if provided
-            if let folderId {
+            // A deleted last folder is recreated only when a new save actually needs one.
+            var effectiveFolderId = folderId
+            if effectiveFolderId == nil, try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM folders") == 0 {
+                effectiveFolderId = try Self.unfiledFolder(in: db).id
+            }
+            if let folderId = effectiveFolderId {
                 let resolvedWorkId = work?.id ?? (try? Int64.fetchOne(db, sql: "SELECT id FROM works WHERE gallery_id = ?", arguments: [galleryId]))
                 if let workId = resolvedWorkId {
                     try db.execute(
@@ -538,7 +574,7 @@ public final class AppDatabase: Sendable {
                         arguments: [folderId, workId, now]
                     )
                     // If assigned to a non-default folder, remove from default folder (미분류)
-                    if let defaultId = try? Int64.fetchOne(db, sql: "SELECT id FROM folders WHERE name = '미분류' OR id = 1 ORDER BY sort_order ASC, id ASC LIMIT 1"), defaultId != folderId {
+                    if let defaultId = try? Int64.fetchOne(db, sql: "SELECT id FROM folders WHERE name = '미분류' ORDER BY sort_order ASC, id ASC LIMIT 1"), defaultId != folderId {
                         try db.execute(
                             sql: "DELETE FROM folder_works WHERE folder_id = ? AND work_id = ?",
                             arguments: [defaultId, workId]

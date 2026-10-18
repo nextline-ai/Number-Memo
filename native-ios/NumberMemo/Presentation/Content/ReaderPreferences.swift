@@ -258,8 +258,8 @@ enum ContentBookmarkAction {
     static func save(id: Int64, gallery: NativeGallery?, env: AppEnvironment, images: PageImageStore? = nil, context: DiscoveryContext = .unknown) throws -> WorkSaveResult {
         if try env.database.getWork(galleryId: id) != nil { return .unchanged(.comics) }
         let folders = try env.database.listFolders()
-        let folder = folders.first(where: { $0.name == "미분류" }) ?? folders.first
-        _ = try env.database.upsertWork(galleryId: id, folderId: folder?.id,
+        let folder = try folders.first(where: { $0.name == "미분류" }) ?? folders.first ?? env.database.ensureDefaultFolder()
+        _ = try env.database.upsertWork(galleryId: id, folderId: folder.id,
             title: gallery?.title, artists: gallery?.artists.joined(separator: ", "),
             language: gallery?.language, type: gallery?.type, tags: gallery?.tags.joined(separator: ", "), metadataSource: "remote", discoveryContext: context)
         if let gallery, let page = gallery.pages.first, let images {

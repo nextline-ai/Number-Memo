@@ -107,7 +107,8 @@ struct LibrarySyncAdapter {
             for table in ["folder_works", "artists", "works", "folders", "search_history", "saved_searches", "library_order"] {
                 for change in values where change.deleted && change.row.table == "manga." + table {
                     var row = change.row
-                    if table == "folders", row.values["sync_id"]?.string == "unsorted" { continue }
+                    if table == "folders", row.values["sync_id"]?.string == "unsorted",
+                       try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM folder_works JOIN folders ON folders.id = folder_works.folder_id WHERE folders.sync_id = 'unsorted')") == true { continue }
                     if table == "folder_works" {
                         guard let folder = try localFolder(row.values["folder_id"], db), let work = try localWork(row.values["work_id"], db) else { continue }
                         row.values["folder_id"] = .integer(folder); row.values["work_id"] = .integer(work)
@@ -135,7 +136,8 @@ struct LibrarySyncAdapter {
                 for (position, uid) in (order + others).enumerated() { try db.execute(sql: "UPDATE folders SET sort_order = ? WHERE sync_id = ?", arguments: [position, uid]) }
             }
             // Concurrent folder deletion cannot orphan an independently saved work.
-            if let unfiled = try Int64.fetchOne(db, sql: "SELECT id FROM folders WHERE sync_id = 'unsorted'") {
+            if try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM works WHERE id NOT IN (SELECT work_id FROM folder_works))") == true {
+                let unfiled = try AppDatabase.unfiledFolder(in: db).id!
                 try db.execute(sql: "INSERT OR IGNORE INTO folder_works SELECT ?, id, bookmarked_at FROM works WHERE id NOT IN (SELECT work_id FROM folder_works)", arguments: [unfiled])
             }
         }
@@ -187,14 +189,24 @@ struct LibrarySyncAdapter {
                             try db.execute(sql: "DELETE FROM challenge_sessions WHERE id = ?", arguments: [id])
                         }
                         if table == "folders", let id = row.values["id"]?.string {
-                            try db.execute(sql: "UPDATE favorites SET folder_id = 'unsorted' WHERE folder_id = ?", arguments: [id])
+                            if try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM favorites WHERE folder_id = ?)", arguments: [id]) == true {
+                                try BooruStore.ensureUnsorted(in: db)
+                                try db.execute(sql: "UPDATE favorites SET folder_id = 'unsorted' WHERE folder_id = ?", arguments: [id])
+                            }
                         }
                         try Self.delete(row, db: db)
                     } else {
-                        if table == "favorites", let id = row.values["folder_id"]?.string, try String.fetchOne(db, sql: "SELECT id FROM folders WHERE id = ?", arguments: [id]) == nil { row.values["folder_id"] = .text("unsorted") }
+                        if table == "favorites", let id = row.values["folder_id"]?.string, try String.fetchOne(db, sql: "SELECT id FROM folders WHERE id = ?", arguments: [id]) == nil {
+                            try BooruStore.ensureUnsorted(in: db)
+                            row.values["folder_id"] = .text("unsorted")
+                        }
                         try Self.upsert(row, db: db)
                     }
                 }
+            }
+            // Apply default-folder deletion after favorite changes; concurrent saves take precedence.
+            if values.contains(where: { $0.deleted && $0.row.table == "booru.folders" && $0.row.values["id"]?.string == "unsorted" }) {
+                try db.execute(sql: "DELETE FROM folders WHERE id = 'unsorted' AND NOT EXISTS(SELECT 1 FROM favorites WHERE folder_id = 'unsorted')")
             }
             if let text = try String.fetchOne(db, sql: "SELECT value FROM settings WHERE key = 'folder_order'"), let order = try? JSONDecoder().decode([String].self, from: Data(text.utf8)) {
                 let others = try String.fetchAll(db, sql: "SELECT id FROM folders ORDER BY position, name").filter { !order.contains($0) }

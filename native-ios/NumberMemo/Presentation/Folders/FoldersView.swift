@@ -17,6 +17,7 @@ public struct FoldersView: View {
     @State private var renameDraft = ""
     @State private var editError: String?
     @State private var reordering = false
+    @State private var folderMessage: String?
 
     private var columns: [GridItem] { WorkGridLayout.columns(env.folderColumns, minimum: sizeClass == .regular ? 240 : 160) }
 
@@ -52,12 +53,11 @@ public struct FoldersView: View {
                                     Button(L10n.text("Rename Folder"), systemImage: "pencil") {
                                         renamingFolder = folder; renameDraft = folder.name; showRename = true
                                     }
-                                    Button(role: .destructive) {
-                                        folderPendingDelete = folder
-                                    } label: {
-                                        Label(L10n.text("Delete Folder"), systemImage: "trash")
-                                    }
                                 }
+                                Button(role: .destructive) {
+                                    if folder.name == "미분류", let id = folder.id { deleteFolder(id) }
+                                    else { folderPendingDelete = folder }
+                                } label: { Label(L10n.text("Delete Folder"), systemImage: "trash") }
                             }
                         }
                         .buttonStyle(.plain)
@@ -66,6 +66,7 @@ public struct FoldersView: View {
                 .padding(16)
             }
         }
+        .transientMessage($folderMessage)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -153,7 +154,13 @@ public struct FoldersView: View {
         .task {
             do {
                 let observation = ValueObservation.tracking { db in
-                    try [Row.fetchAll(db, sql: "SELECT * FROM works"), Row.fetchAll(db, sql: "SELECT * FROM folders"), Row.fetchAll(db, sql: "SELECT * FROM folder_works"), Row.fetchAll(db, sql: "SELECT * FROM artists")]
+                    try (
+                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM works") ?? 0,
+                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM folders") ?? 0,
+                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM folder_works") ?? 0,
+                        Int.fetchOne(db, sql: "SELECT COUNT(*) FROM artists") ?? 0,
+                        String.fetchOne(db, sql: "SELECT MAX(updated_at) FROM works") ?? ""
+                    )
                 }
                 for try await _ in observation.values(in: env.database.dbWriter) { loadFolders() }
             } catch { loadFolders() }
@@ -178,7 +185,8 @@ public struct FoldersView: View {
     }
 
     private func deleteFolder(_ id: Int64) {
-        try? env.database.deleteFolder(id: id)
+        do { try env.database.deleteFolder(id: id) }
+        catch { folderMessage = error.localizedDescription }
         loadFolders()
     }
 

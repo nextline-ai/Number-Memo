@@ -192,7 +192,7 @@ final class BooruLibraryTests: XCTestCase {
         let store = try BooruStore()
         XCTAssertThrowsError(try store.importAnimeBoxes(invalid, options: .init()))
         XCTAssertTrue(store.servers.isEmpty)
-        XCTAssertEqual(store.folders().count, 1)
+        XCTAssertEqual(store.folders().count, 0)
         let valid = try AnimeBoxesBackup.parse(BooruUITestSupport.importFixture)
         var options = AnimeBoxesImportOptions(); options.folderID = "missing"
         XCTAssertThrowsError(try store.importAnimeBoxes(valid, options: options))

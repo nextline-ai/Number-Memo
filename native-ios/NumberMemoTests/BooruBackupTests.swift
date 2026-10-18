@@ -6,6 +6,7 @@ final class BooruBackupTests: XCTestCase {
     func testAutomaticColorsUseComicsPaletteAndFallbackWithoutChangingRenames() throws {
         let comics = try AppDatabase.inMemory(), images = try BooruStore()
         let initial = try XCTUnwrap(comics.listFolders().first?.color)
+        try images.database.write { try BooruStore.ensureUnsorted(in: $0) }
         try images.setFolderColor("unsorted", color: initial)
         for index in 0..<(AppDatabase.presetColors.count + 3) {
             let comic = try comics.createFolder(name: "Folder \(index)")
@@ -22,6 +23,7 @@ final class BooruBackupTests: XCTestCase {
         try source.saveServer(server)
         let a = try source.saveFolder(name: "Landscapes"), b = try source.saveFolder(name: "Rooms")
         try source.setFolderColor(a, color: 0xFF112233)
+        try source.database.write { try BooruStore.ensureUnsorted(in: $0) }
         try source.setFolderColor("unsorted", color: 0xFF334455)
         try source.reorderFolders([b, "unsorted", a])
         let post = BooruFixtureSource.post(5194309, server: server)
@@ -58,7 +60,7 @@ final class BooruBackupTests: XCTestCase {
         backup.favorites[0].folderID = "missing"
         XCTAssertThrowsError(try destination.restoreBackup(backup))
         XCTAssertTrue(destination.servers.isEmpty)
-        XCTAssertEqual(destination.folders().map(\.id), ["unsorted"])
+        XCTAssertTrue(destination.folders().isEmpty)
         backup = try source.exportBackup(); backup.version = 999
         XCTAssertThrowsError(try destination.restoreBackup(backup))
         XCTAssertThrowsError(try BooruBackup.decode(Data("{\"version\":2,\"works\":[]}".utf8)))
@@ -68,6 +70,7 @@ final class BooruBackupTests: XCTestCase {
         let source = try BooruStore()
         let id = try source.saveFolder(name: "Synced folder")
         try source.setFolderColor(id, color: 0xFFABCDEF)
+        try source.database.write { try BooruStore.ensureUnsorted(in: $0) }
         try source.setFolderColor("unsorted", color: 0xFF102030)
         try source.reorderFolders([id, "unsorted"])
         let restored = try BooruStore()
@@ -86,5 +89,45 @@ final class BooruBackupTests: XCTestCase {
         ledger.capture(try a.snapshot(), device: "A")
         try b.apply(ledger.changes)
         XCTAssertEqual(b.booru.folders().first?.color, 0xFF765432)
+    }
+}
+
+extension BooruBackupTests {
+    func testUncategorizedIsOptionalAndNonemptyDeletionIsAtomic() throws {
+        let images = try BooruStore(), server = BooruServer.presets[0]
+        XCTAssertTrue(images.folders().isEmpty)
+        try images.exportBackup().validate()
+        try images.saveServer(server)
+        let folder = try images.saveFolder(name: "References")
+        let post = BooruFixtureSource.post(72, server: server)
+        try images.saveFavorite(post, folderID: folder)
+        try images.deleteFolder(folder)
+        XCTAssertEqual(images.folderID(for: post), "unsorted")
+        XCTAssertThrowsError(try images.deleteFolder("unsorted")) { XCTAssertTrue($0 is FolderDeletionError) }
+        XCTAssertTrue(images.isFavorite(post))
+        XCTAssertEqual(images.folders().map(\.id), ["unsorted"])
+        try images.toggleFavorite(post)
+        try images.deleteFolder("unsorted")
+        XCTAssertTrue(images.folders().isEmpty)
+        let restored = try BooruStore()
+        try restored.restoreBackup(BooruBackup.decode(images.exportBackup().encoded()))
+        XCTAssertTrue(restored.folders().isEmpty)
+    }
+
+    func testEmptyComicDefaultCanBeDeletedAndStaysDeletedAfterReopen() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".sqlite")
+        defer { for suffix in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + suffix) } }
+        let comics = try AppDatabase.open(at: url.path)
+        let folder = try XCTUnwrap(comics.listFolders().first)
+        _ = try comics.upsertWork(galleryId: 72, folderId: folder.id)
+        XCTAssertThrowsError(try comics.deleteFolder(id: folder.id!)) { XCTAssertTrue($0 is FolderDeletionError) }
+        XCTAssertEqual(try comics.getWork(galleryId: 72)?.folders.first?.id, folder.id)
+        try comics.dbWriter.write { try $0.execute(sql: "DELETE FROM works WHERE gallery_id = 72") }
+        try comics.deleteFolder(id: folder.id!)
+        XCTAssertTrue(try comics.listFolders().isEmpty)
+        let reopened = try AppDatabase.open(at: url.path)
+        XCTAssertTrue(try reopened.listFolders().isEmpty)
+        _ = try reopened.upsertWork(galleryId: 73)
+        XCTAssertFalse(try reopened.getWork(galleryId: 73)!.folders.isEmpty)
     }
 }

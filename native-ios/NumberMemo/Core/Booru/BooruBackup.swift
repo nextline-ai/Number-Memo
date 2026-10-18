@@ -37,7 +37,7 @@ struct BooruBackup: Codable, Sendable {
         let serverIDs = Set(servers.map(\.id)), folderIDs = Set(folders.map(\.id))
         guard format == "number-memo-image-library", version == 1,
               serverIDs.count == servers.count, folderIDs.count == folders.count,
-              folderIDs.contains("unsorted"), servers.allSatisfy({ !$0.id.isEmpty }),
+              servers.allSatisfy({ !$0.id.isEmpty }),
               folders.allSatisfy({ !$0.id.isEmpty && (0...0xFFFFFFFF).contains($0.color) && ($0.id == "unsorted" || !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }),
               Set(servers.map(\.canonicalAddress)).count == servers.count,
               Set(favorites.map { $0.post.id }).count == favorites.count,
@@ -100,19 +100,23 @@ extension BooruStore {
             }
             try db.execute(sql: "INSERT OR REPLACE INTO settings VALUES ('folder_order', ?)", arguments: [String(decoding: JSONEncoder().encode(incomingOrder + remaining), as: UTF8.self)])
             for value in backup.favorites {
-                let post = value.post.onServer(mapping[value.post.serverID]!)
+                guard let targetServerID = mapping[value.post.serverID] else { continue }
+                let post = value.post.onServer(targetServerID)
                 let existed = try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM favorites WHERE server_id = ? AND post_id = ?)", arguments: [post.serverID, post.postID]) ?? false
                 try db.execute(sql: "INSERT INTO favorites VALUES (?, ?, ?, ?, ?) ON CONFLICT(server_id, post_id) DO UPDATE SET payload = excluded.payload, saved_at = excluded.saved_at, folder_id = excluded.folder_id", arguments: [post.serverID, post.postID, try JSONEncoder().encode(post), value.savedAt, value.folderID])
                 try TasteStore.record(existed ? .metadata : .imported, item: Self.tasteItem(post, db: db), db: db)
             }
             for value in backup.history {
-                try db.execute(sql: "INSERT INTO history VALUES (?, ?, ?) ON CONFLICT(server_id, query) DO UPDATE SET used_at = MAX(used_at, excluded.used_at)", arguments: [mapping[value.serverID]!, value.query, value.usedAt])
+                guard let targetServerID = mapping[value.serverID] else { continue }
+                try db.execute(sql: "INSERT INTO history VALUES (?, ?, ?) ON CONFLICT(server_id, query) DO UPDATE SET used_at = MAX(used_at, excluded.used_at)", arguments: [targetServerID, value.query, value.usedAt])
             }
             for value in backup.savedTags {
-                try db.execute(sql: "INSERT OR IGNORE INTO saved_tags VALUES (?, ?, ?)", arguments: [mapping[value.serverID]!, value.name, value.kind])
+                guard let targetServerID = mapping[value.serverID] else { continue }
+                try db.execute(sql: "INSERT OR IGNORE INTO saved_tags VALUES (?, ?, ?)", arguments: [targetServerID, value.name, value.kind])
             }
             for (id, rules) in backup.blacklist {
-                try db.execute(sql: "INSERT OR REPLACE INTO settings VALUES (?, ?)", arguments: ["blacklist." + mapping[id]!, rules])
+                guard let targetServerID = mapping[id] else { continue }
+                try db.execute(sql: "INSERT OR REPLACE INTO settings VALUES (?, ?)", arguments: ["blacklist." + targetServerID, rules])
             }
             if !backup.selectedServerIDs.isEmpty {
                 try db.execute(sql: "INSERT OR REPLACE INTO settings VALUES ('selected_servers', ?)", arguments: [String(decoding: JSONEncoder().encode(backup.selectedServerIDs.compactMap { mapping[$0] }), as: UTF8.self)])

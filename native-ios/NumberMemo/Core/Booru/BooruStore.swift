@@ -90,6 +90,9 @@ final class BooruStore: @unchecked Sendable {
         migrations.registerMigration("booru_v8_visual_fingerprints") { try VisualFingerprintStore.migrate($0) }
         migrations.registerMigration("booru_v9_visual_cleanup") { try VisualFingerprintStore.installDeletionTrigger($0) }
         migrations.registerMigration("booru_v10_challenges") { try ChallengeStore.migrate($0) }
+        migrations.registerMigration("booru_v11_optional_unsorted") { db in
+            try db.execute(sql: "DELETE FROM folders WHERE id = 'unsorted' AND color = 4284922736 AND NOT EXISTS(SELECT 1 FROM favorites WHERE folder_id = 'unsorted')")
+        }
         try migrations.migrate(database)
         try reload()
     }
@@ -236,10 +239,18 @@ final class BooruStore: @unchecked Sendable {
         return id
     }
 
+    static func ensureUnsorted(in db: Database) throws {
+        try db.execute(sql: "INSERT OR IGNORE INTO folders VALUES ('unsorted', '', 4284922736, 0)")
+    }
+
     func deleteFolder(_ id: String) throws {
-        guard id != "unsorted" else { return }
         try database.write { db in
-            try db.execute(sql: "UPDATE favorites SET folder_id = 'unsorted' WHERE folder_id = ?", arguments: [id])
+            let hasWorks = try Bool.fetchOne(db, sql: "SELECT EXISTS(SELECT 1 FROM favorites WHERE folder_id = ?)", arguments: [id]) == true
+            if id == "unsorted", hasWorks { throw FolderDeletionError.containsWorks }
+            if hasWorks {
+                try Self.ensureUnsorted(in: db)
+                try db.execute(sql: "UPDATE favorites SET folder_id = 'unsorted' WHERE folder_id = ?", arguments: [id])
+            }
             try db.execute(sql: "DELETE FROM folders WHERE id = ?", arguments: [id])
         }
         revision += 1

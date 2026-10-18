@@ -237,9 +237,11 @@ final class ReaderUXTests: XCTestCase {
 
     @MainActor func testBookmarkIsIdempotentAndPreservesFolders() throws {
         let env = AppEnvironment.preview()
+        for folder in try env.database.listFolders() { try env.database.deleteFolder(id: folder.id!) }
         XCTAssertEqual(try ContentBookmarkAction.save(id: 900000001, gallery: nil, env: env).message, L10n.text("Saved to bookmarks"))
         XCTAssertEqual(try ContentBookmarkAction.save(id: 900000001, gallery: nil, env: env).message, L10n.text("Already bookmarked"))
         XCTAssertEqual(try env.database.listWorks().filter { $0.galleryId == 900000001 }.count, 1)
+        XCTAssertFalse(try env.database.getWork(galleryId: 900000001)!.folders.isEmpty)
     }
 }
 
