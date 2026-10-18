@@ -89,6 +89,7 @@ final class BooruStore: @unchecked Sendable {
         migrations.registerMigration("booru_v7_taste") { try TasteStore.migrate($0) }
         migrations.registerMigration("booru_v8_visual_fingerprints") { try VisualFingerprintStore.migrate($0) }
         migrations.registerMigration("booru_v9_visual_cleanup") { try VisualFingerprintStore.installDeletionTrigger($0) }
+        migrations.registerMigration("booru_v10_challenges") { try ChallengeStore.migrate($0) }
         try migrations.migrate(database)
         try reload()
     }

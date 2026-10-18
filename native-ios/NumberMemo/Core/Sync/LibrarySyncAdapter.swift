@@ -16,6 +16,7 @@ struct LibrarySyncAdapter {
         "manga.folder_works": ["folder_id", "work_id", "added_at"],
         "manga.artists": ["name", "kind", "note", "bookmarked_at"],
         "manga.search_history": ["query", "used_at"], "manga.saved_searches": ["query"],
+        "booru.challenges": ["id", "payload"],
         "booru.servers": ["id", "payload", "position"], "booru.folders": ["id", "name", "color", "position"],
         "booru.favorites": ["server_id", "post_id", "payload", "saved_at", "folder_id"],
         "booru.history": ["server_id", "query", "used_at"], "booru.saved_tags": ["server_id", "name", "kind"],
@@ -160,7 +161,7 @@ struct LibrarySyncAdapter {
                 }
             }
             servers.removeAll()
-            for table in ["folders", "favorites", "history", "saved_tags", "settings"] {
+            for table in ["folders", "favorites", "history", "saved_tags", "settings", "challenges"] {
                 for change in values where change.row.table == "booru." + table {
                     var row = change.row
                     if table == "folders", row.values["id"]?.string == "unsorted", change.deleted { continue }
@@ -175,7 +176,16 @@ struct LibrarySyncAdapter {
                         guard let key = row.values["key"]?.string, key.hasPrefix("blacklist."), let id = mapping[String(key.dropFirst(10))] else { continue }
                         row.values["key"] = .text("blacklist." + id)
                     }
+                    if table == "challenges", !change.deleted {
+                        guard let data = row.values["payload"]?.data, data.count <= ChallengeBackup.maximumBytes else { throw ChallengeError.unsupported }
+                        let game = try JSONDecoder().decode(ChallengeDefinition.self, from: data)
+                        try game.validate()
+                        guard game.id == row.values["id"]?.string else { throw ChallengeError.invalid("Challenges") }
+                    }
                     if change.deleted {
+                        if table == "challenges", let id = row.values["id"]?.string {
+                            try db.execute(sql: "DELETE FROM challenge_sessions WHERE id = ?", arguments: [id])
+                        }
                         if table == "folders", let id = row.values["id"]?.string {
                             try db.execute(sql: "UPDATE favorites SET folder_id = 'unsorted' WHERE folder_id = ?", arguments: [id])
                         }

@@ -130,6 +130,10 @@
 		7C6BF65F09115D54F402C28F /* BooruThumbnailCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9519E282D3CE6AC9232B7609 /* BooruThumbnailCacheTests.swift */; };
 		ACF09107ABCD100000000001 /* VisualSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF09107ABCD200000000001 /* VisualSimilarity.swift */; };
 		ACF09107ABCD100000000002 /* VisualSimilarityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF09107ABCD200000000002 /* VisualSimilarityView.swift */; };
+		97F275EFC03DF3E4A1834733 /* ChallengeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9B9108B0B252C95F752E85 /* ChallengeEngine.swift */; };
+		59E0835501F6A15D0AA44868 /* ChallengeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C04D77C97393EE83DDE4459 /* ChallengeModels.swift */; };
+		2D1032D6C304CE01713FB5F7 /* ChallengeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96769750C5AEC39276B78944 /* ChallengeStore.swift */; };
+		FF8710300AB2E727C84EF6F4 /* ChallengeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6FFEC1A61D6ED208A9115A0 /* ChallengeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -302,6 +306,10 @@
 		9519E282D3CE6AC9232B7609 /* BooruThumbnailCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemoTests/BooruThumbnailCacheTests.swift"; sourceTree = SOURCE_ROOT; };
 		ACF09107ABCD200000000001 /* VisualSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Core/Taste/VisualSimilarity.swift; sourceTree = SOURCE_ROOT; };
 		ACF09107ABCD200000000002 /* VisualSimilarityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberMemo/Presentation/Works/VisualSimilarityView.swift; sourceTree = SOURCE_ROOT; };
+		FD9B9108B0B252C95F752E85 /* ChallengeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Core/Challenge/ChallengeEngine.swift"; sourceTree = SOURCE_ROOT; };
+		6C04D77C97393EE83DDE4459 /* ChallengeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Core/Challenge/ChallengeModels.swift"; sourceTree = SOURCE_ROOT; };
+		96769750C5AEC39276B78944 /* ChallengeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemo/Core/Challenge/ChallengeStore.swift"; sourceTree = SOURCE_ROOT; };
+		A6FFEC1A61D6ED208A9115A0 /* ChallengeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberMemoTests/ChallengeTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -857,6 +865,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2D1032D6C304CE01713FB5F7 /* ChallengeStore.swift in Sources */,
+				59E0835501F6A15D0AA44868 /* ChallengeModels.swift in Sources */,
+				97F275EFC03DF3E4A1834733 /* ChallengeEngine.swift in Sources */,
 				BA28F904E000E535FCD4F84C /* AddWorkSheet.swift in Sources */,
 				34D1FBBE82C4EB270E58DAC7 /* AnimeBoxesImport.swift in Sources */,
 				73458B3FBC56D64BF1F57DD4 /* AnimeBoxesImportView.swift in Sources */,
@@ -954,6 +965,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FF8710300AB2E727C84EF6F4 /* ChallengeTests.swift in Sources */,
 				A44973D3E3DC1CA4DF985E73 /* BooruBackupTests.swift in Sources */,
 				528F7B9571CC74D0D47C7C8E /* BooruLibraryTests.swift in Sources */,
 				9AE4AA3721DEDE1610B8B5A0 /* BooruReleaseLiveTests.swift in Sources */,
