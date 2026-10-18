@@ -91,6 +91,13 @@ import WebKit
         XCTAssertTrue(recovered)
     }
 
+    func testLaunchAndResumeHaveIndependentDurations() {
+        XCTAssertEqual(SplashTiming.launch.hold, SplashTiming.resume.hold * 2)
+        XCTAssertEqual(SplashTiming.launch.slide, SplashTiming.resume.slide * 2)
+        XCTAssertEqual(SplashTiming.resume.total, 1.5)
+        XCTAssertEqual(SplashTiming.launch.total, 3)
+    }
+
     func testPrivacyCoverIsImmediateAndSurvivesInterruptedReturn() async throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
@@ -113,7 +120,17 @@ import WebKit
         XCTAssertEqual(cover.transform, .identity)
         XCTAssertEqual(cover.alpha, 1)
         manager.hide()
-        try await Task.sleep(for: .milliseconds(550))
+        try await Task.sleep(for: .milliseconds(250))
+        XCTAssertTrue(cover.superview === window, "Resume keeps the original 0.6 second hold")
+        XCTAssertEqual(cover.transform, .identity)
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertLessThan(cover.transform.ty, 0, "Resume slides upward after the hold")
+        manager.show(in: [window])
+        XCTAssertEqual(cover.transform, .identity)
+        try await Task.sleep(for: .milliseconds(900))
+        XCTAssertTrue(cover.superview === window, "Interrupted slide must not remove the restored privacy cover")
+        manager.hide()
+        try await Task.sleep(for: .milliseconds(1700))
         XCTAssertNil(cover.superview)
     }
 

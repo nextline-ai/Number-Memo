@@ -1,130 +1,151 @@
 import SwiftUI
 import UIKit
 
-// MARK: - App switcher privacy cover
+// Animation is a single compositor transform, independent of SwiftUI feed updates.
+struct SplashTiming: Equatable {
+    let hold: TimeInterval
+    let slide: TimeInterval
+    static let launch = SplashTiming(hold: 1.2, slide: 1.8)
+    static let resume = SplashTiming(hold: 0.6, slide: 0.9)
+    var total: TimeInterval { hold + slide }
+}
 
+@MainActor private enum SplashArtwork {
+    // Decode once, before motion starts; resume reuses the prepared image.
+    static let image: UIImage? = {
+        let image = UIImage(named: "splash_kr")
+        return image?.preparingForDisplay() ?? image
+    }()
+    static func make(frame: CGRect, identifier: String) -> UIView {
+        let cover = UIView(frame: frame)
+        cover.backgroundColor = .black; cover.isOpaque = true; cover.clipsToBounds = true
+        cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        cover.accessibilityIdentifier = identifier
+        if L10n.language == "ko" {
+            let artwork = UIImageView(image: image)
+            artwork.frame = cover.bounds; artwork.contentMode = .scaleAspectFill
+            artwork.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            cover.addSubview(artwork)
+        } else {
+            let label = UILabel(frame: cover.bounds)
+            label.text = L10n.text("Number Memo"); label.textColor = .white
+            label.font = .systemFont(ofSize: 48, weight: .bold)
+            label.textAlignment = .center; label.adjustsFontSizeToFitWidth = true
+            label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            cover.addSubview(label)
+        }
+        return cover
+    }
+    static func slide(_ cover: UIView, duration: TimeInterval) {
+        UIView.animate(withDuration: UIAccessibility.isReduceMotionEnabled ? 0.15 : duration,
+                       delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
+            if UIAccessibility.isReduceMotionEnabled { cover.alpha = 0 }
+            else { cover.transform = CGAffineTransform(translationX: 0, y: -cover.bounds.height - 1) }
+        }
+    }
+}
+
+// MARK: - App switcher privacy cover and resume splash
 #if os(iOS) && !targetEnvironment(macCatalyst)
-@MainActor
-final class PrivacyCoverManager {
+@MainActor final class PrivacyCoverManager {
     static let shared = PrivacyCoverManager()
     private var covers: [ObjectIdentifier: UIView] = [:]
     private var generation = 0
     private var cleanup: Task<Void, Never>?
-
     init() {}
-
     func show() {
         let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows).filter { !$0.isHidden && $0.rootViewController != nil }
         show(in: windows)
     }
-
     func show(in windows: [UIWindow]) {
-        cleanup?.cancel(); cleanup = nil
-        generation += 1
-        // Attach to the actual app windows: their contents are what UIKit snapshots.
+        cleanup?.cancel(); cleanup = nil; generation += 1
         UIView.performWithoutAnimation {
             for window in windows {
                 let key = ObjectIdentifier(window)
-                let cover: UIView
-                if let existing = covers[key] { cover = existing }
-                else {
-                    cover = UIView(frame: window.bounds)
-                    let artwork = UIImageView(image: UIImage(named: "splash_kr"))
-                    artwork.frame = cover.bounds
-                    artwork.contentMode = .scaleAspectFill
-                    artwork.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                    cover.addSubview(artwork)
-                }
-                cover.layer.removeAllAnimations()
-                cover.transform = .identity
-                cover.alpha = 1
-                cover.frame = window.bounds
-                cover.backgroundColor = .black
-                cover.isOpaque = true
-                cover.contentMode = .scaleAspectFill
-                cover.clipsToBounds = true
-                cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                cover.isUserInteractionEnabled = true
+                let cover = covers[key] ?? SplashArtwork.make(frame: window.bounds, identifier: "privacy.cover")
+                cover.layer.removeAllAnimations(); cover.transform = .identity; cover.alpha = 1
+                cover.frame = window.bounds; cover.isUserInteractionEnabled = true
                 cover.accessibilityElementsHidden = false
-                cover.accessibilityIdentifier = "privacy.cover"
-                window.addSubview(cover)
-                covers[key] = cover
-                window.layoutIfNeeded()
+                window.addSubview(cover); covers[key] = cover
             }
         }
     }
-
-    func hide() {
-        generation += 1
-        let current = generation
-        cleanup?.cancel()
-        let reduced = UIAccessibility.isReduceMotionEnabled
-        for cover in covers.values {
-            // The return animation must never intercept the resumed viewer.
-            cover.isUserInteractionEnabled = false
-            cover.accessibilityElementsHidden = true
-            UIView.animate(withDuration: reduced ? 0.15 : 0.35, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction]) {
-                cover.alpha = 0
-            }
-        }
-        // UIKit can interrupt the animation without completing it when a modal
-        // viewer resumes. Cleanup is independent of the completion's finished flag.
+    func hide(timing: SplashTiming = .resume, completion: @escaping @MainActor () -> Void = {}) {
+        // Both scenePhase and UIKit notifications can fire for the same activation.
+        guard cleanup == nil else { return }
+        guard !covers.isEmpty else { completion(); return }
+        generation += 1; let current = generation
         cleanup = Task { [weak self] in
-            do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
-            guard let self, self.generation == current else { return }
-            for cover in self.covers.values { cover.removeFromSuperview() }
-            self.covers.removeAll(); self.cleanup = nil
+            do {
+                try await Task.sleep(for: .seconds(timing.hold))
+                guard let self, self.generation == current else { return }
+                for cover in self.covers.values {
+                    cover.isUserInteractionEnabled = false; cover.accessibilityElementsHidden = true
+                    SplashArtwork.slide(cover, duration: timing.slide)
+                }
+                try await Task.sleep(for: .seconds(UIAccessibility.isReduceMotionEnabled ? 0.2 : timing.slide + 0.05))
+                guard self.generation == current else { return }
+                for cover in self.covers.values { cover.removeFromSuperview() }
+                self.covers.removeAll(); self.cleanup = nil; completion()
+            } catch { }
         }
     }
-
 }
-
 #else
-@MainActor
-final class PrivacyCoverManager {
+@MainActor final class PrivacyCoverManager {
     static let shared = PrivacyCoverManager()
     private init() {}
     func show() {}
-    func hide() {}
+    func hide(timing: SplashTiming = .resume, completion: @escaping @MainActor () -> Void = {}) { completion() }
 }
 #endif
 
-// MARK: - Dedicated Splash Screen Overlay (Guaranteed Surge Animation)
+// SwiftUI owns the host's frame/transform. Animate only its child so layout
+// updates cannot reinterpret the exit transform as a new placement.
+@MainActor final class SplashContainerView: UIView {
+    let artwork = SplashArtwork.make(frame: .zero, identifier: "splash.artwork")
+    init() {
+        super.init(frame: .zero)
+        accessibilityIdentifier = "splash.launch"
+        addSubview(artwork)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        artwork.bounds = CGRect(origin: .zero, size: bounds.size)
+        artwork.center = CGPoint(x: bounds.midX, y: bounds.midY)
+    }
+}
 
-private struct SplashScreenOverlay: View {
+private struct SplashScreenOverlay: UIViewRepresentable {
     @Binding var isVisible: Bool
-    @State private var offset: CGFloat = 0
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .bottom) {
-                Color.black.ignoresSafeArea()
-
-                if L10n.language == "ko" {
-                    Image("splash_kr").resizable().scaledToFill()
-                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom).clipped()
-                } else {
-                    Text(L10n.text("Number Memo")).font(.system(size: 48, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white).frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .offset(y: offset)
-            .ignoresSafeArea()
-            .task {
-                // 1. Hold firmly for 0.6 seconds so the user visibly sees the splash screen
-                try? await Task.sleep(nanoseconds: 600_000_000)
-                // 2. Rocket / surge upwards off the top of the screen
-                withAnimation(.easeInOut(duration: 0.9)) {
-                    offset = -proxy.size.height - 200
-                }
-                // 3. Wait for the surge animation to finish
-                try? await Task.sleep(nanoseconds: 950_000_000)
-                // 4. Remove splash screen
-                isVisible = false
+    let active: Bool
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIView(context: Context) -> SplashContainerView { SplashContainerView() }
+    func updateUIView(_ view: SplashContainerView, context: Context) {
+        if active { context.coordinator.start(view.artwork, finished: { isVisible = false }) }
+        else { context.coordinator.cancel(view.artwork) }
+    }
+    static func dismantleUIView(_ view: SplashContainerView, coordinator: Coordinator) { coordinator.cancel(view.artwork) }
+    @MainActor final class Coordinator {
+        var work: Task<Void, Never>?
+        func start(_ view: UIView, finished: @escaping @MainActor () -> Void) {
+            guard work == nil else { return }
+            work = Task { [weak view] in
+                do {
+                    try await Task.sleep(for: .seconds(SplashTiming.launch.hold))
+                    guard let view else { return }
+                    SplashArtwork.slide(view, duration: SplashTiming.launch.slide)
+                    try await Task.sleep(for: .seconds(UIAccessibility.isReduceMotionEnabled ? 0.2 : SplashTiming.launch.slide + 0.05))
+                    finished()
+                } catch { }
             }
         }
-        .ignoresSafeArea()
+        func cancel(_ view: UIView) {
+            work?.cancel(); work = nil
+            view.layer.removeAllAnimations(); view.transform = .identity; view.alpha = 1
+        }
     }
 }
 
@@ -149,7 +170,9 @@ struct NumberMemoApp: App {
     }
 
     @State private var isSplashScreenVisible = true
+    @State private var isResumeSplashVisible = false
     @State private var showChargingSplash = false
+    private var splashEnabled: Bool { !isContentUITest || ProcessInfo.processInfo.arguments.contains("--splash-ui-test") }
     #if os(iOS) && !targetEnvironment(macCatalyst)
     @State private var previousBatteryState: UIDevice.BatteryState = .unknown
     #endif
@@ -184,31 +207,24 @@ struct NumberMemoApp: App {
                 // White Liquid Charging Splash Animation
                 ChargingSplashAnimationView(isTriggered: $showChargingSplash)
 
-                // 100% Guaranteed Splash Screen Overlay (Waits for active foreground, holds 0.6s, surges 1.0s)
-                if isSplashScreenVisible && !isContentUITest {
-                    SplashScreenOverlay(isVisible: $isSplashScreenVisible)
+                // Cold launch holds 1.2 seconds and slides for 1.8 seconds while active.
+                if isSplashScreenVisible && splashEnabled {
+                    SplashScreenOverlay(isVisible: $isSplashScreenVisible, active: scenePhase == .active)
                         .zIndex(9999)
                         .ignoresSafeArea()
                 }
 
-                // App Switcher Privacy Screen (SwiftUI Fallback layer)
-                if scenePhase != .active && !isSplashScreenVisible {
-                    ZStack(alignment: .bottom) {
-                        Color.black.ignoresSafeArea()
 
-                        Image("splash_kr")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                            .clipped()
-                            .ignoresSafeArea()
-                    }
-                    .zIndex(9998)
-                    .ignoresSafeArea()
+                #if targetEnvironment(macCatalyst)
+                if scenePhase != .active && !isSplashScreenVisible {
+                    ZStack { Color.black; Image("splash_kr").resizable().scaledToFill() }
+                        .clipped().ignoresSafeArea().zIndex(9998)
                 }
+                #endif
             }
-            .task(id: "\(scenePhase):\(env.sync.enabled)") {
-                guard !isContentUITest, scenePhase == .active else { return }
+            .task(id: "\(scenePhase):\(env.sync.enabled):\(isSplashScreenVisible):\(isResumeSplashVisible)") {
+                guard !isContentUITest, scenePhase == .active, !isSplashScreenVisible, !isResumeSplashVisible else { return }
+                env.pruneSearchHistory()
                 var prepareReports = true
                 while !Task.isCancelled {
                     if env.sync.enabled {
@@ -221,7 +237,6 @@ struct NumberMemoApp: App {
                 }
             }
             .onChange(of: scenePhase, initial: true) { _, phase in
-                if phase == .active { PrivacyCoverManager.shared.hide(); env.pruneSearchHistory() }
                 guard !isContentUITest, phase == .background, env.sync.enabled else { return }
                 let taskID = UIApplication.shared.beginBackgroundTask(withName: "Save library to iCloud", expirationHandler: nil)
                 Task { await env.sync.synchronize(env: env); if taskID != .invalid { UIApplication.shared.endBackgroundTask(taskID) } }
@@ -236,16 +251,18 @@ struct NumberMemoApp: App {
                 #endif
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                if !isSplashScreenVisible || !splashEnabled { isResumeSplashVisible = true }
                 PrivacyCoverManager.shared.show()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                PrivacyCoverManager.shared.hide()
+                let timing: SplashTiming = splashEnabled && !isSplashScreenVisible ? .resume : .init(hold: 0, slide: 0)
+                PrivacyCoverManager.shared.hide(timing: timing) { isResumeSplashVisible = false }
             }
             #if os(iOS) && !targetEnvironment(macCatalyst)
             .onReceive(NotificationCenter.default.publisher(for: UIDevice.batteryStateDidChangeNotification)) { _ in
                 let current = UIDevice.current.batteryState
                 if (current == .charging || current == .full) && previousBatteryState != .charging && previousBatteryState != .full {
-                    showChargingSplash = true
+                    if (!isSplashScreenVisible || !splashEnabled) && !isResumeSplashVisible { showChargingSplash = true }
                 }
                 previousBatteryState = current
             }
@@ -253,7 +270,7 @@ struct NumberMemoApp: App {
             .fullScreenCover(isPresented: Binding(
                 get: {
                     let allowsOnboarding = !isContentUITest || ProcessInfo.processInfo.arguments.contains("--onboarding-test")
-                    return allowsOnboarding && !env.isOnboardingCompleted && (!isSplashScreenVisible || isContentUITest)
+                    return allowsOnboarding && !env.isOnboardingCompleted && (!isSplashScreenVisible || !splashEnabled)
                 },
                 set: { _ in }
             )) {
